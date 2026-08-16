@@ -1,716 +1,838 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html dir="rtl" lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<title>تسجيل الحضور والانصراف — Green Heights International School</title>
-<meta name="theme-color" content="#0F3D24">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="GHIS Attendance">
-<meta name="mobile-web-app-capable" content="yes">
-<link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjogIkdISVMgQXR0ZW5kYW5jZSIsICJzaG9ydF9uYW1lIjogIkdISVMgQXR0ZW5kYW5jZSIsICJzdGFydF91cmwiOiAiLiIsICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLCAiYmFja2dyb3VuZF9jb2xvciI6ICIjRjNGNkY1IiwgInRoZW1lX2NvbG9yIjogIiMxMjMxNjYiLCAiaWNvbnMiOiBbeyJzcmMiOiAiZGF0YTppbWFnZS9wbmc7YmFzZTY0LGlWQk9SdzBLR2dvQUFBQU5TVWhFVWdBQUFNQUFBQURBQ0FNQUFBQmxBcHcxQUFBQWZsQk1WRVZvbHFlUnFNazBoV3lHcnJUSzFlVXpYYW9qZTJmUTJ1bTh5T0Y2azhOaWZybEdsblFNUEpZNmdvT1B3N0c4ME5YKy92NEFkVGNkVEtFWFJwd01kMDhnVGFINSt2MHJWNmlxdzgzWTQrbEdhN0JWZHJWWWs1SUFiVENudU5YbDZ2TUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUNjUkdEcEFBQUFJSFJTVGxQejIvN1l3djcrdjhmcitmNysvUDIvL3Y3Ky9mNzkxUDdCeFA3OTZ2N0x3d09Dby8wQUFBZUZTVVJCVkhqYTdad0xsNk1xRElCQnhFZDNacmNGQmNXcS8vOWZYa0Jyc2ZYWmFoL25KdWZNenB3Wm5jbEhRb0FrTERwK3VTQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBV0NKQzFLR2ZWUmpqcXZMRFdvZ3ZBaERDeDNGQnBaU01NYzZZL29LcUF1SEtyOFVYQU5UVmdVcWpOVFZpS0RqWEZQcERTcVVRemtKdEhEOGpoR2pqWkgycGNIZ1pCQi9qYkZMMHordnRBVVIya0tsVXNWYXp0cEtIMm91UTBrZzhsUWFERzJ2RStuc0kvZkc4cEMrL0pMLzhwcHo4SmxNU0lKeHZiZ0dCRlpkRmRlOG9vczZ3TWd4YXRGTzFHQWovUGJtU2tONkxnZ1RsYVVRUzVHL3ZRa1o5aXZ3eE54Y2hWc2FSdEZnTXpuOE9meHdOZzkvd3podFJNcWgrR1dRN3pBRy9ZRnhGWWc3UkVsZ0tMa2x2VElkZXpZSWhnQ0RmZmhJTExEbEg5WkxIMGdzQWNneVFrT0VYd2dHQ0lOdytDdVdGOXV4NFNaQ01WRWRBVHJQNmE4TUc5LzYvZlJqMTllVGxTQ3hsVGEwQkNuUTF3SGxDajhjY2FCVkFKcG5reGRKRktyUTI0SndraTNUS2IwMndWREcwUW4rdGtmU1gyMHR5YlFEbEdHRHliLzI1OFNDeU5VQ2s5VTg1WHVGeDJFNWhyd05JSnFQaWpROEYvc1lBUHRYano5V2FYWTRvOUVybTZPVk5SaS9jWHd3Q3NTMUFiZVpreXZDcW9LdU41azdoYVoyeVBzQjUyODJjUURyK3JEU0FlZXNIZVk0Rkp0LzJrNGVtd0VJQWJDTEtXZ01ZRTdpZVBRMlE5d0h3cGdBK05Vc1NwK0ZLZ0J3N0hyUU9JTnNTUUJ5c0FYaXhkdU9IZmU4akFLclVMcXFyUGVpSS9ucW5Ed0FRemE2QVVYOHRBUEdTVHdEQWFidXJXWDNVSmIzSStDNkExZ0FwVzM5NEk4a25BRlRTT2xBcXErOEV1TXlBTmZ1NGp3SUlaWE13NGJUK1RnRE1HZzk2WUE1L0JJQlE5bnpPOWNiNCtKVUFmdXRCS1l1L0U2RDFvRWZXNFk4QTZHSlFLbDhMTUo0Nld3ZFFxelpGOWNneXNBWkEzQnhvVEZxVWhPSnBnTXNVMEFEWmJnRENKMmR2SUwyWUpCNFdUd0pnMnVhbjJGNEFJa1JlTXFSOTYwcjFjd0NJZHdEaEhnQTU4UVl6dThtWm9MTVhKS2R5THBHR2xzM2hoM1lTc3dBaEN0b25rc0M3ajBJaVI4RnNQRUpMbHJGOVhDZzZkOXFmTXpFY1JrT3Y5SjRCcUNuYmF4S0huZm9lcWNmWEFYR2V5VktqWlVGbzZ6Q2FYNG9hWmRBV2JFWVhNa1NlQU1nMkJDZ0RPNkwySCtKMUMxWSt1eEw3VHdDMGg1bEhWMkpVbnNxeWJQekU4NUFJSzJRQ3UzOGQvbXpuclFTK0FzenZoY1NkWk1pVlFsRW1JejM4U1RsUWI5b0pnQzBDMEVNYm8rSldsRkxtd3hTUmJiV1BtL0tPSHY1TEpTQ285dC9NdVFDalQ0YW10dHBvT0NLc0xWcHlKZkNscUZwNjRmR2xBR041T1lFcDQwYTdRV0dPcEZ4R1hVWDFibyt3TjhCWWF0b3Z0UGFVTFpDVTBXdXE5TDdjdWpzQUd6elVWMTA5ZFU0b3A3Z3J1QTVrei9jSEdOb01ZY25tOWVlTi82ZU8vdmo0RG9Cc1lQeTFhc3oxOWp2SGI3NnBwN2pDWGFaNnNJVmdkNENCT0dycmZyWXhRbDdGeGlOMnBiQmhLRlVZSmQzNFY2ODdFMWVwQTREdWpwc21zRWpiNUpSRlVlaEhXVlpWMkt4WVV2Sm1icVJVNnRVQUViZFlpVjk0cUsrazQ4cTNZUWlaSW1RMWNQZ1daczlBcmZkei9OZDBESjNLY3E2RllCOEFYN3B4Skw5eElJWW1kcnExbnVCTnIwcFp1ZzFCWi9GS0FPMGxiT1JFSUFwWmlabTZ3bTJ2eEZTeGVCOEE1MGlwZGVubDVzSWltdHZjSVJOQU9mWVdLYlpUWWd1NUFMMzBialYvUG1pNkpYb21RSy9PekxrTEFldVZXUmNrMjdYOTlGUjJhOFZCL1dvQWR4YW42ZHBEbWNYbjE1YTRxZnI3WHJsUmR4Ynp3MHFBU0RZTkswdTZKZmJLVGlQdWJEWFhGbWx5MnUrNFFXOUlyMTlQeFE4YzdFMXEyQUdZN0FIYXNVTGp4cUYxQUtJUDRMMmp3SEdNM1EzL3lnUnBIMkM2aFdZM2dGNGNXbGxudWdISTNnTFF0S3AwRzdwNkpVQjZCWmh1cE55dlVoLzFUSURYV29CMVlUUjRWNjlFM3dScnFzVTFkZGVCNFBnZWdKdlZlSTBKYkpVL1JXOXZlSW9mblFYbVFIZnR2SHdmZ0MxVjhnZG1RV3g3VFMrNzBmY0JtT3dQNDRONzBpVlI5SkpOZWRzYzZEdFJ1clIvL1RKNXVyMWM4RDRMOUU5bWl5c0ZxT2RCTTYzSC8zWnRmRzFhcDltNmdtVklkZERpY2JjWFRmNU5uaDJTaDdydkZ6ZC9SOUxKdEt0d29RRjYzZC9UbzNyYnZiNXg4M2Q3ZllDMXZVTkxtcDlNVG9seTdDMjdQMUI3TjVYdWJHdUFZMFJkZ25xSjA4bWZnM3VpVHlaY2p5UzczK0JvU2dIZHlXREdpM3hsbmxKa29WTDUvU1Vnc2puQXNUNmtXcW1XZ0U1ZUpqUDNoZGl0L3FjQWphYVFCdG9sc3MwQmpxS2lyUkcwRjhueCsxaENyM3ptd2htNXYxc2xsdW8va29WL0RrQWJJYWFjMjVTMS9xeEdjb3M1U3MwOVNqdzByT2Q2NlBseTVDcWwyQnhBUi9mWUZ2Vm9xaEdZd25kTlZjTFhqSG9MRnhOdlVDMHZ1M2xEWktPM1FSTVViZzlnOHM2RnVUMXM2MGFNRmpqSzI0dmM1Z2F4L3RrUGx3cnBZOWl3V21VUzlCQ3kzMlQwTnF0KytPeHZEMkN2ckI2VXZRTnRLakRtem0xaEt2R0ZNaFZ0clgza2t6TTZqd2xDMTBZeVVhSHhCNXVITTdFOVFPTXFWVndvWmF0S05qS1pyMVFSVitGcjc5V2pwOTdXUHVOSFZTT1orVThCamk4WGRQeHlBUUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBK0w4QS9BY3VHeG12dG4rYmVRQUFBQUJKUlU1RXJrSmdnZz09IiwgInNpemVzIjogIjE5MngxOTIiLCAidHlwZSI6ICJpbWFnZS9wbmcifV19">
-<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAAAflBMVEUpW6JhmJvY4eo2jmd2ksRLcLJMmnmIt6stfHSdrtWhyLuz0skCgDWPva6pyMb+/v4AeDcoVasdglIth2IihFalt9gcTKVVd7ddoobN1+mTqNCyxdfl6vIQfEm6yOFWnoEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4mUNzAAAAIHRSTlP81NPdyObVwPzBwMP/v7/+/vzt6eu//tnJycHB2vnCzV8p5vwAAAE6SURBVHja7ZTZcoMwDEVls6dLLLyBbcj//2UEgcZkDG0fOtMH9KTxzJF1fSXD9ZcBJ3ACfwOEXjvn+58CvdPj6HVeoGVMZrKiCkxlUmaZTwGOhTVDUwtRzTkTFG+pG/Io19CKbMkHIWSqJY0+uo3qdkvaPtMNgBjLKYW4HQMObAyoDcASgIU8BuQTiNgICAguCVxuJHooq1dgfAGobDlpH+QHAR2v+Aug0TSr2VOwumaNb4fLngYCHhpynAMAsBYy7L4SAfMrFVhYW6AhQC7WpQHSMPnQPMzjDkl1yw+AgAZ5PJQgpv4PjLPGxEZYEOrYaU9XhBh4L7+ZJWsw37TUHY/GNUCkwqOMx7tMbhwvYJ3wHuFra/YXiMywyHTfj65gqlVKftJZpaaQfu8TGLXW49oZP7/KE/hPwB12Boh82/PTNgAAAABJRU5ErkJggg==">
-<link rel="apple-touch-icon" href="data:image/png;base64,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">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>GHIS — تقارير الحضور والخصومات</title>
 <style>
-  :root{
-    --blue:#1E4CA1;
-    --blue-deep:#123166;
-    --green:#007538;
-    --green-deep:#004F26;
-    --paper:#F3F6F5;
-    --ink:#141C24;
-    --ink-soft:#5B6773;
-    --ok:#00612F;
-    --ok-bg:#E3F3E9;
-    --warn:#A3311F;
-    --warn-bg:#FBEAE6;
-    --line:rgba(18,49,102,0.13);
-    --radius:24px;
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    background: #f4f6f9;
+    margin: 0;
+    padding: 16px;
+    color: #1a1a2e;
   }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0; overflow-x:hidden;}
-  p, .status{ overflow-wrap:break-word; }
-  body{
-    min-height:100dvh;
-    background:
-      radial-gradient(1100px 560px at 18% -12%, rgba(30,76,161,0.14), transparent 58%),
-      radial-gradient(900px 520px at 108% 6%, rgba(0,117,56,0.12), transparent 55%),
-      var(--paper);
-    font-family:'Tajawal', sans-serif;
-    color:var(--ink);
-    padding:30px 18px 44px;
-  }
-  .wrap{ width:100%; max-width:440px; margin:0 auto; }
+  h1 { font-size: 20px; color: #123166; margin: 0 0 16px; }
+  h2 { font-size: 16px; color: #123166; margin: 0 0 10px; }
 
-  .brand{
-    display:flex; align-items:center;
-    margin-bottom:26px;
-    max-width:100%;
+  .tabbar { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab-btn {
+    background: #e4e8f2; color: #123166; border: none; padding: 9px 16px;
+    border-radius: 8px; font-size: 13px; cursor: pointer; width: auto;
   }
-  .brand-mark{
-    width:54px; height:54px; border-radius:14px;
-    background:#fff;
-    display:flex; align-items:center; justify-content:center;
-    box-shadow:0 8px 20px rgba(18,49,102,0.16), inset 0 0 0 1px var(--line);
-    flex-shrink:0;
-    margin-left:13px;
-    padding:7px;
-  }
-  .brand-mark img{ width:100%; height:100%; object-fit:contain; display:block; }
-  .brand-text{ line-height:1.35; }
-  .brand-eyebrow{
-    font-size:11.5px; font-weight:700; letter-spacing:1.5px; color:var(--green);
-    text-transform:uppercase;
-  }
-  .brand-name{ font-size:16.5px; font-weight:700; color:var(--blue-deep); }
+  .tab-btn.active { background: #123166; color: #fff; }
 
-  .card{
-    position:relative;
-    background:#fff;
-    border-radius:var(--radius);
-    border:1px solid var(--line);
-    box-shadow:0 26px 52px -22px rgba(18,49,102,0.30);
-    padding:32px 26px 28px;
-    overflow:hidden;
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin: 12px 0;
   }
-  .card::before{
-    content:"";
-    position:absolute; inset:0 0 auto 0; height:6px;
-    background:linear-gradient(90deg, var(--blue), var(--green));
+  input[type=text], input[type=number] {
+    width: 100%; padding: 9px 10px; border: 1px solid #d5d9e0; border-radius: 8px; font-size: 14px;
+  }
+  .form-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .form-actions button { width: auto; padding: 9px 16px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; background: #eef1f8;
+    border-radius: 20px; padding: 5px 12px; font-size: 12px; margin: 3px;
+  }
+  .chip button { width: auto; padding: 2px 8px; background: #c0392b; border-radius: 12px; font-size: 11px; }
+  .profile-field { margin-bottom: 8px; font-size: 13px; }
+  .profile-field b { color: #123166; }
+  tr.clickable-row-emp { cursor: pointer; }
+  tr.clickable-row-emp:hover td { background: #eaf0fb; }
+
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
   }
 
-  .datepill{
-    display:inline-block; font-size:11.5px; font-weight:700; color:var(--blue);
-    background:rgba(30,76,161,0.08); border-radius:999px; padding:5px 12px;
-    margin-bottom:14px; letter-spacing:0.2px;
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    align-items: end;
+  }
+  label { display: block; font-size: 12px; color: #555; margin-bottom: 4px; }
+  select, input[type=date] {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid #d5d9e0;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  button {
+    background: #123166;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+  }
+  button:disabled { background: #999; cursor: not-allowed; }
+  button.secondary { background: #6c757d; }
+  button.link-btn {
+    background: none; color: #1E4CA1; text-decoration: underline;
+    padding: 0; width: auto; font-size: 13px;
   }
 
-  h1{
-    font-size:22px; margin:0 0 7px; color:var(--blue-deep); font-weight:900;
-  }
-  .sub{ font-size:14px; color:var(--ink-soft); margin:0 0 24px; line-height:1.65; max-width:100%; }
+  #status { font-size: 13px; color: #555; margin: 10px 0; min-height: 18px; }
 
-  .field{ margin-bottom:18px; }
-  .field label{
-    display:block; font-size:12.5px; font-weight:700; color:var(--blue);
-    margin-bottom:7px; letter-spacing:0.2px;
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
   }
-  .field input{
-    width:100%; padding:14px 15px; border-radius:13px;
-    border:1.5px solid var(--line); background:var(--paper);
-    font-family:'IBM Plex Mono', monospace; font-size:16px; color:var(--ink);
-    outline:none; transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  .metric {
+    background: #f0f2f8;
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
   }
-  .field input:focus{ border-color:var(--green); background:#fff; box-shadow:0 0 0 4px rgba(0,117,56,0.10); }
+  .metric .value { font-size: 20px; font-weight: bold; color: #123166; }
+  .metric .label { font-size: 11px; color: #666; margin-top: 3px; }
+  .metric.warn .value { color: #b00000; }
 
-  .actions{ display:flex; flex-direction:column; gap:12px; margin-top:4px; }
-  .action-btn{
-    position:relative;
-    width:100%;
-    border:none;
-    border-radius:18px;
-    padding:18px 18px;
-    font-family:'Tajawal', sans-serif;
-    font-size:16.5px; font-weight:700;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer;
-    transition:transform .12s ease, box-shadow .12s ease;
-  }
-  .action-btn:active{ transform:translateY(1px) scale(0.995); }
-  .action-btn:disabled{ opacity:0.72; cursor:not-allowed; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; white-space: nowrap; }
+  th, td { border: 1px solid #e2e2e2; padding: 6px 8px; text-align: center; }
+  th { background: #123166; color: #fff; position: sticky; top: 0; }
+  tr.status-غياب td { background: #ffe0e0; }
+  tr.status-اجازة-رسمية td, tr.status-اجازة-أسبوعية td, tr.status-اجازة-معتمدة td { background: #f2f2f2; color: #555; }
+  tr.status-معفى td { background: #e6d6f7; }
+  tr.status-حاضر.has-late td { background: #fff3cd; }
+  tr.clickable-row { cursor: pointer; }
+  tr.clickable-row:hover td { background: #eaf0fb; }
 
-  .btn-in{
-    background:linear-gradient(120deg, var(--blue) 0%, var(--blue-deep) 46%, var(--green-deep) 100%);
-    color:#fff;
-    box-shadow:0 16px 28px -12px rgba(18,49,102,0.55);
-  }
-  .btn-in:active{ box-shadow:0 9px 18px -9px rgba(18,49,102,0.55); }
+  .breadcrumb { font-size: 13px; color: #555; margin-bottom: 10px; }
+  .breadcrumb button { display: inline; width: auto; }
 
-  .btn-out{
-    background:#fff;
-    color:var(--blue-deep);
-    border:1.6px solid var(--line);
-    box-shadow:0 10px 20px -14px rgba(18,49,102,0.25);
-  }
-
-  .icon{
-    width:22px; height:22px; flex-shrink:0; position:relative;
-    margin-left:10px;
-  }
-  .icon img{ width:100%; height:100%; object-fit:contain; display:block; }
-  .btn-out .icon img{ filter:none; }
-
-  .ring{
-    position:absolute; inset:-4px;
-    border-radius:18px;
-    border:2px solid var(--green);
-    opacity:0;
-  }
-  .ring2{
-    position:absolute; inset:-4px;
-    border-radius:18px;
-    border:2px solid var(--blue);
-    opacity:0;
-  }
-  .checking .ring{ animation:pulse-ring 1.4s cubic-bezier(.3,.6,.4,1) infinite; }
-  .checking .ring2{ animation:pulse-ring 1.4s cubic-bezier(.3,.6,.4,1) infinite .3s; }
-  .checking .icon{ animation:ping-bounce 1.1s ease-in-out infinite; }
-  @keyframes pulse-ring{
-    0%{ opacity:.9; transform:scale(1); }
-    100%{ opacity:0; transform:scale(1.16); }
-  }
-  @keyframes ping-bounce{
-    0%,100%{ transform:translateY(0); }
-    50%{ transform:translateY(-3px); }
-  }
-
-  .status{
-    margin-top:18px;
-    border-radius:15px;
-    padding:15px 16px;
-    font-size:13.5px;
-    line-height:1.7;
-    display:none;
-  }
-  .status.show{ display:block; animation:fade-in .25s ease; }
-  @keyframes fade-in{ from{ opacity:0; transform:translateY(-3px);} to{opacity:1; transform:translateY(0);} }
-  .status.ok{ background:var(--ok-bg); color:var(--ok); border:1px solid rgba(0,97,47,0.20); }
-  .status.warn{ background:var(--warn-bg); color:var(--warn); border:1px solid rgba(163,49,31,0.20); }
-  .status.neutral{ background:var(--paper); color:var(--ink-soft); border:1px solid var(--line); }
-  .status .greeting{ font-size:19px; font-weight:900; margin-bottom:4px; }
-  .status b{ display:block; font-size:14.5px; margin-bottom:3px; color:inherit; }
-
-  .meta{
-    margin-top:20px; padding-top:16px; border-top:1px dashed var(--line);
-    display:flex; justify-content:space-between; font-size:11.5px; color:var(--ink-soft);
-    font-family:'IBM Plex Mono', monospace;
-  }
-
-  .foot{
-    text-align:center; margin-top:22px; font-size:11.5px; color:var(--ink-soft); line-height:1.7;
-  }
-
-  @media (prefers-reduced-motion: reduce){
-    .checking .ring, .checking .ring2, .checking .icon{ animation:none; }
+  @media print {
+    .filters, #status, button { display: none; }
+    body { padding: 0; }
   }
 </style>
 </head>
 <body>
-  <div class="wrap">
+  <h1>GHIS — نظام شئون العاملين</h1>
 
-    <div class="brand">
-      <div class="brand-mark"><img src="data:image/png;base64,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" alt="شعار المدرسة"></div>
-      <div class="brand-text">
-        <div class="brand-eyebrow">قسم شئون العاملين</div>
-        <div class="brand-name">Green Heights International School</div>
-      </div>
-    </div>
-
-    <div class="card" id="loginCard">
-      <h1>تسجيل الدخول</h1>
-      <p class="sub">ادخل بكود الموظف وكلمة المرور عشان تقدر تسجل حضورك أو انصرافك.</p>
-
-      <div class="field">
-        <label for="loginUser">اسم المستخدم (كود الموظف)</label>
-        <input id="loginUser" type="text" inputmode="numeric" placeholder="مثال: 42 أو X000001" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="loginPass">كلمة المرور</label>
-        <input id="loginPass" type="password" placeholder="••••••••" autocomplete="off">
-      </div>
-      <div class="field" style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-        <input id="rememberMe" type="checkbox" style="width:18px; height:18px; margin:0;">
-        <label for="rememberMe" style="margin:0; font-size:13px; font-weight:600; cursor:pointer;">تذكر كلمة المرور على الجهاز ده</label>
-      </div>
-
-      <div class="actions">
-        <button class="action-btn btn-in" id="loginBtn">
-          <span class="btnLabel">دخول</span>
-        </button>
-      </div>
-      <div class="status" id="loginStatus"></div>
-
-      <p class="foot" style="margin-top:14px; text-align:center;">
-        <a href="#" id="changePassLink" style="color:var(--blue); font-weight:700; text-decoration:none;">نسيت كلمة المرور؟ / غيّرها</a>
-      </p>
-
-      <div id="changePassBox" style="display:none; margin-top:10px; padding-top:16px; border-top:1px dashed var(--line);">
-        <div class="field">
-          <label for="cpCode">كود الموظف</label>
-          <input id="cpCode" type="text" inputmode="numeric" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="cpOld">كلمة المرور الحالية</label>
-          <input id="cpOld" type="password" placeholder="لو أول مرة، استخدم: 12345678" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="cpNew">كلمة المرور الجديدة</label>
-          <input id="cpNew" type="password" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="cpNew2">تأكيد كلمة المرور الجديدة</label>
-          <input id="cpNew2" type="password" autocomplete="off">
-        </div>
-        <div class="actions">
-          <button class="action-btn btn-out" id="cpBtn">
-            <span class="btnLabel">تغيير كلمة المرور</span>
-          </button>
-        </div>
-        <div class="status" id="cpStatus"></div>
-      </div>
-    </div>
-
-    <div class="card" id="mainCard" style="display:none;">
-      <span class="datepill" id="datePill">—</span>
-      <h1>تسجيل الحضور والانصراف</h1>
-      <p class="sub" id="welcomeName" style="display:none; font-weight:700; color:var(--green); margin-bottom:8px;"></p>
-      <p class="sub">لازم تكون جوه نطاق المدرسة عشان يتسجل حضورك أو انصرافك. دوس الزرار المناسب وانت واصل، وسيب المتصفح ياخد إذن الموقع والكاميرا.</p>
-
-      <div class="field">
-        <label for="empCode">كود الموظف</label>
-        <input id="empCode" type="text" inputmode="numeric" placeholder="مثال: 42 أو X000001" autocomplete="off" readonly>
-      </div>
-
-      <div class="actions">
-        <button class="action-btn btn-in" id="checkinBtn" data-type="checkin">
-          <span class="icon"><img src="data:image/png;base64,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" alt=""></span>
-          <span class="btnLabel">تسجيل حضور</span>
-          <span class="ring"></span>
-          <span class="ring2"></span>
-        </button>
-        <button class="action-btn btn-out" id="checkoutBtn" data-type="checkout">
-          <span class="icon"><img src="data:image/png;base64,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" alt=""></span>
-          <span class="btnLabel">تسجيل انصراف</span>
-          <span class="ring"></span>
-          <span class="ring2"></span>
-        </button>
-        <input type="file" id="cameraInput" accept="image/*" capture="user" style="display:none;">
-      </div>
-
-      <div class="status" id="statusBox"></div>
-
-      <div class="meta">
-        <span id="metaTime">--:--</span>
-        <span id="metaDist">المسافة: —</span>
-      </div>
-    </div>
-
-    <p class="foot">لو الزرار مبيشتغلش، اتأكد إن إذن الموقع (Location) والكاميرا مفعّلين للمتصفح من إعدادات الجهاز.<br>مشكلة مستمرة؟ كلم قسم شئون العاملين.</p>
+  <!-- ============== شريط التنقل بين الأقسام ============== -->
+  <div class="tabbar">
+    <button class="tab-btn active" id="tabBtn-reports" onclick="switchView('reports')">التقارير</button>
+    <button class="tab-btn" id="tabBtn-employees" onclick="switchView('employees')">بيانات الموظفين</button>
+    <button class="tab-btn" id="tabBtn-rules" onclick="switchView('rules')">القواعد</button>
+    <button class="tab-btn" id="tabBtn-backup" onclick="switchView('backup')">نسخ احتياطي</button>
   </div>
 
-<script>
-/* ============================================================
-   CONFIG — عدّل القيم دي بس، الكود تحت مفيش داعي تلمسه
-   ============================================================ */
-const CONFIG = {
-  LOCATIONS: [
-    { name: "المبنى الرئيسي", lat: 30.101073, lng: 31.312896, radius: 100 },
-    { name: "نقطة 2", lat: 30.138162, lng: 31.370567, radius: 100 },
-    // { name: "الملعب", lat: 30.000000, lng: 31.000000, radius: 80 },
-  ],
-  SCRIPT_URL: "https://script.google.com/macros/s/AKfycbyS_PYuey68bfGps0NRn8sa-rCYXfFPMEYnIguh2eKsqHYmWYMSfMD-4wgZnjw9EVgC0A/exec",
-  COOLDOWN_SECONDS: 30,
-  DEFAULT_PASSWORD: "12345678",
-};
-/* ============================================================ */
+  <!-- ============== 1) قسم التقارير (زي ما كان بالظبط) ============== -->
+  <div id="view-reports" class="view">
+    <div class="card" id="dashboardCard">
+      <h2>اختيار التقرير</h2>
+      <div class="filters">
+        <div>
+          <label>الموظف</label>
+          <select id="employeeSelect">
+            <option value="all">كل الموظفين</option>
+          </select>
+        </div>
+        <div>
+          <label>من تاريخ</label>
+          <input type="date" id="fromDate">
+        </div>
+        <div>
+          <label>لحد تاريخ</label>
+          <input type="date" id="toDate">
+        </div>
+        <div>
+          <button id="viewBtn" onclick="viewReport()">عرض التقرير</button>
+        </div>
+      </div>
+      <div id="status"></div>
+    </div>
+    <div id="resultArea"></div>
+  </div>
 
-const loginCard = document.getElementById('loginCard');
-const mainCard = document.getElementById('mainCard');
-const loginUser = document.getElementById('loginUser');
-const loginPass = document.getElementById('loginPass');
-const loginBtn = document.getElementById('loginBtn');
-const loginStatus = document.getElementById('loginStatus');
-const changePassLink = document.getElementById('changePassLink');
-const changePassBox = document.getElementById('changePassBox');
-const cpCode = document.getElementById('cpCode');
-const cpOld = document.getElementById('cpOld');
-const cpNew = document.getElementById('cpNew');
-const cpNew2 = document.getElementById('cpNew2');
-const cpBtn = document.getElementById('cpBtn');
-const cpStatus = document.getElementById('cpStatus');
-const welcomeName = document.getElementById('welcomeName');
-const rememberMe = document.getElementById('rememberMe');
+  <!-- ============== 2) قسم بيانات الموظفين ============== -->
+  <div id="view-employees" class="view" style="display:none">
+    <div class="card">
+      <h2>بيانات الموظفين</h2>
+      <div class="filters">
+        <div style="flex:1">
+          <label>بحث (بالاسم أو الكود)</label>
+          <input type="text" id="empSearchInput" oninput="renderEmployeesList()" placeholder="اكتب اسم أو كود...">
+        </div>
+        <div>
+          <button onclick="openEmployeeForm(null)">+ إضافة موظف جديد</button>
+        </div>
+      </div>
+      <div id="empStatus" style="font-size:13px;color:#555;margin:8px 0;"></div>
+      <div id="employeesListArea"></div>
+    </div>
+    <div id="employeeDetailArea"></div>
+  </div>
 
-function showLoginError(msg){
-  loginStatus.className = 'status show warn';
-  loginStatus.innerHTML = '<b>' + msg + '</b>';
-}
-function showCpStatus(kind, msg){
-  cpStatus.className = 'status show ' + kind;
-  cpStatus.innerHTML = '<b>' + msg + '</b>';
-}
+  <!-- ============== 3) قسم القواعد ============== -->
+  <div id="view-rules" class="view" style="display:none">
+    <div class="card">
+      <h2>قواعد المواعيد (تاريخية — كل فترة بقاعدتها)</h2>
+      <div id="scheduleRulesArea"></div>
+      <button class="secondary" style="margin-top:10px" onclick="openScheduleRuleForm()">+ إضافة قاعدة مواعيد جديدة</button>
+      <div id="scheduleRuleFormArea"></div>
+    </div>
 
-async function fetchWithTimeout(url, options, timeoutMs){
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try{
-    return await fetch(url, { ...options, signal: controller.signal });
-  }finally{
-    clearTimeout(timer);
-  }
-}
+    <div class="card">
+      <h2>قواعد الخصم (تاريخية — شامل سلم الأذونات)</h2>
+      <div id="deductionRulesArea"></div>
+      <button class="secondary" style="margin-top:10px" onclick="openDeductionRuleForm()">+ إضافة قاعدة خصم جديدة</button>
+      <div id="deductionRuleFormArea"></div>
+    </div>
 
-async function verifyLogin(code, pass){
-  const resp = await fetchWithTimeout(CONFIG.SCRIPT_URL, {
-    method: 'POST',
-    headers: {'Content-Type': 'text/plain;charset=utf-8'},
-    body: JSON.stringify({ action: 'login', code, pass, defaultPassword: CONFIG.DEFAULT_PASSWORD }),
-  }, 12000);
-  return await resp.json();
-}
+    <div class="card">
+      <h2>الأقسام المعفاة من رصد البصمة</h2>
+      <div id="exemptDeptsArea"></div>
+      <div class="filters" style="margin-top:10px">
+        <div style="flex:1">
+          <input type="text" id="newExemptDeptInput" placeholder="اسم القسم">
+        </div>
+        <div><button onclick="addExemptDept()">+ إضافة</button></div>
+      </div>
+    </div>
+  </div>
 
-async function doLogin(){
-  const user = loginUser.value.trim();
-  const pass = loginPass.value;
-  if(!user){
-    showLoginError('اكتب كود الموظف الأول');
-    loginUser.focus();
-    return;
-  }
-  if(!pass){
-    showLoginError('اكتب كلمة المرور');
-    loginPass.focus();
-    return;
-  }
-  loginBtn.disabled = true;
-  loginBtn.querySelector('.btnLabel').textContent = 'بيتحقق...';
-  loginStatus.className = 'status show neutral';
-  loginStatus.innerHTML = '<b>لحظة واحدة...</b>';
-  try{
-    const result = await verifyLogin(user, pass);
-    if(result.status !== 'ok'){
-      if(result.message === 'unregistered_code'){
-        showLoginError('الكود ده مش مسجل عندنا — كلم قسم شئون العاملين.');
-      }else{
-        showLoginError('كلمة المرور غلط، حاول تاني');
+  <!-- ============== 4) قسم النسخ الاحتياطي ============== -->
+  <div id="view-backup" class="view" style="display:none">
+    <div class="card">
+      <h2>نسخة احتياطية كاملة من البيانات</h2>
+      <p style="font-size:13px;color:#555">
+        بتاخد نسخة من كل بيانات النظام (الموظفين، الحضور، القواعد، المستندات، حركات المرتب، الإعدادات)
+        وتنزّلها كملف واحد على جهازك. الملف بصيغة JSON — تقدر تفتحه بأي محرر نصوص للمراجعة،
+        وهو المصدر اللي هيتستخدم لاحقًا لو احتجت Restore.
+      </p>
+      <p style="font-size:12px;color:#b00000">
+        ⚠️ ده Backup لبيانات الشيتات بس (نصوص/أرقام/تواريخ). لو مستندات فعلية (PDF/صور) اتخزنت على
+        Google Drive لاحقًا، الملفات دي ليها Backup منفصل — الرابط بيتحفظ هنا، لكن الملف نفسه لأ.
+      </p>
+      <button onclick="backupNow()">💾 Backup Now</button>
+      <div id="backupStatus" style="font-size:13px;color:#555;margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // حط هنا لينك الـ Web App بتاع Code.gs (GHIS) بعد النشر.
+    // ============================================================
+    const CONFIG = {
+      SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxnmUlvZUgWTNkGlG929Z0lXWoeVNQJghC7alDYlbkjxgsg_fBcx2oEoXALDjVX9tHnmQ/exec",
+    };
+
+    // ============================================================
+    // التنقل بين الأقسام
+    // ============================================================
+    function switchView(name) {
+      ['reports', 'employees', 'rules', 'backup'].forEach(v => {
+        document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
+        document.getElementById('tabBtn-' + v).classList.toggle('active', v === name);
+      });
+      if (name === 'employees' && employeesCache.length === 0) loadEmployeesList();
+      if (name === 'rules') loadRulesViews();
+    }
+
+    let employeesCache = [];
+    let lastPeriod = { from: "", to: "" };
+
+    function setStatus(msg, isError) {
+      const el = document.getElementById('status');
+      el.textContent = msg || "";
+      el.style.color = isError ? "#b00000" : "#555";
+    }
+
+    // ============================================================
+    // اتصال بالـ API — GET بس، زي doGet(e) في Code.gs. مفيش أي
+    // حساب هنا خالص، بس تمرير باراميترات واستقبال JSON جاهز.
+    // ============================================================
+    async function callApi_(params) {
+      if (!CONFIG.SCRIPT_URL || CONFIG.SCRIPT_URL.indexOf('PASTE_YOUR') === 0) {
+        throw new Error('لازم تحط لينك الـ Apps Script الأول في CONFIG.SCRIPT_URL جوه الكود.');
       }
-      loginPass.value = '';
-      loginPass.focus();
-      return;
+      const qs = new URLSearchParams(params).toString();
+      const res = await fetch(CONFIG.SCRIPT_URL + '?' + qs);
+      const json = await res.json();
+      if (json.status !== 'ok') throw new Error(json.message || 'خطأ غير معروف من السيرفر');
+      return json;
     }
-    loginCard.style.display = 'none';
-    mainCard.style.display = '';
-    empCodeInput.value = user;
-    const name = result.name || "";
-    if(name){
-      welcomeName.textContent = 'أهلاً يا ' + name + ' (كود ' + user + ') 👋';
-      welcomeName.style.display = '';
-    }else{
-      welcomeName.style.display = 'none';
+
+    async function loadEmployees_() {
+      const json = await callApi_({ action: 'employees' });
+      employeesCache = json.employees;
+      const sel = document.getElementById('employeeSelect');
+      json.employees.forEach(emp => {
+        const opt = document.createElement('option');
+        opt.value = emp.code;
+        opt.textContent = emp.nameAr + ' (' + emp.code + ')' + (emp.dept ? ' — ' + emp.dept : '');
+        sel.appendChild(opt);
+      });
     }
-    try{
-      localStorage.setItem('ghs_emp_code', user);
-      if(rememberMe.checked){
-        localStorage.setItem('ghs_emp_pass', pass);
-      }else{
-        localStorage.removeItem('ghs_emp_pass');
+
+    function defaultDates_() {
+      const today = new Date();
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      document.getElementById('fromDate').value = toInputDate_(first);
+      document.getElementById('toDate').value = toInputDate_(today);
+    }
+    function toInputDate_(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    async function viewReport() {
+      const employee = document.getElementById('employeeSelect').value;
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+      if (!from || !to) { setStatus('اختار من تاريخ ولحد تاريخ.', true); return; }
+
+      const btn = document.getElementById('viewBtn');
+      btn.disabled = true;
+      setStatus('جاري جلب التقرير من GHIS...');
+      lastPeriod = { from, to };
+
+      try {
+        const json = await callApi_({ action: 'report', employee, from, to });
+        btn.disabled = false;
+        setStatus('');
+        if (json.mode === 'single') {
+          renderEmployeeReport(json.report);
+        } else {
+          renderAllEmployees(json);
+        }
+      } catch (err) {
+        btn.disabled = false;
+        setStatus('❌ ' + err.message, true);
       }
-    }catch(e){}
-  }catch(err){
-    if(err.name === 'AbortError'){
-      showLoginError('السيرفر مش بيرد خالص (استنينا 12 ثانية). جرب من نافذة Incognito أو كلم شئون العاملين.');
-    }else{
-      showLoginError('حصل خطأ في الاتصال، جرب تاني');
-    }
-  }finally{
-    loginBtn.disabled = false;
-    loginBtn.querySelector('.btnLabel').textContent = 'دخول';
-  }
-}
-
-loginBtn.addEventListener('click', doLogin);
-loginPass.addEventListener('keydown', (e) => { if(e.key === 'Enter') doLogin(); });
-
-changePassLink.addEventListener('click', () => {
-  const isHidden = changePassBox.style.display === 'none' || !changePassBox.style.display;
-  changePassBox.style.display = isHidden ? '' : 'none';
-  if(isHidden){
-    cpCode.value = loginUser.value.trim();
-    cpCode.focus();
-  }
-});
-
-cpBtn.addEventListener('click', async () => {
-  const code = cpCode.value.trim();
-  const oldPass = cpOld.value;
-  const newPass = cpNew.value;
-  const newPass2 = cpNew2.value;
-  if(!code || !oldPass || !newPass || !newPass2){
-    showCpStatus('warn', 'املا كل الخانات الأول');
-    return;
-  }
-  if(newPass.length < 4){
-    showCpStatus('warn', 'كلمة المرور الجديدة لازم تكون 4 حروف/أرقام على الأقل');
-    return;
-  }
-  if(newPass !== newPass2){
-    showCpStatus('warn', 'كلمة المرور الجديدة وتأكيدها مش متطابقين');
-    return;
-  }
-  cpBtn.disabled = true;
-  cpBtn.querySelector('.btnLabel').textContent = 'بيغيّر...';
-  try{
-    const resp = await fetch(CONFIG.SCRIPT_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action: 'changepassword', code, oldPass, newPass, defaultPassword: CONFIG.DEFAULT_PASSWORD }),
-    });
-    const result = await resp.json();
-    if(result.status === 'ok'){
-      showCpStatus('ok', 'تم تغيير كلمة المرور بنجاح — سجل دخولك بيها دلوقتي.');
-      cpOld.value = ''; cpNew.value = ''; cpNew2.value = '';
-    }else if(result.message === 'unregistered_code'){
-      showCpStatus('warn', 'الكود ده مش مسجل عندنا — كلم قسم شئون العاملين.');
-    }else{
-      showCpStatus('warn', 'كلمة المرور الحالية غلط، حاول تاني.');
-    }
-  }catch(err){
-    showCpStatus('warn', 'حصل خطأ في الاتصال، جرب تاني.');
-  }finally{
-    cpBtn.disabled = false;
-    cpBtn.querySelector('.btnLabel').textContent = 'تغيير كلمة المرور';
-  }
-});
-
-window.addEventListener('load', () => {
-  try{
-    const saved = localStorage.getItem('ghs_emp_code');
-    if(saved) loginUser.value = saved;
-    const savedPass = localStorage.getItem('ghs_emp_pass');
-    if(savedPass){
-      loginPass.value = savedPass;
-      rememberMe.checked = true;
-    }
-  }catch(e){}
-  loginUser.focus({ preventScroll: true });
-});
-
-const checkinBtn = document.getElementById('checkinBtn');
-const checkoutBtn = document.getElementById('checkoutBtn');
-const statusBox = document.getElementById('statusBox');
-const empCodeInput = document.getElementById('empCode');
-const metaTime = document.getElementById('metaTime');
-const metaDist = document.getElementById('metaDist');
-const datePill = document.getElementById('datePill');
-const cameraInput = document.getElementById('cameraInput');
-
-let pendingCheckIn = null;
-let activeBtn = null;
-
-try{
-  const saved = localStorage.getItem('ghs_emp_code');
-  if(saved) empCodeInput.value = saved;
-}catch(e){}
-
-function tickClock(){
-  const now = new Date();
-  metaTime.textContent = now.toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'});
-  datePill.textContent = now.toLocaleDateString('ar-EG', {weekday:'long', day:'numeric', month:'long'});
-}
-tickClock();
-setInterval(tickClock, 1000 * 15);
-
-function haversineMeters(lat1, lon1, lat2, lon2){
-  const R = 6371000;
-  const toRad = d => d * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat/2)**2 +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-function showStatus(kind, title, body){
-  statusBox.className = 'status show ' + kind;
-  statusBox.innerHTML = '<b>' + title + '</b>' + body;
-}
-
-function showGreeting(kind, greeting, body){
-  statusBox.className = 'status show ' + kind;
-  statusBox.innerHTML = '<div class="greeting">' + greeting + '</div>' + body;
-}
-
-function setChecking(btn, isChecking, label){
-  btn.classList.toggle('checking', isChecking);
-  checkinBtn.disabled = isChecking;
-  checkoutBtn.disabled = isChecking;
-  btn.querySelector('.btnLabel').textContent = label;
-}
-
-// حماية من الدوس المتكرر خلال 30 ثانية (فحص سريع من على الجهاز نفسه، والسيرفر بيتأكد كمان)
-function checkLocalCooldown(type){
-  try{
-    const key = 'ghs_last_' + type;
-    const last = parseInt(localStorage.getItem(key) || '0', 10);
-    const elapsed = (Date.now() - last) / 1000;
-    if(elapsed < CONFIG.COOLDOWN_SECONDS){
-      return Math.ceil(CONFIG.COOLDOWN_SECONDS - elapsed);
-    }
-  }catch(e){}
-  return 0;
-}
-function markLocalAttempt(type){
-  try{ localStorage.setItem('ghs_last_' + type, String(Date.now())); }catch(e){}
-}
-
-function fileToBase64(file){
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-async function sendCheckInOut(type, code, lat, lng, distance, locationName, photoBase64){
-  if(!CONFIG.SCRIPT_URL){
-    showStatus('warn', 'الإعداد لسه ناقص', 'رابط Google Apps Script لسه مش متحط في الكود.');
-    return;
-  }
-  try{
-    const resp = await fetch(CONFIG.SCRIPT_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'text/plain;charset=utf-8'},
-      body: JSON.stringify({
-        type: type,
-        code: code,
-        // ملحوظة: مش بنبعت وقت الموبايل خالص — السيرفر (جوجل) هو اللي
-        // بيسجل الوقت لحظة استلام الطلب، عشان محدش يقدر يتلاعب بساعته.
-        lat: lat, lng: lng,
-        distance_m: Math.round(distance),
-        location: locationName,
-        photo: photoBase64 || "",
-      }),
-    });
-
-    let result = null;
-    try{ result = await resp.json(); }catch(e){}
-
-    if(result && result.status === 'cooldown'){
-      showStatus('warn', 'استنى شوية ⏳',
-        'لازم تستنى ' + (result.wait_seconds || CONFIG.COOLDOWN_SECONDS) + ' ثانية قبل ما تحاول تاني.');
-      return;
-    }
-    if(result && result.status === 'error'){
-      showStatus('warn', 'حصلت مشكلة', 'حاول تاني، ولو استمرت بلّغ قسم شئون العاملين.');
-      return;
     }
 
-    markLocalAttempt(type);
-    const now = new Date().toLocaleTimeString('ar-EG');
-    if(type === 'checkin'){
-      showGreeting('ok', 'Great to See You Again 😊',
-        'تم تسجيل حضورك — الوقت: ' + now + ' — من: ' + locationName + ' (' + Math.round(distance) + ' م).');
-    }else{
-      showGreeting('ok', 'See You Tomorrow 💙',
-        'تم تسجيل انصرافك — الوقت: ' + now + ' — من: ' + locationName + ' (' + Math.round(distance) + ' م).');
-    }
-  }catch(err){
-    showStatus('warn', 'حصل خطأ في الإرسال',
-      'اتأكد من اتصال الإنترنت وحاول تاني. لو المشكلة استمرت، بلّغ قسم شئون العاملين.');
-  }
-}
-
-cameraInput.addEventListener('change', async () => {
-  if(!pendingCheckIn || !activeBtn) return;
-  const btn = activeBtn;
-  const file = cameraInput.files && cameraInput.files[0];
-  if(!file){
-    setChecking(btn, false, btn.dataset.type === 'checkin' ? 'تسجيل حضور' : 'تسجيل انصراف');
-    showStatus('warn', 'محتاجين الصورة عشان نأكد', 'دوس تاني وسمح بالتقاط الصورة.');
-    pendingCheckIn = null; activeBtn = null;
-    return;
-  }
-  btn.querySelector('.btnLabel').textContent = 'بيرفع الصورة ويسجل...';
-  try{
-    const base64 = await fileToBase64(file);
-    const { type, code, lat, lng, distance, locationName } = pendingCheckIn;
-    await sendCheckInOut(type, code, lat, lng, distance, locationName, base64);
-  }catch(err){
-    showStatus('warn', 'حصل خطأ في معالجة الصورة', 'حاول تاني، ولو استمرت المشكلة بلّغ قسم شئون العاملين.');
-  }finally{
-    setChecking(btn, false, btn.dataset.type === 'checkin' ? 'تسجيل حضور' : 'تسجيل انصراف');
-    pendingCheckIn = null; activeBtn = null;
-    cameraInput.value = '';
-  }
-});
-
-function handleClick(btn){
-  const type = btn.dataset.type; // 'checkin' or 'checkout'
-  const code = empCodeInput.value.trim();
-  if(!code){
-    showStatus('warn', 'اكتب كود الموظف الأول', 'محتاجين نعرف مين اللي بيسجل.');
-    empCodeInput.focus();
-    return;
-  }
-  try{ localStorage.setItem('ghs_emp_code', code); }catch(e){}
-
-  const wait = checkLocalCooldown(type);
-  if(wait > 0){
-    showStatus('warn', 'استنى شوية ⏳', 'لازم تستنى ' + wait + ' ثانية قبل ما تحاول تاني.');
-    return;
-  }
-
-  if(!('geolocation' in navigator)){
-    showStatus('warn', 'المتصفح ده مش بيدعم تحديد الموقع', 'جرب من متصفح تاني زي Chrome أو Safari.');
-    return;
-  }
-  if(!CONFIG.LOCATIONS || CONFIG.LOCATIONS.length === 0){
-    showStatus('warn', 'مفيش نقاط وصول متحددة', 'راجع إعدادات الصفحة وضيف نقطة وصول واحدة على الأقل.');
-    return;
-  }
-
-  const label = type === 'checkin' ? 'تسجيل حضور' : 'تسجيل انصراف';
-  setChecking(btn, true, 'بيحدد موقعك دلوقتي...');
-  statusBox.className = 'status show neutral';
-  statusBox.innerHTML = '<b>بنحدد موقعك...</b>سيب صلاحية الموقع لو المتصفح طلبها.';
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const { latitude, longitude, accuracy } = pos.coords;
-      let best = null;
-      for(const loc of CONFIG.LOCATIONS){
-        const d = haversineMeters(latitude, longitude, loc.lat, loc.lng);
-        if(!best || d < best.distance) best = { distance: d, location: loc };
+    // بيتنادى لما تدوس على موظف من جدول "كل الموظفين"
+    async function drillIntoEmployee(code) {
+      setStatus('جاري تحميل تقرير الموظف...');
+      try {
+        const json = await callApi_({ action: 'report', employee: code, from: lastPeriod.from, to: lastPeriod.to });
+        setStatus('');
+        renderEmployeeReport(json.report, true);
+      } catch (err) {
+        setStatus('❌ ' + err.message, true);
       }
-      metaDist.textContent = 'المسافة: ' + Math.round(best.distance) + ' م (' + best.location.name + ')';
+    }
 
-      if(best.distance <= best.location.radius){
-        pendingCheckIn = {
-          type, code, lat: latitude, lng: longitude,
-          distance: best.distance, locationName: best.location.name,
-        };
-        activeBtn = btn;
-        // نفتح الكاميرا فورًا قبل أي تحديث تاني للشاشة، عشان أسرع استجابة ممكنة
-        cameraInput.click();
-        statusBox.className = 'status show neutral';
-        statusBox.innerHTML = '<b>موقعك تمام ✓</b>هنفتحلك الكاميرا دلوقتي — التقط صورة سريعة للتأكيد.';
-        btn.querySelector('.btnLabel').textContent = 'بيفتح الكاميرا...';
-      }else{
-        setChecking(btn, false, label);
-        showStatus('warn', 'برة نطاق أي مكان معتمد',
-          'أقرب نقطة ليك هي "' + best.location.name + '"، وانت على بعد ' + Math.round(best.distance) + ' متر منها تقريبًا — لازم تكون في حدود ' + best.location.radius + ' متر.' +
-          (accuracy > 50 ? ' (دقة تحديد الموقع ضعيفة، جرب في مكان مفتوح.)' : ''));
+    function backToDashboard() {
+      viewReport();
+    }
+
+    // ============================================================
+    // دوال العرض — كل الأرقام هنا جايه جاهزة من الـ API، مفيش أي
+    // حساب أو معادلة بتحصل في JavaScript خالص، بس تنسيق وعرض.
+    // ============================================================
+    function renderEmployeeReport(report, cameFromAll) {
+      const s = report.summary;
+      const emp = report.employee;
+
+      let html = '';
+      if (cameFromAll) {
+        html += '<div class="breadcrumb"><button class="link-btn" onclick="backToDashboard()">« رجوع لكل الموظفين</button></div>';
       }
-    },
-    (err) => {
-      setChecking(btn, false, label);
-      let msg = 'حصلت مشكلة في تحديد موقعك، جرب تاني.';
-      if(err.code === 1) msg = 'لازم توافق على إذن الموقع عشان تقدر تسجل من هنا.';
-      if(err.code === 3) msg = 'الاستجابة اتأخرت، جرب تاني في مكان الإشارة فيه أوضح.';
-      showStatus('warn', 'مقدرناش نحدد موقعك', msg);
-    },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-  );
-}
 
-checkinBtn.addEventListener('click', () => handleClick(checkinBtn));
-checkoutBtn.addEventListener('click', () => handleClick(checkoutBtn));
-</script>
+      html += '<div class="card">';
+      html += '<h2>' + escapeHtml_(emp.nameAr) + ' (' + escapeHtml_(emp.code) + ')' +
+        (emp.dept ? ' — ' + escapeHtml_(emp.dept) : '') + '</h2>';
+      html += '<div style="font-size:13px;color:#666;margin-bottom:12px;">الفترة: ' +
+        report.fromDate + ' إلى ' + report.toDate + '</div>';
+
+      html += '<div class="metrics-grid">';
+      html += metricCard_(s.attendanceRate != null ? s.attendanceRate + '%' : '-', 'نسبة الالتزام');
+      html += metricCard_(s.workDaysRequired, 'أيام العمل المطلوبة');
+      html += metricCard_(s.presentDays, 'أيام الحضور');
+      html += metricCard_(s.absentDays, 'أيام الغياب', s.absentDays > 0);
+      html += metricCard_(s.leaveDays, 'أيام الإجازات');
+      html += metricCard_(s.lateCount + ' مرة', 'مرات التأخير', s.lateCount > 0);
+      html += metricCard_(s.lateMinutesTotal + ' د', 'إجمالي دقائق التأخير', s.lateMinutesTotal > 0);
+      html += metricCard_(s.earlyCount + ' مرة', 'مرات الانصراف المبكر', s.earlyCount > 0);
+      html += metricCard_(s.earlyMinutesTotal + ' د', 'إجمالي دقائق الانصراف المبكر', s.earlyMinutesTotal > 0);
+      html += metricCard_(s.lateDeductionTotal, 'خصم التأخير (يوم)', s.lateDeductionTotal > 0);
+      html += metricCard_(s.earlyDeductionTotal, 'خصم الانصراف المبكر (يوم)', s.earlyDeductionTotal > 0);
+      html += metricCard_(s.absenceDeductionTotal, 'خصم الغياب (يوم)', s.absenceDeductionTotal > 0);
+      html += metricCard_(s.totalDeduction, 'إجمالي الخصم (يوم)', s.totalDeduction > 0);
+      html += '</div>';
+      html += '</div>';
+
+      html += '<div class="card">';
+      html += '<h2>التفاصيل اليومية</h2>';
+      html += renderDailyTable(report.days);
+      html += '</div>';
+
+      document.getElementById('resultArea').innerHTML = html;
+    }
+
+    function metricCard_(value, label, warn) {
+      return '<div class="metric' + (warn ? ' warn' : '') + '"><div class="value">' +
+        escapeHtml_(value) + '</div><div class="label">' + escapeHtml_(label) + '</div></div>';
+    }
+
+    function renderDailyTable(days) {
+      let html = '<div class="table-wrap"><table><thead><tr>';
+      ['التاريخ', 'اليوم', 'الحالة', 'وقت الدخول', 'وقت الانصراف',
+       'دقائق التأخير', 'دقائق الانصراف المبكر', 'نوع الإجازة', 'الخصم', 'ملاحظات']
+        .forEach(h => html += '<th>' + h + '</th>');
+      html += '</tr></thead><tbody>';
+
+      days.forEach(d => {
+        const statusClass = 'status-' + String(d.status).replace(/\s+/g, '-');
+        const lateClass = d.lateMinutes > 0 ? ' has-late' : '';
+        const notes = [];
+        if (d.missingCheckout) notes.push('بدون بصمة انصراف');
+        if (d.lateMinutes > 0) notes.push('التأخير محسوب ضمن الإجمالي التراكمي للفترة');
+        if (d.earlyLeaveMinutes > 0) notes.push('الانصراف المبكر محسوب ضمن الإجمالي التراكمي للفترة');
+
+        html += '<tr class="' + statusClass + lateClass + '">';
+        html += '<td>' + d.dateKey + '</td>';
+        html += '<td>' + escapeHtml_(d.weekdayName) + '</td>';
+        html += '<td>' + escapeHtml_(d.status) + '</td>';
+        html += '<td>' + escapeHtml_(d.checkInActual) + '</td>';
+        html += '<td>' + escapeHtml_(d.checkOutActual) + '</td>';
+        html += '<td>' + d.lateMinutes + '</td>';
+        html += '<td>' + d.earlyLeaveMinutes + '</td>';
+        html += '<td>' + escapeHtml_(d.holidayReason || '-') + '</td>';
+        html += '<td>' + (d.deduction != null ? d.deduction : '-') + '</td>';
+        html += '<td>' + escapeHtml_(notes.join(' / ') || '-') + '</td>';
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    function renderAllEmployees(json) {
+      let html = '<div class="card">';
+      html += '<h2>كل الموظفين — ' + json.fromDate + ' إلى ' + json.toDate + '</h2>';
+      html += '<div class="table-wrap"><table><thead><tr>';
+      ['الكود', 'الاسم', 'أيام العمل', 'حضور', 'غياب', 'إجازات',
+       'مرات تأخير', 'دقائق تأخير', 'مرات مبكر', 'دقائق مبكر',
+       'إجمالي الخصم', 'نسبة الالتزام']
+        .forEach(h => html += '<th>' + h + '</th>');
+      html += '</tr></thead><tbody>';
+
+      json.rows.forEach(row => {
+        const s = row.summary;
+        html += '<tr class="clickable-row" onclick="drillIntoEmployee(\'' + row.employee.code + '\')">';
+        html += '<td>' + escapeHtml_(row.employee.code) + '</td>';
+        html += '<td style="text-align:right">' + escapeHtml_(row.employee.nameAr) + '</td>';
+        html += '<td>' + s.workDaysRequired + '</td>';
+        html += '<td>' + s.presentDays + '</td>';
+        html += '<td>' + s.absentDays + '</td>';
+        html += '<td>' + s.leaveDays + '</td>';
+        html += '<td>' + s.lateCount + '</td>';
+        html += '<td>' + s.lateMinutesTotal + '</td>';
+        html += '<td>' + s.earlyCount + '</td>';
+        html += '<td>' + s.earlyMinutesTotal + '</td>';
+        html += '<td>' + s.totalDeduction + '</td>';
+        html += '<td>' + (s.attendanceRate != null ? s.attendanceRate + '%' : '-') + '</td>';
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      html += '<div style="font-size:12px;color:#777;margin-top:8px;">دوس على أي صف عشان تفتح تقرير الموظف بالتفصيل.</div>';
+      html += '</div>';
+
+      document.getElementById('resultArea').innerHTML = html;
+    }
+
+    function escapeHtml_(str) {
+      const div = document.createElement('div');
+      div.textContent = str == null ? '' : String(str);
+      return div.innerHTML;
+    }
+
+    // ============================================================
+    // اتصال POST عام (للإضافة/التعديل) — بنفس أسلوب نظام الحضور
+    // الأصلي (body نصي عادي، عشان نتجنب مشاكل CORS)
+    // ============================================================
+    async function callApiPost_(payload) {
+      const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const json = await res.json();
+      if (json.status !== 'ok') throw new Error(json.message || 'خطأ غير معروف من السيرفر');
+      return json;
+    }
+
+    // ============================================================
+    // قسم: بيانات الموظفين
+    // ============================================================
+    let fullEmployeesCache = [];
+
+    async function loadEmployeesList() {
+      document.getElementById('empStatus').textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'employees' });
+        fullEmployeesCache = json.employees;
+        employeesCache = json.employees; // نفس الكاش المستخدم في تبويب التقارير
+        document.getElementById('empStatus').textContent = fullEmployeesCache.length + ' موظف.';
+        renderEmployeesList();
+      } catch (err) {
+        document.getElementById('empStatus').textContent = '❌ ' + err.message;
+      }
+    }
+
+    function renderEmployeesList() {
+      const q = (document.getElementById('empSearchInput').value || '').trim().toLowerCase();
+      const rows = fullEmployeesCache.filter(e =>
+        !q || e.nameAr.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.nameEn||'').toLowerCase().includes(q)
+      );
+
+      let html = '<div class="table-wrap"><table><thead><tr>';
+      ['الكود', 'الاسم', 'القسم', 'الحالة', 'معفى من البصمة', 'المسمى الوظيفي'].forEach(h => html += '<th>' + h + '</th>');
+      html += '</tr></thead><tbody>';
+      rows.forEach(e => {
+        html += '<tr class="clickable-row-emp" onclick="openEmployeeProfile(\'' + e.code + '\')">';
+        html += '<td>' + escapeHtml_(e.code) + '</td>';
+        html += '<td style="text-align:right">' + escapeHtml_(e.nameAr) + '</td>';
+        html += '<td>' + escapeHtml_(e.dept) + '</td>';
+        html += '<td>' + escapeHtml_(e.status) + '</td>';
+        html += '<td>' + (e.exempt ? 'نعم' : 'لا') + '</td>';
+        html += '<td>' + escapeHtml_(e.jobTitle || '-') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('employeesListArea').innerHTML = html;
+    }
+
+    function openEmployeeProfile(code) {
+      const emp = fullEmployeesCache.find(e => e.code === code);
+      if (!emp) return;
+
+      let html = '<div class="card">';
+      html += '<h2>ملف الموظف: ' + escapeHtml_(emp.nameAr) + ' (' + escapeHtml_(emp.code) + ')</h2>';
+      const fields = [
+        ['القسم', emp.dept], ['المسمى الوظيفي', emp.jobTitle], ['الحالة', emp.status],
+        ['تاريخ التعيين', emp.hireDate || '-'], ['تاريخ نهاية الخدمة', emp.endDate || '-'],
+        ['معفى يدويًا؟', emp.exemptManual ? 'نعم' : 'لا'], ['معفى من البصمة (نهائي)', emp.exempt ? 'نعم' : 'لا'],
+        ['الجنسية', emp.nationality || '-'], ['رقم التليفون', emp.phone || '-'],
+        ['طريقة القبض', emp.paymentMethod || '-'],
+        ['الراتب الأساسي', emp.baseSalary ?? '-'], ['بدل الانتقالات', emp.transportDeduction ?? '-'],
+        ['التأمينات', emp.insuranceDeduction ?? '-'], ['العلاوة السنوية', emp.annualBonus ?? '-'],
+        ['استلم أوراقه بعد ترك الخدمة؟', emp.receivedDocumentsAfterEnd ? 'نعم' : 'لا'],
+      ];
+      html += '<div class="form-grid">';
+      fields.forEach(([label, val]) => {
+        html += '<div class="profile-field"><b>' + label + ':</b> ' + escapeHtml_(val) + '</div>';
+      });
+      html += '</div>';
+      html += '<div class="form-actions">';
+      html += '<button onclick="openEmployeeForm(\'' + code + '\')">✏️ تعديل</button>';
+      html += '<button class="secondary" onclick="loadEmployeeHistoryView(\'' + code + '\')">📜 سجل التعديلات</button>';
+      html += '<button class="secondary" onclick="document.getElementById(\'employeeDetailArea\').innerHTML=\'\'">إغلاق</button>';
+      html += '</div>';
+      html += '<div id="employeeHistoryPanel"></div>';
+      html += '</div>';
+
+      document.getElementById('employeeDetailArea').innerHTML = html;
+    }
+
+    async function loadEmployeeHistoryView(code) {
+      const panel = document.getElementById('employeeHistoryPanel');
+      panel.innerHTML = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'employeeHistory', code });
+        if (json.history.length === 0) { panel.innerHTML = '<p style="font-size:13px;color:#777">مفيش أي تعديلات مسجلة لسه.</p>'; return; }
+        let html = '<h2 style="margin-top:16px">سجل التعديلات</h2><div class="table-wrap"><table><thead><tr>';
+        ['التاريخ والوقت', 'الحقل', 'القيمة القديمة', 'القيمة الجديدة', 'السبب', 'المستخدم'].forEach(h => html += '<th>' + h + '</th>');
+        html += '</tr></thead><tbody>';
+        json.history.forEach(h => {
+          html += '<tr><td>' + h.timestamp + '</td><td>' + escapeHtml_(h.field) + '</td><td>' + escapeHtml_(h.oldValue || '-') +
+            '</td><td>' + escapeHtml_(h.newValue || '-') + '</td><td>' + escapeHtml_(h.reason || '-') + '</td><td>' + escapeHtml_(h.user || '-') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        panel.innerHTML = html;
+      } catch (err) {
+        panel.innerHTML = '❌ ' + err.message;
+      }
+    }
+
+    function openEmployeeForm(code) {
+      const emp = code ? fullEmployeesCache.find(e => e.code === code) : null;
+      const isEdit = !!emp;
+
+      const f = (id, label, type, value) => `
+        <div><label>${label}</label><input type="${type}" id="empForm_${id}" value="${value == null ? '' : escapeHtml_(value)}"></div>`;
+
+      let html = '<div class="card"><h2>' + (isEdit ? 'تعديل بيانات موظف' : 'إضافة موظف جديد') + '</h2>';
+      html += '<div class="form-grid">';
+      if (!isEdit) html += f('code', 'كود الموظف', 'text', '');
+      html += f('nameAr', 'الاسم بالعربي', 'text', emp?.nameAr);
+      html += f('nameEn', 'الاسم بالإنجليزي', 'text', emp?.nameEn);
+      html += f('dept', 'القسم', 'text', emp?.dept);
+      html += f('jobTitle', 'المسمى الوظيفي', 'text', emp?.jobTitle);
+      html += f('hireDate', 'تاريخ التعيين', 'date', emp?.hireDate);
+      html += f('endDate', 'تاريخ نهاية الخدمة', 'date', emp?.endDate);
+      html += f('nationality', 'الجنسية', 'text', emp?.nationality);
+      html += f('phone', 'رقم التليفون', 'text', emp?.phone);
+      html += f('paymentMethod', 'طريقة القبض', 'text', emp?.paymentMethod);
+      html += f('baseSalary', 'الراتب الأساسي', 'number', emp?.baseSalary);
+      html += f('transportDeduction', 'بدل الانتقالات', 'number', emp?.transportDeduction);
+      html += f('insuranceDeduction', 'التأمينات', 'number', emp?.insuranceDeduction);
+      html += f('annualBonus', 'العلاوة السنوية', 'number', emp?.annualBonus);
+      html += `<div><label>معفى يدويًا من البصمة؟</label><select id="empForm_exemptManual">
+        <option value="لا" ${emp && !emp.exemptManual ? 'selected' : ''}>لا</option>
+        <option value="نعم" ${emp && emp.exemptManual ? 'selected' : ''}>نعم</option></select></div>`;
+      html += `<div><label>استلم أوراقه بعد ترك الخدمة؟</label><select id="empForm_receivedDocumentsAfterEnd">
+        <option value="لا" ${emp && !emp.receivedDocumentsAfterEnd ? 'selected' : ''}>لا</option>
+        <option value="نعم" ${emp && emp.receivedDocumentsAfterEnd ? 'selected' : ''}>نعم</option></select></div>`;
+      html += '</div>';
+      html += '<div><label>سبب التعديل (اختياري، بيتسجل في السجل التاريخي)</label><input type="text" id="empForm_reason"></div>';
+      html += '<div class="form-actions">';
+      html += '<button onclick="submitEmployeeForm(' + (isEdit ? "'" + code + "'" : 'null') + ')">حفظ</button>';
+      html += '<button class="secondary" onclick="document.getElementById(\'employeeFormArea\').innerHTML=\'\'">إلغاء</button>';
+      html += '</div><div id="empFormStatus" style="font-size:13px;margin-top:8px;"></div></div>';
+
+      let container = document.getElementById('employeeFormArea');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'employeeFormArea';
+        document.getElementById('employeeDetailArea').prepend(container);
+      }
+      container.innerHTML = html;
+    }
+
+    async function submitEmployeeForm(code) {
+      const val = id => document.getElementById('empForm_' + id).value;
+      const statusEl = document.getElementById('empFormStatus');
+      statusEl.textContent = 'جاري الحفظ...';
+
+      const fields = {
+        nameAr: val('nameAr'), nameEn: val('nameEn'), dept: val('dept'), jobTitle: val('jobTitle'),
+        hireDate: val('hireDate'), endDate: val('endDate'), nationality: val('nationality'),
+        phone: val('phone'), paymentMethod: val('paymentMethod'),
+        baseSalary: val('baseSalary'), transportDeduction: val('transportDeduction'),
+        insuranceDeduction: val('insuranceDeduction'), annualBonus: val('annualBonus'),
+        exemptManual: val('exemptManual'), receivedDocumentsAfterEnd: val('receivedDocumentsAfterEnd'),
+      };
+      const reason = val('reason');
+
+      try {
+        if (code) {
+          await callApiPost_({ action: 'employeeUpdate', code, changes: fields, reason, user: 'index-user' });
+        } else {
+          const newCode = document.getElementById('empForm_code').value.trim();
+          if (!newCode) { statusEl.textContent = '❌ لازم تكتب كود الموظف.'; return; }
+          fields.code = newCode;
+          await callApiPost_({ action: 'employeeAdd', data: fields, user: 'index-user' });
+        }
+        statusEl.textContent = '✅ تم الحفظ.';
+        document.getElementById('employeeFormArea').innerHTML = '';
+        await loadEmployeesList();
+        if (code) openEmployeeProfile(code);
+      } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+      }
+    }
+
+    // ============================================================
+    // قسم: القواعد (مواعيد / خصم / أقسام معفاة)
+    // ============================================================
+    async function loadRulesViews() {
+      loadScheduleRulesView();
+      loadDeductionRulesView();
+      loadExemptDeptsView();
+    }
+
+    async function loadScheduleRulesView() {
+      const el = document.getElementById('scheduleRulesArea');
+      el.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'scheduleRules' });
+        let html = '<div class="table-wrap"><table><thead><tr><th>من تاريخ</th><th>لحد تاريخ</th><th>الحضور الرسمي</th><th>الانصراف الرسمي</th></tr></thead><tbody>';
+        json.rules.forEach(r => {
+          html += '<tr><td>' + r.from + '</td><td>' + r.to + '</td><td>' + minutesToHHMM_(r.checkInMinutes) + '</td><td>' + minutesToHHMM_(r.checkOutMinutes) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    function minutesToHHMM_(m) {
+      const h = Math.floor(m / 60), mm = m % 60;
+      return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    }
+
+    function openScheduleRuleForm() {
+      const html = `<div class="form-grid" style="margin-top:10px">
+        <div><label>من تاريخ</label><input type="date" id="schForm_from"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="schForm_to"></div>
+        <div><label>موعد الحضور الرسمي</label><input type="text" id="schForm_checkIn" placeholder="08:00"></div>
+        <div><label>موعد الانصراف الرسمي</label><input type="text" id="schForm_checkOut" placeholder="15:00"></div>
+      </div>
+      <div class="form-actions">
+        <button onclick="submitScheduleRule()">حفظ</button>
+        <button class="secondary" onclick="document.getElementById('scheduleRuleFormArea').innerHTML=''">إلغاء</button>
+      </div><div id="schFormStatus" style="font-size:13px;margin-top:6px;"></div>`;
+      document.getElementById('scheduleRuleFormArea').innerHTML = html;
+    }
+
+    async function submitScheduleRule() {
+      const statusEl = document.getElementById('schFormStatus');
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({
+          action: 'scheduleRuleAdd',
+          from: document.getElementById('schForm_from').value,
+          to: document.getElementById('schForm_to').value,
+          checkIn: document.getElementById('schForm_checkIn').value,
+          checkOut: document.getElementById('schForm_checkOut').value,
+        });
+        document.getElementById('scheduleRuleFormArea').innerHTML = '';
+        loadScheduleRulesView();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function loadDeductionRulesView() {
+      const el = document.getElementById('deductionRulesArea');
+      el.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'deductionRules' });
+        let html = '<div class="table-wrap"><table><thead><tr>' +
+          '<th>من</th><th>لحد</th><th>د/وحدة تأخير</th><th>خصم وحدة تأخير</th><th>خصم غياب</th>' +
+          '<th>خصم عدم انصراف</th><th>مبكر مفعّل؟</th><th>سلم الأذونات (1-5+)</th></tr></thead><tbody>';
+        json.rules.forEach(r => {
+          html += '<tr><td>' + r.from + '</td><td>' + r.to + '</td><td>' + r.lateUnitMinutes + '</td><td>' + r.lateUnitValue +
+            '</td><td>' + r.absenceValue + '</td><td>' + r.missingCheckoutValue + '</td><td>' + (r.earlyLeaveEnabled ? 'نعم' : 'لا') +
+            '</td><td>' + r.permissionLadder.join(' / ') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    function openDeductionRuleForm() {
+      const html = `<div class="form-grid" style="margin-top:10px">
+        <div><label>من تاريخ</label><input type="date" id="dedForm_from"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="dedForm_to"></div>
+        <div><label>دقائق وحدة التأخير</label><input type="number" id="dedForm_lateUnitMinutes" value="25"></div>
+        <div><label>قيمة خصم وحدة التأخير (يوم)</label><input type="number" id="dedForm_lateUnitValue" value="0.25" step="0.25"></div>
+        <div><label>خصم يوم الغياب</label><input type="number" id="dedForm_absenceValue" value="1" step="0.25"></div>
+        <div><label>خصم عدم بصمة الانصراف</label><input type="number" id="dedForm_missingCheckoutValue" value="0.25" step="0.25"></div>
+        <div><label>تفعيل خصم الانصراف المبكر؟</label>
+          <select id="dedForm_earlyLeaveEnabled"><option value="لا">لا</option><option value="نعم">نعم</option></select></div>
+        <div><label>دقائق وحدة الانصراف المبكر</label><input type="number" id="dedForm_earlyLeaveUnitMinutes" value="25"></div>
+        <div><label>قيمة خصم وحدة الانصراف المبكر</label><input type="number" id="dedForm_earlyLeaveUnitValue" value="0.25" step="0.25"></div>
+        <div><label>خصم الإذن الأول بالشهر</label><input type="number" id="dedForm_permission1" value="0" step="0.25"></div>
+        <div><label>خصم الإذن الثاني</label><input type="number" id="dedForm_permission2" value="0.25" step="0.25"></div>
+        <div><label>خصم الإذن الثالث</label><input type="number" id="dedForm_permission3" value="0.5" step="0.25"></div>
+        <div><label>خصم الإذن الرابع</label><input type="number" id="dedForm_permission4" value="0.75" step="0.25"></div>
+        <div><label>خصم الإذن الخامس فأكثر</label><input type="number" id="dedForm_permission5Plus" value="1" step="0.25"></div>
+      </div>
+      <div class="form-actions">
+        <button onclick="submitDeductionRule()">حفظ</button>
+        <button class="secondary" onclick="document.getElementById('deductionRuleFormArea').innerHTML=''">إلغاء</button>
+      </div><div id="dedFormStatus" style="font-size:13px;margin-top:6px;"></div>`;
+      document.getElementById('deductionRuleFormArea').innerHTML = html;
+    }
+
+    async function submitDeductionRule() {
+      const statusEl = document.getElementById('dedFormStatus');
+      const v = id => document.getElementById('dedForm_' + id).value;
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({
+          action: 'deductionRuleAdd',
+          from: v('from'), to: v('to'),
+          lateUnitMinutes: v('lateUnitMinutes'), lateUnitValue: v('lateUnitValue'),
+          absenceValue: v('absenceValue'), missingCheckoutValue: v('missingCheckoutValue'),
+          earlyLeaveEnabled: v('earlyLeaveEnabled') === 'نعم',
+          earlyLeaveUnitMinutes: v('earlyLeaveUnitMinutes'), earlyLeaveUnitValue: v('earlyLeaveUnitValue'),
+          permission1: v('permission1'), permission2: v('permission2'), permission3: v('permission3'),
+          permission4: v('permission4'), permission5Plus: v('permission5Plus'),
+        });
+        document.getElementById('deductionRuleFormArea').innerHTML = '';
+        loadDeductionRulesView();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function loadExemptDeptsView() {
+      const el = document.getElementById('exemptDeptsArea');
+      el.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'exemptDepartments' });
+        if (json.departments.length === 0) {
+          el.innerHTML = '<p style="font-size:13px;color:#777">مفيش أقسام معفاة مسجلة.</p>';
+          return;
+        }
+        let html = '';
+        json.departments.forEach(d => {
+          html += '<span class="chip">' + escapeHtml_(d) + ' <button onclick="removeExemptDept(\'' + escapeHtml_(d) + '\')">حذف</button></span>';
+        });
+        el.innerHTML = html;
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    async function addExemptDept() {
+      const input = document.getElementById('newExemptDeptInput');
+      const dept = input.value.trim();
+      if (!dept) return;
+      try {
+        await callApiPost_({ action: 'exemptDepartmentAdd', dept });
+        input.value = '';
+        loadExemptDeptsView();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    async function removeExemptDept(dept) {
+      try {
+        await callApiPost_({ action: 'exemptDepartmentRemove', dept });
+        loadExemptDeptsView();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ============================================================
+    // قسم: النسخ الاحتياطي
+    // ============================================================
+    async function backupNow() {
+      const statusEl = document.getElementById('backupStatus');
+      statusEl.textContent = 'جاري تجهيز النسخة الاحتياطية... ممكن ياخد شوية ثواني حسب حجم البيانات.';
+      try {
+        const json = await callApi_({ action: 'backupNow' });
+        const blob = new Blob([JSON.stringify(json.backup, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = json.fileName + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        let msg = '✅ تم إنشاء وتنزيل: ' + json.fileName + '.json';
+        if (json.backup.missingSheets && json.backup.missingSheets.length > 0) {
+          msg += '\n⚠️ ملحوظة: الشيتات دي مش موجودة فمتضمنتش في الباكب: ' + json.backup.missingSheets.join('، ');
+        }
+        statusEl.textContent = msg;
+      } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+      }
+    }
+
+    // ============================================================
+    // تحميل أولي
+    // ============================================================
+    (async function init() {
+      defaultDates_();
+      try {
+        await loadEmployees_();
+      } catch (err) {
+        setStatus('❌ ' + err.message, true);
+      }
+    })();
+  </script>
 </body>
 </html>
