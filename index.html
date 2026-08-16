@@ -241,7 +241,7 @@
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
         document.getElementById('tabBtn-' + v).classList.toggle('active', v === name);
       });
-      if (name === 'employees' && employeesCache.length === 0) loadEmployeesList();
+      if (name === 'employees' && fullEmployeesCache.length === 0) loadEmployeesList();
       if (name === 'rules') loadRulesViews();
     }
 
