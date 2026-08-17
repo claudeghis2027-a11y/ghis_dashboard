@@ -122,14 +122,37 @@
 </style>
 </head>
 <body>
-  <h1>GHIS — نظام شئون العاملين</h1>
+  <!-- ============== شاشة تسجيل الدخول ============== -->
+  <div id="loginScreen" class="card" style="max-width:380px;margin:60px auto;">
+    <h2>GHIS — تسجيل الدخول</h2>
+    <div style="margin-bottom:10px">
+      <label>اسم المستخدم</label>
+      <input type="text" id="loginUsername" autocomplete="username">
+    </div>
+    <div style="margin-bottom:10px">
+      <label>كلمة المرور</label>
+      <input type="password" id="loginPassword" autocomplete="current-password">
+    </div>
+    <button onclick="doLogin()">دخول</button>
+    <div id="loginStatus" style="font-size:13px;color:#b00000;margin-top:8px;"></div>
+  </div>
+
+  <!-- ============== محتوى النظام (يظهر بعد تسجيل الدخول بس) ============== -->
+  <div id="appContent" style="display:none">
+  <h1>GHIS — نظام شئون العاملين
+    <span id="currentUserLabel" style="font-size:12px;color:#666;font-weight:normal"></span>
+  </h1>
 
   <!-- ============== شريط التنقل بين الأقسام ============== -->
   <div class="tabbar">
     <button class="tab-btn active" id="tabBtn-reports" onclick="switchView('reports')">التقارير</button>
     <button class="tab-btn" id="tabBtn-employees" onclick="switchView('employees')">بيانات الموظفين</button>
     <button class="tab-btn" id="tabBtn-rules" onclick="switchView('rules')">القواعد</button>
+    <button class="tab-btn" id="tabBtn-documents" onclick="switchView('documents')">المستندات</button>
     <button class="tab-btn" id="tabBtn-backup" onclick="switchView('backup')">نسخ احتياطي</button>
+    <button class="tab-btn" id="tabBtn-users" onclick="switchView('users')">المستخدمين والصلاحيات</button>
+    <button class="tab-btn secondary" onclick="switchView('account')">حسابي</button>
+    <button class="tab-btn" style="background:#c0392b;color:#fff" onclick="doLogout()">خروج</button>
   </div>
 
   <!-- ============== 1) قسم التقارير (زي ما كان بالظبط) ============== -->
@@ -142,6 +165,7 @@
           <select id="employeeSelect">
             <option value="all">كل الموظفين</option>
           </select>
+
         </div>
         <div>
           <label>من تاريخ</label>
@@ -207,6 +231,58 @@
     </div>
   </div>
 
+  <!-- ============== قسم المستندات ============== -->
+  <div id="view-documents" class="view" style="display:none">
+    <div class="card">
+      <h2>مستندات الموظفين</h2>
+      <div class="filters">
+        <div style="flex:1">
+          <label>اختار الموظف</label>
+          <select id="docsEmployeeSelect" onchange="loadEmployeeDocuments()">
+            <option value="">-- اختار موظف --</option>
+          </select>
+        </div>
+      </div>
+      <div id="docsStatus" style="font-size:13px;color:#555;margin:8px 0;"></div>
+      <div id="docsListArea"></div>
+    </div>
+
+    <div class="card" id="docsUploadCard" style="display:none">
+      <h2>رفع مستند جديد</h2>
+      <div class="form-grid">
+        <div>
+          <label>نوع المستند</label>
+          <select id="docForm_type"></select>
+        </div>
+        <div>
+          <label>تاريخ الإصدار (اختياري)</label>
+          <input type="date" id="docForm_issueDate">
+        </div>
+        <div>
+          <label>تاريخ الانتهاء (اختياري — سيبه فاضي لو بلا انتهاء)</label>
+          <input type="date" id="docForm_expiryDate">
+        </div>
+        <div>
+          <label>صوّر بالكاميرا أو ارفع ملف (صورة أو PDF)</label>
+          <input type="file" id="docForm_file" accept="image/*,application/pdf" capture="environment">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button onclick="submitDocumentUpload()">📤 رفع وحفظ</button>
+      </div>
+      <div id="docUploadStatus" style="font-size:13px;margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>إدارة أنواع المستندات</h2>
+      <div id="docTypesArea"></div>
+      <div class="filters" style="margin-top:10px">
+        <div style="flex:1"><input type="text" id="newDocTypeInput" placeholder="اسم نوع مستند جديد"></div>
+        <div><button onclick="addDocType()">+ إضافة نوع</button></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============== 4) قسم النسخ الاحتياطي ============== -->
   <div id="view-backup" class="view" style="display:none">
     <div class="card">
@@ -225,33 +301,146 @@
     </div>
   </div>
 
+  <!-- ============== 5) قسم المستخدمين والصلاحيات (أدمن بس) ============== -->
+  <div id="view-users" class="view" style="display:none">
+    <div class="card">
+      <h2>مستويات الصلاحيات</h2>
+      <p style="font-size:12px;color:#777">
+        عرّف أي عدد صلاحيات تحبه، وحدد لكل واحدة الأقسام المسموحة (من: reports, employees, rules,
+        salary, documents, backup, users). "أدمن؟ = نعم" معناها وصول كامل تلقائيًا لكل الأقسام.
+      </p>
+      <div id="rolesArea"></div>
+      <div class="form-grid" style="margin-top:10px">
+        <div><label>اسم الصلاحية</label><input type="text" id="newRoleName"></div>
+        <div><label>الأقسام (مفصولة بفاصلة)</label><input type="text" id="newRoleSections" placeholder="reports,employees"></div>
+        <div><label>أدمن؟</label><select id="newRoleIsAdmin"><option value="false">لا</option><option value="true">نعم</option></select></div>
+      </div>
+      <button onclick="addRole()">+ إضافة صلاحية</button>
+      <div id="roleFormStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>المستخدمين</h2>
+      <div id="usersArea"></div>
+      <div class="form-grid" style="margin-top:10px">
+        <div><label>اسم المستخدم</label><input type="text" id="newUserName"></div>
+        <div><label>كلمة المرور (6 حروف على الأقل)</label><input type="text" id="newUserPassword"></div>
+        <div><label>الصلاحية</label><select id="newUserRole"></select></div>
+      </div>
+      <button onclick="addUser()">+ إضافة مستخدم</button>
+      <div id="userFormStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <!-- ============== 6) قسم حسابي (متاح للكل) ============== -->
+  <div id="view-account" class="view" style="display:none">
+    <div class="card" style="max-width:400px">
+      <h2>تغيير كلمة المرور</h2>
+      <div style="margin-bottom:10px"><label>كلمة المرور الحالية</label><input type="password" id="accOldPassword"></div>
+      <div style="margin-bottom:10px"><label>كلمة المرور الجديدة (6 حروف على الأقل)</label><input type="password" id="accNewPassword"></div>
+      <button onclick="submitChangePassword()">تغيير</button>
+      <div id="accStatus" style="font-size:13px;margin-top:8px;"></div>
+    </div>
+  </div>
+
+  </div> <!-- end appContent -->
+
   <script>
     // ============================================================
     // حط هنا لينك الـ Web App بتاع Code.gs (GHIS) بعد النشر.
     // ============================================================
     const CONFIG = {
-      SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxnmUlvZUgWTNkGlG929Z0lXWoeVNQJghC7alDYlbkjxgsg_fBcx2oEoXALDjVX9tHnmQ/exec",
+      SCRIPT_URL: "https://script.google.com/macros/s/AKfycbw4KU5le-DpHXoozVnrOrL9F2EIJeU8vFOkFtMqxG8_PxxJQavvhnh2jwCsDgYPbTxykQ/exec",
     };
 
     // ============================================================
     // التنقل بين الأقسام
     // ============================================================
     function switchView(name) {
-      ['reports', 'employees', 'rules', 'backup'].forEach(v => {
+      ['reports', 'employees', 'rules', 'documents', 'backup', 'users', 'account'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
-        document.getElementById('tabBtn-' + v).classList.toggle('active', v === name);
+        const btn = document.getElementById('tabBtn-' + v);
+        if (btn) btn.classList.toggle('active', v === name);
       });
       if (name === 'employees' && fullEmployeesCache.length === 0) loadEmployeesList();
       if (name === 'rules') loadRulesViews();
+      if (name === 'documents') loadDocumentsView();
+      if (name === 'users') loadUsersAndRolesView();
     }
 
     let employeesCache = [];
     let lastPeriod = { from: "", to: "" };
+    let currentSession = null; // { token, username, role, sections, isAdmin }
 
     function setStatus(msg, isError) {
       const el = document.getElementById('status');
       el.textContent = msg || "";
       el.style.color = isError ? "#b00000" : "#555";
+    }
+
+    // ============================================================
+    // تسجيل الدخول / الخروج
+    // ============================================================
+    async function doLogin() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const statusEl = document.getElementById('loginStatus');
+      if (!username || !password) { statusEl.textContent = 'اكتب اسم المستخدم وكلمة المرور.'; return; }
+
+      statusEl.textContent = 'جاري تسجيل الدخول...';
+      statusEl.style.color = '#555';
+      try {
+        const res = await fetch(CONFIG.SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'login', username, password }),
+        });
+        const json = await res.json();
+        if (json.status !== 'ok') throw new Error(json.message || 'خطأ غير معروف');
+
+        currentSession = json.result;
+        localStorage.setItem('ghis_session', JSON.stringify(currentSession));
+        enterApp_();
+      } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+        statusEl.style.color = '#b00000';
+      }
+    }
+
+    function doLogout() {
+      currentSession = null;
+      localStorage.removeItem('ghis_session');
+      document.getElementById('appContent').style.display = 'none';
+      document.getElementById('loginScreen').style.display = '';
+      document.getElementById('loginPassword').value = '';
+    }
+
+    function enterApp_() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appContent').style.display = '';
+      document.getElementById('currentUserLabel').textContent =
+        ' — ' + currentSession.username + ' (' + currentSession.role + ')';
+
+      // إخفاء تبويب "المستخدمين" عن أي حد مش أدمن ومالوش قسم users
+      const usersTabAllowed = currentSession.isAdmin || currentSession.sections.includes('users');
+      document.getElementById('tabBtn-users').style.display = usersTabAllowed ? '' : 'none';
+
+      // إخفاء باقي التبويبات حسب الصلاحية (الأدمن يشوف الكل)
+      const tabSectionMap = { reports: 'reports', employees: 'employees', rules: 'rules', documents: 'documents', backup: 'backup' };
+      Object.keys(tabSectionMap).forEach(tab => {
+        const allowed = currentSession.isAdmin || currentSession.sections.includes(tabSectionMap[tab]);
+        const btn = document.getElementById('tabBtn-' + tab);
+        if (btn) btn.style.display = allowed ? '' : 'none';
+      });
+
+      runInitialLoad_();
+    }
+
+    // لو أي طلب رجع "انتهت صلاحية الجلسة"، نرجّع المستخدم لشاشة الدخول
+    function handleSessionError_(err) {
+      if (String(err.message || '').includes('صلاحية الجلسة') || String(err.message || '').includes('سجّل دخول')) {
+        doLogout();
+        document.getElementById('loginStatus').textContent = 'انتهت الجلسة، سجّل دخول تاني.';
+      }
     }
 
     // ============================================================
@@ -262,10 +451,14 @@
       if (!CONFIG.SCRIPT_URL || CONFIG.SCRIPT_URL.indexOf('PASTE_YOUR') === 0) {
         throw new Error('لازم تحط لينك الـ Apps Script الأول في CONFIG.SCRIPT_URL جوه الكود.');
       }
-      const qs = new URLSearchParams(params).toString();
+      const withToken = Object.assign({}, params, { token: currentSession ? currentSession.token : '' });
+      const qs = new URLSearchParams(withToken).toString();
       const res = await fetch(CONFIG.SCRIPT_URL + '?' + qs);
       const json = await res.json();
-      if (json.status !== 'ok') throw new Error(json.message || 'خطأ غير معروف من السيرفر');
+      if (json.status !== 'ok') {
+        handleSessionError_(new Error(json.message || ''));
+        throw new Error(json.message || 'خطأ غير معروف من السيرفر');
+      }
       return json;
     }
 
@@ -273,6 +466,9 @@
       const json = await callApi_({ action: 'employees' });
       employeesCache = json.employees;
       const sel = document.getElementById('employeeSelect');
+      // نمسح أي خيارات قديمة (غير "كل الموظفين") قبل ما نعيد التعبئة،
+      // عشان لو الدالة دي اتنادت تاني (بعد إضافة موظف) متتكررش الأسماء
+      Array.from(sel.querySelectorAll('option[value]:not([value="all"])')).forEach(o => o.remove());
       json.employees.forEach(emp => {
         const opt = document.createElement('option');
         opt.value = emp.code;
@@ -461,9 +657,13 @@
     // الأصلي (body نصي عادي، عشان نتجنب مشاكل CORS)
     // ============================================================
     async function callApiPost_(payload) {
-      const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const withToken = Object.assign({}, payload, { token: currentSession ? currentSession.token : '' });
+      const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(withToken) });
       const json = await res.json();
-      if (json.status !== 'ok') throw new Error(json.message || 'خطأ غير معروف من السيرفر');
+      if (json.status !== 'ok') {
+        handleSessionError_(new Error(json.message || ''));
+        throw new Error(json.message || 'خطأ غير معروف من السيرفر');
+      }
       return json;
     }
 
@@ -520,8 +720,6 @@
         ['معفى يدويًا؟', emp.exemptManual ? 'نعم' : 'لا'], ['معفى من البصمة (نهائي)', emp.exempt ? 'نعم' : 'لا'],
         ['الجنسية', emp.nationality || '-'], ['رقم التليفون', emp.phone || '-'],
         ['طريقة القبض', emp.paymentMethod || '-'],
-        ['الراتب الأساسي', emp.baseSalary ?? '-'], ['بدل الانتقالات', emp.transportDeduction ?? '-'],
-        ['التأمينات', emp.insuranceDeduction ?? '-'], ['العلاوة السنوية', emp.annualBonus ?? '-'],
         ['استلم أوراقه بعد ترك الخدمة؟', emp.receivedDocumentsAfterEnd ? 'نعم' : 'لا'],
       ];
       html += '<div class="form-grid">';
@@ -579,10 +777,6 @@
       html += f('nationality', 'الجنسية', 'text', emp?.nationality);
       html += f('phone', 'رقم التليفون', 'text', emp?.phone);
       html += f('paymentMethod', 'طريقة القبض', 'text', emp?.paymentMethod);
-      html += f('baseSalary', 'الراتب الأساسي', 'number', emp?.baseSalary);
-      html += f('transportDeduction', 'بدل الانتقالات', 'number', emp?.transportDeduction);
-      html += f('insuranceDeduction', 'التأمينات', 'number', emp?.insuranceDeduction);
-      html += f('annualBonus', 'العلاوة السنوية', 'number', emp?.annualBonus);
       html += `<div><label>معفى يدويًا من البصمة؟</label><select id="empForm_exemptManual">
         <option value="لا" ${emp && !emp.exemptManual ? 'selected' : ''}>لا</option>
         <option value="نعم" ${emp && emp.exemptManual ? 'selected' : ''}>نعم</option></select></div>`;
@@ -614,8 +808,6 @@
         nameAr: val('nameAr'), nameEn: val('nameEn'), dept: val('dept'), jobTitle: val('jobTitle'),
         hireDate: val('hireDate'), endDate: val('endDate'), nationality: val('nationality'),
         phone: val('phone'), paymentMethod: val('paymentMethod'),
-        baseSalary: val('baseSalary'), transportDeduction: val('transportDeduction'),
-        insuranceDeduction: val('insuranceDeduction'), annualBonus: val('annualBonus'),
         exemptManual: val('exemptManual'), receivedDocumentsAfterEnd: val('receivedDocumentsAfterEnd'),
       };
       const reason = val('reason');
@@ -632,6 +824,7 @@
         statusEl.textContent = '✅ تم الحفظ.';
         document.getElementById('employeeFormArea').innerHTML = '';
         await loadEmployeesList();
+        await loadEmployees_(); // نحدّث قائمة الموظفين في تبويب التقارير كمان
         if (code) openEmployeeProfile(code);
       } catch (err) {
         statusEl.textContent = '❌ ' + err.message;
@@ -795,6 +988,152 @@
     }
 
     // ============================================================
+    // قسم: المستندات
+    // ============================================================
+    async function loadDocumentsView() {
+      // تعبئة قائمة الموظفين لو لسه فاضية
+      const sel = document.getElementById('docsEmployeeSelect');
+      if (sel.options.length <= 1 && employeesCache.length > 0) {
+        employeesCache.forEach(emp => {
+          const opt = document.createElement('option');
+          opt.value = emp.code;
+          opt.textContent = emp.nameAr + ' (' + emp.code + ')';
+          sel.appendChild(opt);
+        });
+      }
+      loadDocTypesView();
+    }
+
+    async function loadDocTypesView() {
+      const el = document.getElementById('docTypesArea');
+      const typeSelect = document.getElementById('docForm_type');
+      try {
+        const json = await callApi_({ action: 'documentTypes' });
+        const active = json.types.filter(t => t.active);
+
+        typeSelect.innerHTML = active.map(t => '<option value="' + escapeHtml_(t.name) + '">' + escapeHtml_(t.name) + '</option>').join('');
+
+        let html = '';
+        json.types.forEach(t => {
+          html += '<span class="chip" style="' + (t.active ? '' : 'opacity:0.5') + '">' + escapeHtml_(t.name) +
+            (t.active
+              ? ' <button onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', false)">إيقاف</button>'
+              : ' <button onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', true)">تفعيل</button>') +
+            '</span>';
+        });
+        el.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش أنواع مستندات مسجلة.</p>';
+      } catch (err) {
+        el.textContent = '❌ ' + err.message;
+      }
+    }
+
+    async function addDocType() {
+      const input = document.getElementById('newDocTypeInput');
+      const name = input.value.trim();
+      if (!name) return;
+      try {
+        await callApiPost_({ action: 'documentTypeAdd', name });
+        input.value = '';
+        loadDocTypesView();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    async function toggleDocType(name, active) {
+      try {
+        await callApiPost_({ action: 'documentTypeToggle', name, active });
+        loadDocTypesView();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    async function loadEmployeeDocuments() {
+      const code = document.getElementById('docsEmployeeSelect').value;
+      const statusEl = document.getElementById('docsStatus');
+      const uploadCard = document.getElementById('docsUploadCard');
+
+      if (!code) {
+        document.getElementById('docsListArea').innerHTML = '';
+        uploadCard.style.display = 'none';
+        return;
+      }
+
+      uploadCard.style.display = '';
+      statusEl.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'employeeDocuments', employee: code });
+        statusEl.textContent = '';
+        renderDocumentsList(json.documents);
+      } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+      }
+    }
+
+    function documentStatusClass_(status) {
+      if (status === 'ساري') return 'cell-حضور';
+      if (status === 'قريب الانتهاء') return 'cell-late';
+      if (status === 'منتهي') return 'cell-غياب';
+      if (status === 'ناقص') return 'cell-dash';
+      return '';
+    }
+
+    function renderDocumentsList(docs) {
+      let html = '<div class="table-wrap"><table><thead><tr>' +
+        '<th>نوع المستند</th><th>الحالة</th><th>تاريخ الإصدار</th><th>تاريخ الانتهاء</th><th>الملف</th></tr></thead><tbody>';
+      docs.forEach(d => {
+        html += '<tr><td>' + escapeHtml_(d.type) + '</td>';
+        html += '<td class="' + documentStatusClass_(d.status) + '">' + escapeHtml_(d.status) + '</td>';
+        html += '<td>' + (d.issueDate || '-') + '</td>';
+        html += '<td>' + (d.expiryDate || '-') + '</td>';
+        html += '<td>' + (d.fileLink ? '<a href="' + d.fileLink + '" target="_blank">فتح الملف</a>' : '-') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('docsListArea').innerHTML = html;
+    }
+
+    function fileToBase64_(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]); // نشيل الجزء "data:...;base64,"
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitDocumentUpload() {
+      const statusEl = document.getElementById('docUploadStatus');
+      const code = document.getElementById('docsEmployeeSelect').value;
+      const emp = employeesCache.find(e => e.code === code);
+      const fileInput = document.getElementById('docForm_file');
+      const file = fileInput.files[0];
+
+      if (!code) { statusEl.textContent = '❌ اختار موظف الأول.'; return; }
+      if (!file) { statusEl.textContent = '❌ اختار صورة أو ملف الأول.'; return; }
+
+      statusEl.textContent = 'جاري رفع الملف... ممكن ياخد شوية ثواني حسب حجم الصورة.';
+      try {
+        const base64 = await fileToBase64_(file);
+        await callApiPost_({
+          action: 'documentUpload',
+          data: {
+            code,
+            employeeNameAr: emp ? emp.nameAr : '',
+            type: document.getElementById('docForm_type').value,
+            issueDate: document.getElementById('docForm_issueDate').value,
+            expiryDate: document.getElementById('docForm_expiryDate').value,
+            fileBase64: base64,
+            mimeType: file.type,
+          },
+          user: 'index-user',
+        });
+        statusEl.textContent = '✅ تم رفع المستند وحفظه.';
+        fileInput.value = '';
+        loadEmployeeDocuments();
+      } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+      }
+    }
+
+    // ============================================================
     // قسم: النسخ الاحتياطي
     // ============================================================
     async function backupNow() {
@@ -823,14 +1162,140 @@
     }
 
     // ============================================================
-    // تحميل أولي
+    // قسم: حسابي (تغيير الباسورد)
     // ============================================================
-    (async function init() {
+    async function submitChangePassword() {
+      const statusEl = document.getElementById('accStatus');
+      const oldPassword = document.getElementById('accOldPassword').value;
+      const newPassword = document.getElementById('accNewPassword').value;
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({ action: 'changePassword', oldPassword, newPassword });
+        statusEl.textContent = '✅ اتغيّرت كلمة المرور.';
+        document.getElementById('accOldPassword').value = '';
+        document.getElementById('accNewPassword').value = '';
+      } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+      }
+    }
+
+    // ============================================================
+    // قسم: المستخدمين والصلاحيات (أدمن)
+    // ============================================================
+    async function loadUsersAndRolesView() {
+      await loadRolesView();
+      await loadUsersView();
+    }
+
+    async function loadRolesView() {
+      const el = document.getElementById('rolesArea');
+      const roleSelect = document.getElementById('newUserRole');
+      try {
+        const json = await callApi_({ action: 'roles' });
+        let html = '<div class="table-wrap"><table><thead><tr><th>الصلاحية</th><th>الأقسام</th><th>أدمن؟</th><th>نشط؟</th><th></th></tr></thead><tbody>';
+        json.roles.forEach(r => {
+          html += '<tr><td>' + escapeHtml_(r.name) + '</td><td>' + escapeHtml_(r.sections.join(', ')) + '</td>' +
+            '<td>' + (r.isAdmin ? 'نعم' : 'لا') + '</td><td>' + (r.active ? 'نعم' : 'لا') + '</td>' +
+            '<td>' + (r.active
+              ? '<button class="secondary" onclick="toggleRole(\'' + escapeHtml_(r.name) + '\', false)">إيقاف</button>'
+              : '<button onclick="toggleRole(\'' + escapeHtml_(r.name) + '\', true)">تفعيل</button>') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+
+        roleSelect.innerHTML = json.roles.filter(r => r.active).map(r =>
+          '<option value="' + escapeHtml_(r.name) + '">' + escapeHtml_(r.name) + '</option>').join('');
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    async function addRole() {
+      const statusEl = document.getElementById('roleFormStatus');
+      const name = document.getElementById('newRoleName').value.trim();
+      const sections = document.getElementById('newRoleSections').value.trim();
+      const isAdmin = document.getElementById('newRoleIsAdmin').value === 'true';
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({ action: 'roleAdd', name, sections, isAdmin });
+        statusEl.textContent = '✅ تمت الإضافة.';
+        document.getElementById('newRoleName').value = '';
+        document.getElementById('newRoleSections').value = '';
+        loadRolesView();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function toggleRole(name, active) {
+      try { await callApiPost_({ action: 'roleToggle', name, active }); loadRolesView(); }
+      catch (err) { alert('❌ ' + err.message); }
+    }
+
+    async function loadUsersView() {
+      const el = document.getElementById('usersArea');
+      try {
+        const json = await callApi_({ action: 'users' });
+        let html = '<div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>الصلاحية</th><th>نشط؟</th><th></th></tr></thead><tbody>';
+        json.users.forEach(u => {
+          html += '<tr><td>' + escapeHtml_(u.username) + '</td><td>' + escapeHtml_(u.role) + '</td>' +
+            '<td>' + (u.active ? 'نعم' : 'لا') + '</td>' +
+            '<td>' + (u.active
+              ? '<button class="secondary" onclick="toggleUserAccount(\'' + escapeHtml_(u.username) + '\', false)">إيقاف</button>'
+              : '<button onclick="toggleUserAccount(\'' + escapeHtml_(u.username) + '\', true)">تفعيل</button>') +
+            ' <button class="secondary" onclick="adminResetPassword(\'' + escapeHtml_(u.username) + '\')">تغيير الباسورد</button></td></tr>';
+        });
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    async function addUser() {
+      const statusEl = document.getElementById('userFormStatus');
+      const username = document.getElementById('newUserName').value.trim();
+      const password = document.getElementById('newUserPassword').value;
+      const role = document.getElementById('newUserRole').value;
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({ action: 'userAdd', username, password, role });
+        statusEl.textContent = '✅ تمت الإضافة.';
+        document.getElementById('newUserName').value = '';
+        document.getElementById('newUserPassword').value = '';
+        loadUsersView();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function toggleUserAccount(username, active) {
+      try { await callApiPost_({ action: 'userToggle', username, active }); loadUsersView(); }
+      catch (err) { alert('❌ ' + err.message); }
+    }
+
+    async function adminResetPassword(username) {
+      const newPassword = prompt('كلمة المرور الجديدة لـ "' + username + '" (6 حروف على الأقل):');
+      if (!newPassword) return;
+      try {
+        await callApiPost_({ action: 'adminResetPassword', username, newPassword });
+        alert('✅ اتغيّرت كلمة المرور.');
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ============================================================
+    // تحميل أولي — يشتغل بس بعد نجاح تسجيل الدخول (enterApp_)
+    // ============================================================
+    async function runInitialLoad_() {
       defaultDates_();
       try {
         await loadEmployees_();
       } catch (err) {
         setStatus('❌ ' + err.message, true);
+      }
+    }
+
+    (function initPage() {
+      const saved = localStorage.getItem('ghis_session');
+      if (saved) {
+        try {
+          currentSession = JSON.parse(saved);
+          enterApp_();
+        } catch (e) {
+          localStorage.removeItem('ghis_session');
+        }
       }
     })();
   </script>
