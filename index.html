@@ -131,7 +131,11 @@
     </div>
     <div style="margin-bottom:10px">
       <label>كلمة المرور</label>
-      <input type="password" id="loginPassword" autocomplete="current-password">
+      <div style="position:relative">
+        <input type="password" id="loginPassword" autocomplete="current-password" style="padding-left:36px">
+        <button type="button" onclick="toggleLoginPasswordVisibility()"
+          style="position:absolute;left:4px;top:4px;width:auto;background:none;color:#666;padding:4px 8px;font-size:13px">👁️</button>
+      </div>
     </div>
     <button onclick="doLogin()">دخول</button>
     <div id="loginStatus" style="font-size:13px;color:#b00000;margin-top:8px;"></div>
@@ -485,6 +489,11 @@
     // ============================================================
     // تسجيل الدخول / الخروج
     // ============================================================
+    function toggleLoginPasswordVisibility() {
+      const input = document.getElementById('loginPassword');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
     async function doLogin() {
       const username = document.getElementById('loginUsername').value.trim();
       const password = document.getElementById('loginPassword').value;
