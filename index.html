@@ -1139,15 +1139,78 @@
           html += '<td>' + (t.hasExpiry ? 'نعم' : 'لا') + '</td>';
           html += '<td>' + t.alertDays + ' يوم</td>';
           html += '<td>' + (t.active ? 'نعم' : 'لا') + '</td>';
-          html += '<td>' + (t.active
+          html += '<td style="white-space:nowrap">';
+          html += '<button class="secondary" onclick="openEditDocTypeForm(\'' + escapeHtml_(t.name) + '\')">تعديل</button> ';
+          html += (t.active
             ? '<button class="secondary" onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', false)">إيقاف</button>'
-            : '<button onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', true)">تفعيل</button>') + '</td>';
+            : '<button onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', true)">تفعيل</button>');
+          html += '</td>';
           html += '</tr>';
         });
         html += '</tbody></table></div>';
+        html += '<div id="editDocTypeFormArea"></div>';
         el.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش أنواع مستندات مسجلة.</p>';
       } catch (err) {
         el.textContent = '❌ ' + err.message;
+      }
+    }
+
+    // فورم تعديل إعدادات نوع موجود (له رقم؟/مطلوب؟/له انتهاء؟/مدة
+    // التنبيه) — بيستخدم نفس الـ action الموجود بالفعل في Code.gs
+    // (documentTypeUpdate)، مفيش أي تعديل على الباك إند خالص
+    function openEditDocTypeForm(name) {
+      const t = docTypesCache.find(x => x.name === name);
+      if (!t) return;
+
+      const html = `
+        <div class="card" style="margin-top:10px;border:1px solid #123166">
+          <h3 style="font-size:14px;margin:0 0 10px">تعديل: ${escapeHtml_(name)}</h3>
+          <div class="form-grid">
+            <div><label>له رقم؟</label>
+              <select id="editDocType_hasNumber">
+                <option value="false" ${!t.hasNumber ? 'selected' : ''}>لا</option>
+                <option value="true" ${t.hasNumber ? 'selected' : ''}>نعم</option>
+              </select></div>
+            <div><label>مطلوب؟</label>
+              <select id="editDocType_required">
+                <option value="true" ${t.required ? 'selected' : ''}>نعم</option>
+                <option value="false" ${!t.required ? 'selected' : ''}>لا</option>
+              </select></div>
+            <div><label>له تاريخ انتهاء؟</label>
+              <select id="editDocType_hasExpiry">
+                <option value="false" ${!t.hasExpiry ? 'selected' : ''}>لا</option>
+                <option value="true" ${t.hasExpiry ? 'selected' : ''}>نعم</option>
+              </select></div>
+            <div><label>مدة التنبيه (أيام)</label>
+              <input type="number" id="editDocType_alertDays" value="${t.alertDays}"></div>
+          </div>
+          <div class="form-actions">
+            <button onclick="submitEditDocType('${escapeHtml_(name).replace(/'/g, "\\'")}')">حفظ</button>
+            <button class="secondary" onclick="document.getElementById('editDocTypeFormArea').innerHTML=''">إلغاء</button>
+          </div>
+          <div id="editDocTypeStatus" style="font-size:13px;margin-top:8px;"></div>
+        </div>`;
+      document.getElementById('editDocTypeFormArea').innerHTML = html;
+    }
+
+    async function submitEditDocType(name) {
+      const statusEl = document.getElementById('editDocTypeStatus');
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({
+          action: 'documentTypeUpdate',
+          data: {
+            name,
+            hasNumber: document.getElementById('editDocType_hasNumber').value === 'true',
+            required: document.getElementById('editDocType_required').value === 'true',
+            hasExpiry: document.getElementById('editDocType_hasExpiry').value === 'true',
+            alertDays: document.getElementById('editDocType_alertDays').value,
+          },
+        });
+        statusEl.textContent = '✅ تم الحفظ.';
+        loadDocTypesView();
+      } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
       }
     }
 
