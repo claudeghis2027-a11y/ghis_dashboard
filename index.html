@@ -233,71 +233,171 @@
 
   <!-- ============== قسم المستندات ============== -->
   <div id="view-documents" class="view" style="display:none">
-    <div class="card">
-      <h2>مستندات الموظفين</h2>
-      <div class="filters">
-        <div style="flex:1">
-          <label>اختار الموظف</label>
-          <select id="docsEmployeeSelect" onchange="loadEmployeeDocuments()">
-            <option value="">-- اختار موظف --</option>
-          </select>
-        </div>
-      </div>
-      <div id="docsStatus" style="font-size:13px;color:#555;margin:8px 0;"></div>
-      <div id="docsListArea"></div>
+    <div class="tabbar" style="margin-bottom:10px">
+      <button class="tab-btn active" id="docsSubTab-employee" onclick="switchDocsSubView('employee')">مستندات موظف</button>
+      <button class="tab-btn" id="docsSubTab-missing" onclick="switchDocsSubView('missing')">الناقص لهم مستندات</button>
+      <button class="tab-btn" id="docsSubTab-expiry" onclick="switchDocsSubView('expiry')">قربت تنتهي</button>
+      <button class="tab-btn" id="docsSubTab-bytype" onclick="switchDocsSubView('bytype')">تقرير حسب النوع</button>
+      <button class="tab-btn" id="docsSubTab-types" onclick="switchDocsSubView('types')">إدارة الأنواع</button>
     </div>
 
-    <div class="card" id="docsUploadCard" style="display:none">
-      <h2>رفع مستند جديد</h2>
-      <div class="form-grid">
-        <div>
-          <label>نوع المستند</label>
-          <select id="docForm_type"></select>
+    <!-- مستندات موظف -->
+    <div id="docsSub-employee" class="docs-sub">
+      <div class="card">
+        <h2>مستندات الموظفين</h2>
+        <div class="filters">
+          <div style="flex:1">
+            <label>اختار الموظف (بالاسم أو الكود)</label>
+            <select id="docsEmployeeSelect" onchange="loadEmployeeDocuments()">
+              <option value="">-- اختار موظف --</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label>تاريخ الإصدار (اختياري)</label>
-          <input type="date" id="docForm_issueDate">
-        </div>
-        <div>
-          <label>تاريخ الانتهاء (اختياري — سيبه فاضي لو بلا انتهاء)</label>
-          <input type="date" id="docForm_expiryDate">
-        </div>
-        <div>
-          <label>صوّر بالكاميرا أو ارفع ملف (صورة أو PDF)</label>
-          <input type="file" id="docForm_file" accept="image/*,application/pdf" capture="environment">
-        </div>
+        <div id="docsStatus" style="font-size:13px;color:#555;margin:8px 0;"></div>
+        <div id="docsListArea"></div>
       </div>
-      <div class="form-actions">
-        <button onclick="submitDocumentUpload()">📤 رفع وحفظ</button>
+
+      <div class="card" id="docsUploadCard" style="display:none">
+        <h2>إضافة مستند جديد</h2>
+        <div class="form-grid">
+          <div>
+            <label>نوع المستند</label>
+            <select id="docForm_type" onchange="onDocTypeChange()"></select>
+          </div>
+          <div id="docForm_numberWrap" style="display:none">
+            <label>رقم المستند *</label>
+            <input type="text" id="docForm_number">
+          </div>
+          <div>
+            <label>أصل أم صورة؟</label>
+            <select id="docForm_copyType">
+              <option value="أصل">أصل</option>
+              <option value="صورة">صورة</option>
+            </select>
+          </div>
+          <div>
+            <label>تاريخ الإصدار (اختياري)</label>
+            <input type="date" id="docForm_issueDate">
+          </div>
+          <div id="docForm_expiryWrap" style="display:none">
+            <label>تاريخ الانتهاء</label>
+            <input type="date" id="docForm_expiryDate">
+          </div>
+          <div>
+            <label>صوّر بالكاميرا أو ارفع ملف (صورة أو PDF)</label>
+            <input type="file" id="docForm_file" accept="image/*,application/pdf" capture="environment">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button onclick="submitDocumentUpload(false)">📤 رفع وحفظ</button>
+        </div>
+        <div id="docUploadStatus" style="font-size:13px;margin-top:8px;"></div>
       </div>
-      <div id="docUploadStatus" style="font-size:13px;margin-top:8px;"></div>
     </div>
 
-    <div class="card">
-      <h2>إدارة أنواع المستندات</h2>
-      <div id="docTypesArea"></div>
-      <div class="filters" style="margin-top:10px">
-        <div style="flex:1"><input type="text" id="newDocTypeInput" placeholder="اسم نوع مستند جديد"></div>
-        <div><button onclick="addDocType()">+ إضافة نوع</button></div>
+    <!-- تقرير الناقص لهم مستندات -->
+    <div id="docsSub-missing" class="docs-sub" style="display:none">
+      <div class="card">
+        <h2>الموظفون الناقص لهم مستندات</h2>
+        <div class="filters">
+          <div style="flex:1"><input type="text" id="missingSearchInput" oninput="renderMissingReport()" placeholder="بحث بالاسم أو الكود..."></div>
+          <div><button class="secondary" onclick="loadMissingReport()">🔄 تحديث</button></div>
+        </div>
+        <div id="missingReportArea"></div>
+      </div>
+    </div>
+
+    <!-- تقرير القريب من الانتهاء -->
+    <div id="docsSub-expiry" class="docs-sub" style="display:none">
+      <div class="card">
+        <h2>المستندات قربت تنتهي</h2>
+        <button class="secondary" onclick="loadExpiryReport()">🔄 تحديث</button>
+        <div id="expiryReportArea"></div>
+      </div>
+    </div>
+
+    <!-- تقرير حسب النوع -->
+    <div id="docsSub-bytype" class="docs-sub" style="display:none">
+      <div class="card">
+        <h2>تقرير حسب نوع المستند</h2>
+        <div class="filters">
+          <div style="flex:1">
+            <label>اختار نوع المستند</label>
+            <select id="byTypeSelect" onchange="loadByTypeReport()"></select>
+          </div>
+        </div>
+        <div id="byTypeReportArea"></div>
+      </div>
+    </div>
+
+    <!-- إدارة أنواع المستندات -->
+    <div id="docsSub-types" class="docs-sub" style="display:none">
+      <div class="card">
+        <h2>إدارة أنواع المستندات</h2>
+        <div id="docTypesArea"></div>
+        <h3 style="font-size:14px;margin-top:16px">إضافة نوع جديد</h3>
+        <div class="form-grid">
+          <div><label>اسم النوع</label><input type="text" id="newDocType_name"></div>
+          <div><label>له رقم؟</label><select id="newDocType_hasNumber"><option value="false">لا</option><option value="true">نعم</option></select></div>
+          <div><label>مطلوب؟</label><select id="newDocType_required"><option value="true">نعم</option><option value="false">لا</option></select></div>
+          <div><label>له تاريخ انتهاء؟</label><select id="newDocType_hasExpiry"><option value="false">لا</option><option value="true">نعم</option></select></div>
+          <div><label>مدة التنبيه (أيام)</label><input type="number" id="newDocType_alertDays" value="30"></div>
+        </div>
+        <button onclick="addDocType()">+ إضافة نوع</button>
+        <div id="docTypeFormStatus" style="font-size:13px;margin-top:6px;"></div>
       </div>
     </div>
   </div>
 
-  <!-- ============== 4) قسم النسخ الاحتياطي ============== -->
+  <!-- ============== 4) قسم النسخ الاحتياطي والاستعادة ============== -->
   <div id="view-backup" class="view" style="display:none">
     <div class="card">
-      <h2>نسخة احتياطية كاملة من البيانات</h2>
+      <h2>إنشاء نسخة احتياطية</h2>
       <p style="font-size:13px;color:#555">
-        بتاخد نسخة من كل بيانات النظام (الموظفين، الحضور، القواعد، المستندات، حركات المرتب، الإعدادات)
-        وتنزّلها كملف واحد على جهازك. الملف بصيغة JSON — تقدر تفتحه بأي محرر نصوص للمراجعة،
-        وهو المصدر اللي هيتستخدم لاحقًا لو احتجت Restore.
+        بتاخد نسخة كاملة من كل بيانات النظام (الموظفين، الحضور، القواعد، المستندات، حركات المرتب،
+        المستخدمين والصلاحيات، الإعدادات) وتحفظها في Drive برقم نسخة جديد — من غير ما تستبدل أي
+        نسخة قديمة أبدًا.
       </p>
-      <p style="font-size:12px;color:#b00000">
-        ⚠️ ده Backup لبيانات الشيتات بس (نصوص/أرقام/تواريخ). لو مستندات فعلية (PDF/صور) اتخزنت على
-        Google Drive لاحقًا، الملفات دي ليها Backup منفصل — الرابط بيتحفظ هنا، لكن الملف نفسه لأ.
-      </p>
-      <button onclick="backupNow()">💾 Backup Now</button>
+      <div class="filters">
+        <div style="flex:1"><input type="text" id="backupDescInput" placeholder="وصف النسخة (اختياري)"></div>
+        <div><button onclick="backupNow()">💾 Backup Now</button></div>
+      </div>
       <div id="backupStatus" style="font-size:13px;color:#555;margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>رفع نسخة احتياطية من الجهاز</h2>
+      <div class="filters">
+        <div style="flex:1"><input type="file" id="backupUploadFile" accept="application/json"></div>
+        <div><button class="secondary" onclick="uploadBackupFile()">⬆️ رفع</button></div>
+      </div>
+      <div id="backupUploadStatus" style="font-size:13px;margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>سجل النسخ الاحتياطية</h2>
+      <button class="secondary" onclick="loadBackupsList()">🔄 تحديث القائمة</button>
+      <div id="backupsListArea"></div>
+    </div>
+
+    <div class="card">
+      <h2>إعدادات الباكب المتقدمة (كود Code.gs + index.html)</h2>
+      <p style="font-size:12px;color:#777">
+        عشان الباكب يقدر يحفظ الكود نفسه: (1) فعّل "Google Apps Script API" من
+        <a href="https://script.google.com/home/usersettings" target="_blank">إعدادات حسابك</a> مرة واحدة،
+        و(2) ضيف صلاحية <code>script.projects</code> في appsscript.json (اسأل لو محتاج التعليمات بالتفصيل).
+        استرجاع index.html أوتوماتيك اختياري ومحتاج GitHub Token — لو مش متسجل، هتاخد الملف جاهز تنزّله وترفعه يدوي.
+      </p>
+      <div class="form-grid">
+        <div><label>رابط index.html الخام على GitHub (Raw)</label>
+          <input type="text" id="cfg_githubIndexRawUrl" placeholder="https://raw.githubusercontent.com/USER/REPO/main/index.html"></div>
+        <div><label>رابط GitHub Contents API (لرفع تلقائي عند الاسترجاع — اختياري)</label>
+          <input type="text" id="cfg_githubContentsApiUrl" placeholder="https://api.github.com/repos/USER/REPO/contents/index.html"></div>
+        <div><label>GitHub Token (اختياري — بيتسجل بس، مش هيتعرض تاني)</label>
+          <input type="password" id="cfg_githubToken" placeholder="اسيبها فاضية لو مش عايز تغيّرها"></div>
+      </div>
+      <button onclick="saveBackupConfig()">حفظ الإعدادات</button>
+      <div id="backupConfigStatus" style="font-size:13px;margin-top:8px;"></div>
     </div>
   </div>
 
@@ -306,13 +406,16 @@
     <div class="card">
       <h2>مستويات الصلاحيات</h2>
       <p style="font-size:12px;color:#777">
-        عرّف أي عدد صلاحيات تحبه، وحدد لكل واحدة الأقسام المسموحة (من: reports, employees, rules,
-        salary, documents, backup, users). "أدمن؟ = نعم" معناها وصول كامل تلقائيًا لكل الأقسام.
+        عرّف أي عدد صلاحيات تحبه، وحدد لكل واحدة الأقسام المسموحة. الأقسام المتاحة:<br>
+        reports, employees, rules, salary, users<br>
+        مستندات (دقيق): docs_view, docs_add, docs_edit, docs_delete, docs_types_manage, docs_reports<br>
+        نسخ احتياطي (دقيق): backup_create, backup_restore, backup_upload, backup_view<br>
+        "أدمن؟ = نعم" معناها وصول كامل تلقائيًا لكل حاجة من غير ما تكتب الأقسام.
       </p>
       <div id="rolesArea"></div>
       <div class="form-grid" style="margin-top:10px">
         <div><label>اسم الصلاحية</label><input type="text" id="newRoleName"></div>
-        <div><label>الأقسام (مفصولة بفاصلة)</label><input type="text" id="newRoleSections" placeholder="reports,employees"></div>
+        <div><label>الأقسام (مفصولة بفاصلة)</label><input type="text" id="newRoleSections" placeholder="reports,employees,docs_view"></div>
         <div><label>أدمن؟</label><select id="newRoleIsAdmin"><option value="false">لا</option><option value="true">نعم</option></select></div>
       </div>
       <button onclick="addRole()">+ إضافة صلاحية</button>
@@ -350,7 +453,7 @@
     // حط هنا لينك الـ Web App بتاع Code.gs (GHIS) بعد النشر.
     // ============================================================
     const CONFIG = {
-      SCRIPT_URL: "https://script.google.com/macros/s/AKfycbw4KU5le-DpHXoozVnrOrL9F2EIJeU8vFOkFtMqxG8_PxxJQavvhnh2jwCsDgYPbTxykQ/exec",
+      SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxocwd1DlqcyJISU1L-NjoSoyAai8SItX-ySWOdyEup3fahzz6DU-Xk-rvzSTsfBON8hQ/exec",
     };
 
     // ============================================================
@@ -366,6 +469,7 @@
       if (name === 'rules') loadRulesViews();
       if (name === 'documents') loadDocumentsView();
       if (name === 'users') loadUsersAndRolesView();
+      if (name === 'backup') { loadBackupsList(); loadBackupConfig(); }
     }
 
     let employeesCache = [];
@@ -990,8 +1094,19 @@
     // ============================================================
     // قسم: المستندات
     // ============================================================
+    let docTypesCache = [];
+
+    function switchDocsSubView(name) {
+      ['employee', 'missing', 'expiry', 'bytype', 'types'].forEach(v => {
+        document.getElementById('docsSub-' + v).style.display = (v === name) ? '' : 'none';
+        document.getElementById('docsSubTab-' + v).classList.toggle('active', v === name);
+      });
+      if (name === 'missing') loadMissingReport();
+      if (name === 'expiry') loadExpiryReport();
+      if (name === 'bytype') loadByTypeTypesList_();
+    }
+
     async function loadDocumentsView() {
-      // تعبئة قائمة الموظفين لو لسه فاضية
       const sel = document.getElementById('docsEmployeeSelect');
       if (sel.options.length <= 1 && employeesCache.length > 0) {
         employeesCache.forEach(emp => {
@@ -1001,7 +1116,7 @@
           sel.appendChild(opt);
         });
       }
-      loadDocTypesView();
+      await loadDocTypesView();
     }
 
     async function loadDocTypesView() {
@@ -1009,33 +1124,59 @@
       const typeSelect = document.getElementById('docForm_type');
       try {
         const json = await callApi_({ action: 'documentTypes' });
+        docTypesCache = json.types;
         const active = json.types.filter(t => t.active);
 
         typeSelect.innerHTML = active.map(t => '<option value="' + escapeHtml_(t.name) + '">' + escapeHtml_(t.name) + '</option>').join('');
+        onDocTypeChange();
 
-        let html = '';
+        let html = '<div class="table-wrap"><table><thead><tr><th>النوع</th><th>له رقم؟</th><th>مطلوب؟</th><th>له انتهاء؟</th><th>مدة التنبيه</th><th>نشط؟</th><th></th></tr></thead><tbody>';
         json.types.forEach(t => {
-          html += '<span class="chip" style="' + (t.active ? '' : 'opacity:0.5') + '">' + escapeHtml_(t.name) +
-            (t.active
-              ? ' <button onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', false)">إيقاف</button>'
-              : ' <button onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', true)">تفعيل</button>') +
-            '</span>';
+          html += '<tr' + (t.active ? '' : ' style="opacity:0.5"') + '>';
+          html += '<td style="text-align:right">' + escapeHtml_(t.name) + '</td>';
+          html += '<td>' + (t.hasNumber ? 'نعم' : 'لا') + '</td>';
+          html += '<td>' + (t.required ? 'نعم' : 'لا') + '</td>';
+          html += '<td>' + (t.hasExpiry ? 'نعم' : 'لا') + '</td>';
+          html += '<td>' + t.alertDays + ' يوم</td>';
+          html += '<td>' + (t.active ? 'نعم' : 'لا') + '</td>';
+          html += '<td>' + (t.active
+            ? '<button class="secondary" onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', false)">إيقاف</button>'
+            : '<button onclick="toggleDocType(\'' + escapeHtml_(t.name) + '\', true)">تفعيل</button>') + '</td>';
+          html += '</tr>';
         });
+        html += '</tbody></table></div>';
         el.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش أنواع مستندات مسجلة.</p>';
       } catch (err) {
         el.textContent = '❌ ' + err.message;
       }
     }
 
+    function onDocTypeChange() {
+      const typeName = document.getElementById('docForm_type').value;
+      const typeDef = docTypesCache.find(t => t.name === typeName);
+      document.getElementById('docForm_numberWrap').style.display = (typeDef && typeDef.hasNumber) ? '' : 'none';
+      document.getElementById('docForm_expiryWrap').style.display = (typeDef && typeDef.hasExpiry) ? '' : 'none';
+    }
+
     async function addDocType() {
-      const input = document.getElementById('newDocTypeInput');
-      const name = input.value.trim();
-      if (!name) return;
+      const statusEl = document.getElementById('docTypeFormStatus');
+      const name = document.getElementById('newDocType_name').value.trim();
+      if (!name) { statusEl.textContent = '❌ اكتب اسم النوع.'; return; }
       try {
-        await callApiPost_({ action: 'documentTypeAdd', name });
-        input.value = '';
+        await callApiPost_({
+          action: 'documentTypeAdd',
+          data: {
+            name,
+            hasNumber: document.getElementById('newDocType_hasNumber').value === 'true',
+            required: document.getElementById('newDocType_required').value === 'true',
+            hasExpiry: document.getElementById('newDocType_hasExpiry').value === 'true',
+            alertDays: document.getElementById('newDocType_alertDays').value,
+          },
+        });
+        statusEl.textContent = '✅ تمت الإضافة.';
+        document.getElementById('newDocType_name').value = '';
         loadDocTypesView();
-      } catch (err) { alert('❌ ' + err.message); }
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
     }
 
     async function toggleDocType(name, active) {
@@ -1076,61 +1217,176 @@
     }
 
     function renderDocumentsList(docs) {
+      const code = document.getElementById('docsEmployeeSelect').value;
       let html = '<div class="table-wrap"><table><thead><tr>' +
-        '<th>نوع المستند</th><th>الحالة</th><th>تاريخ الإصدار</th><th>تاريخ الانتهاء</th><th>الملف</th></tr></thead><tbody>';
+        '<th>نوع المستند</th><th>الحالة</th><th>رقم المستند</th><th>أصل/صورة</th>' +
+        '<th>تاريخ الإصدار</th><th>تاريخ الانتهاء</th><th>الملف</th><th></th></tr></thead><tbody>';
       docs.forEach(d => {
-        html += '<tr><td>' + escapeHtml_(d.type) + '</td>';
+        html += '<tr><td style="text-align:right">' + escapeHtml_(d.type) + '</td>';
         html += '<td class="' + documentStatusClass_(d.status) + '">' + escapeHtml_(d.status) + '</td>';
+        html += '<td>' + escapeHtml_(d.documentNumber || '-') + '</td>';
+        html += '<td>' + escapeHtml_(d.copyType || '-') + '</td>';
         html += '<td>' + (d.issueDate || '-') + '</td>';
         html += '<td>' + (d.expiryDate || '-') + '</td>';
-        html += '<td>' + (d.fileLink ? '<a href="' + d.fileLink + '" target="_blank">فتح الملف</a>' : '-') + '</td>';
+        html += '<td>' + (d.hasFile
+          ? '<button class="link-btn" onclick="openDocumentFile(\'' + d.driveFileId + '\')">فتح الملف</button>'
+          : '-') + '</td>';
+        html += '<td>' + (d.hasFile
+          ? '<button class="secondary" onclick="deleteDocument(\'' + code + '\',\'' + escapeHtml_(d.type) + '\')">حذف</button>'
+          : '') + '</td>';
         html += '</tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('docsListArea').innerHTML = html;
     }
 
+    // فتح الملف عن طريق الـ API (proxy) — الملف نفسه خاص تمامًا على
+    // Drive، وبيتفتح بس من خلال النظام بعد التحقق من صلاحيتك
+    async function openDocumentFile(fileId) {
+      try {
+        const json = await callApi_({ action: 'documentDownload', fileId });
+        const byteChars = atob(json.file.base64);
+        const byteNumbers = new Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([new Uint8Array(byteNumbers)], { type: json.file.mimeType });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    async function deleteDocument(code, type) {
+      if (!confirm('متأكد إنك عايز تمسح "' + type + '"؟ (السجل التاريخي هيفضل محفوظ، بس المستند هيرجع "ناقص")')) return;
+      try {
+        await callApiPost_({ action: 'documentDelete', code, type });
+        loadEmployeeDocuments();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
     function fileToBase64_(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]); // نشيل الجزء "data:...;base64,"
+        reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
 
-    async function submitDocumentUpload() {
+    async function submitDocumentUpload(confirmDuplicate) {
       const statusEl = document.getElementById('docUploadStatus');
       const code = document.getElementById('docsEmployeeSelect').value;
       const emp = employeesCache.find(e => e.code === code);
       const fileInput = document.getElementById('docForm_file');
       const file = fileInput.files[0];
+      const type = document.getElementById('docForm_type').value;
+      const typeDef = docTypesCache.find(t => t.name === type);
 
       if (!code) { statusEl.textContent = '❌ اختار موظف الأول.'; return; }
-      if (!file) { statusEl.textContent = '❌ اختار صورة أو ملف الأول.'; return; }
+      if (typeDef && typeDef.hasNumber && !document.getElementById('docForm_number').value.trim()) {
+        statusEl.textContent = '❌ رقم المستند إلزامي لنوع "' + type + '".'; return;
+      }
 
-      statusEl.textContent = 'جاري رفع الملف... ممكن ياخد شوية ثواني حسب حجم الصورة.';
+      statusEl.textContent = 'جاري الحفظ...';
       try {
-        const base64 = await fileToBase64_(file);
-        await callApiPost_({
-          action: 'documentUpload',
-          data: {
-            code,
-            employeeNameAr: emp ? emp.nameAr : '',
-            type: document.getElementById('docForm_type').value,
-            issueDate: document.getElementById('docForm_issueDate').value,
-            expiryDate: document.getElementById('docForm_expiryDate').value,
-            fileBase64: base64,
-            mimeType: file.type,
-          },
-          user: 'index-user',
-        });
-        statusEl.textContent = '✅ تم رفع المستند وحفظه.';
+        const payload = {
+          code, employeeNameAr: emp ? emp.nameAr : '', type,
+          documentNumber: document.getElementById('docForm_number').value.trim(),
+          copyType: document.getElementById('docForm_copyType').value,
+          issueDate: document.getElementById('docForm_issueDate').value,
+          expiryDate: document.getElementById('docForm_expiryDate').value,
+          confirmDuplicate: !!confirmDuplicate,
+        };
+        if (file) {
+          statusEl.textContent = 'جاري رفع الملف... ممكن ياخد شوية ثواني حسب حجم الصورة.';
+          payload.fileBase64 = await fileToBase64_(file);
+          payload.mimeType = file.type;
+        }
+        await callApiPost_({ action: 'documentUpload', data: payload, user: currentSession.username });
+        statusEl.textContent = '✅ تم الحفظ.';
         fileInput.value = '';
+        document.getElementById('docForm_number').value = '';
         loadEmployeeDocuments();
       } catch (err) {
-        statusEl.textContent = '❌ ' + err.message;
+        if (err.message.startsWith('DUPLICATE:')) {
+          if (confirm(err.message.replace('DUPLICATE:', '') + '\n\nتحب تكمل وتضيف نسخة جديدة؟')) {
+            submitDocumentUpload(true);
+            return;
+          }
+          statusEl.textContent = 'اتلغى — المستند موجود بالفعل.';
+        } else {
+          statusEl.textContent = '❌ ' + err.message;
+        }
       }
+    }
+
+    // ---- تقرير الناقص لهم مستندات ----
+    let missingReportCache = [];
+    async function loadMissingReport() {
+      const el = document.getElementById('missingReportArea');
+      el.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'missingDocumentsReport' });
+        missingReportCache = json.rows;
+        renderMissingReport();
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+    function renderMissingReport() {
+      const q = (document.getElementById('missingSearchInput').value || '').trim().toLowerCase();
+      const rows = missingReportCache.filter(r => !q || r.nameAr.toLowerCase().includes(q) || r.code.toLowerCase().includes(q));
+      let html = '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>عدد الناقص</th><th>الأنواع الناقصة</th></tr></thead><tbody>';
+      rows.forEach(r => {
+        html += '<tr><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
+          '<td>' + escapeHtml_(r.status) + '</td><td>' + r.missingCount + '</td>' +
+          '<td style="text-align:right">' + escapeHtml_(r.missingTypes.join('، ')) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('missingReportArea').innerHTML = html || '<p style="font-size:13px;color:#777">مفيش موظفين ناقصهم مستندات 🎉</p>';
+    }
+
+    // ---- تقرير قربت تنتهي ----
+    async function loadExpiryReport() {
+      const el = document.getElementById('expiryReportArea');
+      el.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'nearExpiryDocumentsReport' });
+        let html = '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>النوع</th><th>الرقم</th><th>الانتهاء</th><th>الأيام المتبقية</th><th>الحالة</th></tr></thead><tbody>';
+        json.rows.forEach(r => {
+          html += '<tr class="' + documentStatusClass_(r.status) + '"><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
+            '<td>' + escapeHtml_(r.type) + '</td><td>' + escapeHtml_(r.documentNumber || '-') + '</td>' +
+            '<td>' + (r.expiryDate || '-') + '</td><td>' + (r.daysLeft ?? '-') + '</td><td>' + escapeHtml_(r.status) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        el.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش مستندات قربت تنتهي 🎉</p>';
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    // ---- تقرير حسب النوع ----
+    async function loadByTypeTypesList_() {
+      const sel = document.getElementById('byTypeSelect');
+      if (sel.options.length > 0) return;
+      try {
+        const json = await callApi_({ action: 'documentTypes' });
+        sel.innerHTML = json.types.filter(t => t.active).map(t =>
+          '<option value="' + escapeHtml_(t.name) + '">' + escapeHtml_(t.name) + '</option>').join('');
+        loadByTypeReport();
+      } catch (err) { document.getElementById('byTypeReportArea').textContent = '❌ ' + err.message; }
+    }
+    async function loadByTypeReport() {
+      const type = document.getElementById('byTypeSelect').value;
+      const el = document.getElementById('byTypeReportArea');
+      if (!type) return;
+      el.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'documentsByType', type });
+        const icon = s => s === 'ساري' ? '✅' : s === 'قريب الانتهاء' ? '🟡' : s === 'منتهي' ? '🔴' : '❌';
+        let html = '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>الرقم</th><th>الانتهاء</th></tr></thead><tbody>';
+        json.rows.forEach(r => {
+          html += '<tr><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
+            '<td>' + icon(r.status) + ' ' + escapeHtml_(r.status) + '</td><td>' + escapeHtml_(r.documentNumber || '-') + '</td>' +
+            '<td>' + (r.expiryDate || '-') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+      } catch (err) { el.textContent = '❌ ' + err.message; }
     }
 
     // ============================================================
@@ -1138,9 +1394,12 @@
     // ============================================================
     async function backupNow() {
       const statusEl = document.getElementById('backupStatus');
-      statusEl.textContent = 'جاري تجهيز النسخة الاحتياطية... ممكن ياخد شوية ثواني حسب حجم البيانات.';
+      const description = document.getElementById('backupDescInput').value.trim();
+      statusEl.textContent = 'جاري إنشاء النسخة الاحتياطية... ممكن ياخد شوية ثواني حسب حجم البيانات.';
       try {
-        const json = await callApi_({ action: 'backupNow' });
+        const json = await callApi_({ action: 'backupNow', description });
+        // ننزّل نسخة فورية على الجهاز كمان (بالإضافة لحفظها في Drive
+        // وتسجيلها في السجل تلقائيًا)
         const blob = new Blob([JSON.stringify(json.backup, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1151,13 +1410,140 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        let msg = '✅ تم إنشاء وتنزيل: ' + json.fileName + '.json';
+        let msg = '✅ تم إنشاء نسخة رقم ' + json.version + ' وحفظها + تنزيلها.';
         if (json.backup.missingSheets && json.backup.missingSheets.length > 0) {
-          msg += '\n⚠️ ملحوظة: الشيتات دي مش موجودة فمتضمنتش في الباكب: ' + json.backup.missingSheets.join('، ');
+          msg += '\n⚠️ شيتات مش موجودة فمتضمنتش: ' + json.backup.missingSheets.join('، ');
         }
         statusEl.textContent = msg;
+        document.getElementById('backupDescInput').value = '';
+        loadBackupsList();
       } catch (err) {
         statusEl.textContent = '❌ ' + err.message;
+      }
+    }
+
+    async function loadBackupConfig() {
+      try {
+        const json = await callApi_({ action: 'backupConfigGet' });
+        document.getElementById('cfg_githubIndexRawUrl').value = json.config.githubIndexRawUrl || '';
+        document.getElementById('cfg_githubContentsApiUrl').value = json.config.githubContentsApiUrl || '';
+        document.getElementById('cfg_githubToken').placeholder = json.config.githubTokenSet
+          ? 'محفوظ بالفعل — اسيبها فاضية لو مش عايز تغيّرها' : 'مش متسجل';
+      } catch (err) { /* لو مالوش صلاحية، نتجاهل بهدوء */ }
+    }
+
+    async function saveBackupConfig() {
+      const statusEl = document.getElementById('backupConfigStatus');
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({
+          action: 'backupConfigSet',
+          data: {
+            githubIndexRawUrl: document.getElementById('cfg_githubIndexRawUrl').value.trim(),
+            githubContentsApiUrl: document.getElementById('cfg_githubContentsApiUrl').value.trim(),
+            githubToken: document.getElementById('cfg_githubToken').value.trim(),
+          },
+        });
+        statusEl.textContent = '✅ اتحفظت.';
+        document.getElementById('cfg_githubToken').value = '';
+        loadBackupConfig();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function loadBackupsList() {
+      const el = document.getElementById('backupsListArea');
+      el.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'backupList' });
+        if (json.backups.length === 0) { el.innerHTML = '<p style="font-size:13px;color:#777">مفيش نسخ محفوظة لسه.</p>'; return; }
+        let html = '<div class="table-wrap"><table><thead><tr><th>رقم</th><th>التاريخ</th><th>الوصف</th><th>المصدر</th><th>الحجم</th><th>المستخدم</th><th></th></tr></thead><tbody>';
+        json.backups.forEach(b => {
+          html += '<tr><td>' + b.version + '</td><td>' + b.timestamp + '</td>' +
+            '<td style="text-align:right">' + escapeHtml_(b.description || '-') + '</td>' +
+            '<td>' + escapeHtml_(b.source) + '</td><td>' + escapeHtml_(b.sizeLabel) + '</td>' +
+            '<td>' + escapeHtml_(b.user || '-') + '</td>';
+          html += '<td>' +
+            '<button class="secondary" onclick="downloadBackupVersion(\'' + b.fileId + '\')">تنزيل</button> ' +
+            '<button style="background:#c0392b" onclick="restoreBackupVersion(\'' + b.fileId + '\', ' + b.version + ')">استرجاع</button>' +
+            '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    async function downloadBackupVersion(fileId) {
+      try {
+        const json = await callApi_({ action: 'backupDownload', fileId });
+        const blob = new Blob([json.result.content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = json.result.fileName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    async function uploadBackupFile() {
+      const statusEl = document.getElementById('backupUploadStatus');
+      const fileInput = document.getElementById('backupUploadFile');
+      const file = fileInput.files[0];
+      if (!file) { statusEl.textContent = '❌ اختار ملف الأول.'; return; }
+
+      statusEl.textContent = 'جاري الرفع والتحقق...';
+      try {
+        const text = await file.text();
+        const json = await callApiPost_({ action: 'backupUpload', jsonText: text, description: file.name });
+        statusEl.textContent = '✅ اتحفظت كنسخة رقم ' + json.result.version + '. تقدر تسترجعها من سجل النسخ تحت.';
+        fileInput.value = '';
+        loadBackupsList();
+      } catch (err) {
+        statusEl.textContent = '❌ ' + err.message;
+      }
+    }
+
+    async function restoreBackupVersion(fileId, version) {
+      const sure = confirm(
+        'سيتم استبدال بيانات النظام (والكود لو محفوظ في النسخة) بالحالة الموجودة في النسخة رقم ' + version + '.\n' +
+        'سيتم إنشاء نسخة احتياطية تلقائية للحالة الحالية قبل الاستعادة، عشان تقدر ترجع لها لو غيّرت رأيك.\n\n' +
+        'متأكد إنك عايز تكمل؟'
+      );
+      if (!sure) return;
+
+      const el = document.getElementById('backupsListArea');
+      el.insertAdjacentHTML('afterbegin', '<p style="color:#b00000">جاري الاسترجاع... متقفلش الصفحة.</p>');
+      try {
+        const json = await callApiPost_({ action: 'backupRestore', fileId });
+        const r = json.result;
+        let msg = '✅ تم استرجاع البيانات بنجاح.\nنسخة تلقائية للحالة السابقة: رقم ' + r.autoBackupVersion + '.\n' +
+          'الشيتات المسترجعة: ' + r.restoredSheets.join('، ') + '\n\n';
+
+        msg += '— الكود (Code.gs): ' + (r.codeRestore.ok ? '✅ اترجع تلقائي' : ('❌ ' + (r.codeRestore.error || 'لم يُسترجع'))) + '\n';
+
+        if (r.indexRestore.ok) {
+          msg += '— index.html: ✅ اترفع تلقائي على GitHub\n';
+        } else if (r.indexRestore.manualContent) {
+          msg += '— index.html: ⚠️ مفيش رفع تلقائي (مفيش GitHub Token مسجل). محتوى النسخة القديمة جاهز — ' +
+            'هنزّله لك دلوقتي عشان ترفعه يدوي.\n';
+          const blob = new Blob([r.indexRestore.manualContent], { type: 'text/html' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = 'index_restored_v' + version + '.html';
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } else {
+          msg += '— index.html: ❌ ' + (r.indexRestore.error || 'لم يُسترجع') + '\n';
+        }
+
+        msg += '— ملفات المستندات: تم استرجاع ' + r.documentFilesRestore.restoredFiles + ' ملف';
+        if (r.documentFilesRestore.errors && r.documentFilesRestore.errors.length > 0) {
+          msg += '\n⚠️ ' + r.documentFilesRestore.errors.length + ' ملف فشل استرجاعه (شوف السجل).';
+        }
+
+        alert(msg);
+        location.reload();
+      } catch (err) {
+        alert('❌ ' + err.message);
+        loadBackupsList();
       }
     }
 
