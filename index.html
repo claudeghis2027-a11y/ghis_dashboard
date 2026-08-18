@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   /* ============================================================
      GHIS Design System — متغيرات مركزية
@@ -182,7 +183,7 @@
   .metric.warn .value { color: var(--color-danger); }
 
   /* ---- Tables ---- */
-  .table-wrap { overflow-x: auto; }
+  .table-wrap { overflow-x: auto; max-width: 100%; }
   table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); white-space: nowrap; }
   th, td { border: 1px solid #e2e2e2; padding: 6px 8px; text-align: center; }
   th { background: var(--color-primary); color: #fff; position: sticky; top: 0; }
@@ -208,10 +209,18 @@
 
   /* ---- Print (لتقارير "طباعة / حفظ PDF" — Phase 2A) ---- */
   #exportPrintArea { display: none; }
+  .export-report-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 2px solid var(--color-primary); padding-bottom: 8px; }
+  .export-logo { width: 36px; height: 36px; }
+  .export-brand { font-size: var(--text-lg); font-weight: 700; color: var(--color-primary); }
   .export-meta h2 { margin: 0 0 6px; }
   .export-meta p { margin: 2px 0; font-size: var(--text-base); }
   .export-totals { margin-top: 10px; border-top: 1px solid #ccc; padding-top: 8px; }
   .export-totals p { margin: 3px 0; font-size: var(--text-base); }
+
+  /* منطقة مؤقتة لبناء محتوى PDF — لازم تكون "موجودة بصريًا" (مش
+     display:none) عشان html2pdf.js/html2canvas يقدر يصوّرها، فبنحطها
+     برّه حدود الشاشة المرئية بدل إخفائها بالكامل */
+  .pdf-export-container { position: fixed; top: 0; left: -99999px; width: 794px; background: #fff; padding: 20px; }
 
   @media print {
     body.printing-export > *:not(#exportPrintArea) { display: none !important; }
@@ -219,7 +228,8 @@
     #exportPrintArea table { border-collapse: collapse; width: 100%; font-size: 11px; }
     #exportPrintArea th, #exportPrintArea td { border: 1px solid #999; padding: 4px 6px; text-align: center; }
     #exportPrintArea th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .filters, #status, button, .app-header .app-logo + h1 + *, .tabbar { display: none; }
+    #exportPrintArea tr { break-inside: avoid; }
+    .filters, #status, button, .tabbar { display: none; }
     body { padding: 0; }
   }
 </style>
@@ -247,7 +257,7 @@
   <!-- ============== محتوى النظام (يظهر بعد تسجيل الدخول بس) ============== -->
   <div id="appContent" style="display:none">
   <div class="app-header">
-    <div class="app-logo" id="appLogoContainer"><!-- مكان اللوجو — هيتحط هنا لما يوصل الملف --></div>
+    <div class="app-logo" id="appLogoContainer"><img src="data:image/png;base64,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" alt="GHIS Logo"></div>
     <h1>GHIS — نظام شئون العاملين
       <span id="currentUserLabel" style="font-size:12px;color:#666;font-weight:normal"></span>
     </h1>
@@ -792,6 +802,7 @@
       html += '<div style="font-size:13px;color:#666;margin-bottom:12px;">الفترة: ' +
         report.fromDate + ' إلى ' + report.toDate + '</div>';
       html += buildExportButtonsHtml_('exportCurrentEmployeeReport_');
+      html += buildPermissionFormHtml_(emp.code);
 
       html += '<div class="metrics-grid">';
       html += metricCard_(s.attendanceRate != null ? s.attendanceRate + '%' : '-', 'نسبة الالتزام');
@@ -806,6 +817,8 @@
       html += metricCard_(s.lateDeductionTotal, 'خصم التأخير (يوم)', s.lateDeductionTotal > 0);
       html += metricCard_(s.earlyDeductionTotal, 'خصم الانصراف المبكر (يوم)', s.earlyDeductionTotal > 0);
       html += metricCard_(s.absenceDeductionTotal, 'خصم الغياب (يوم)', s.absenceDeductionTotal > 0);
+      html += metricCard_((s.permissionsCount ?? 0) + ' مرة', 'عدد الأذونات');
+      html += metricCard_(s.permissionDeduction ?? 0, 'خصم الأذونات (يوم)', (s.permissionDeduction ?? 0) > 0);
       html += metricCard_(s.totalDeduction, 'إجمالي الخصم (يوم)', s.totalDeduction > 0);
       html += '</div>';
       html += '</div>';
@@ -833,14 +846,42 @@
       return !!(currentSession && (currentSession.isAdmin || currentSession.sections.includes('reports_export')));
     }
 
+    function canAddPermission_() {
+      return !!(currentSession && (currentSession.isAdmin || currentSession.sections.includes('permissions_add')));
+    }
+
+    // فورم بسيط لتسجيل إذن للموظف المعروض تقريره حاليًا
+    // (كان هنا سابقًا زرار "نسيان الكارت" — اتلغى بقرار معماري:
+    // نظام البصمة الجديد Mobile-based، مفيش مفهوم "كارت" فيه)
+    function buildPermissionFormHtml_(code) {
+      if (!canAddPermission_()) return '';
+      let html = '<div class="filters" style="margin-bottom:10px">';
+      html += '<div><label>التاريخ</label><input type="date" id="pfcDate_' + code + '"></div>';
+      html += '<div><button class="secondary" onclick="submitPermission_(\'' + code + '\')">+ تسجيل إذن</button></div>';
+      html += '</div><div id="pfcStatus_' + code + '" style="font-size:13px;margin-bottom:8px"></div>';
+      return html;
+    }
+
+    async function submitPermission_(code) {
+      const date = document.getElementById('pfcDate_' + code).value;
+      const statusEl = document.getElementById('pfcStatus_' + code);
+      if (!date) { statusEl.textContent = '❌ اختار تاريخ الأول.'; return; }
+      try {
+        await callApiPost_({ action: 'permissionAdd', code, date });
+        statusEl.textContent = '✅ اتسجل الإذن.';
+        viewReport();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
     // fnName: اسم الدالة المسؤولة عن تصدير التقرير الحالي — كل تقرير
-    // بيمرر اسم دالته الخاصة (نفس منطق exportCurrentEmployeeReport_
-    // بس معمَّم لأي تقرير تاني)
+    // بيمرر اسم دالته الخاصة. 3 أزرار مستقلة فعليًا (مش شكليًا):
+    // طباعة (window.print)، حفظ PDF (html2pdf.js)، Excel (SheetJS)
     function buildExportButtonsHtml_(fnName) {
       if (!canExportReports_()) return '';
-      return '<div class="form-actions" style="margin-bottom:10px">' +
-        '<button class="secondary" onclick="' + fnName + '(\'excel\')">⬇️ Excel</button>' +
-        '<button class="secondary" onclick="' + fnName + '(\'pdf\')">🖨️ طباعة / حفظ PDF</button>' +
+      return '<div class="form-actions export-buttons" style="margin-bottom:10px">' +
+        '<button class="secondary" onclick="' + fnName + '(\'print\')">🖨 طباعة</button>' +
+        '<button class="secondary" onclick="' + fnName + '(\'pdf\')">📄 حفظ PDF</button>' +
+        '<button class="secondary" onclick="' + fnName + '(\'excel\')">📊 Excel</button>' +
         '</div>';
     }
 
@@ -888,7 +929,8 @@
         };
 
         if (format === 'excel') exportReportToExcel_(config);
-        else exportReportToPDF_(config);
+        else if (format === 'pdf') saveReportAsPDF_(config);
+        else printReport_(config);
       } catch (err) {
         alert('❌ ' + err.message);
       }
@@ -916,7 +958,7 @@
           period: { type: 'custom', from: json.fromDate, to: json.toDate },
           fileName: 'تقرير_حضور_كل_الموظفين_' + json.fromDate,
         };
-        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -1073,13 +1115,20 @@
       XLSX.writeFile(wb, sanitizeExportFileName_(config.fileName) + '.xlsx');
     }
 
-    // تصدير PDF — عبر طباعة المتصفح (window.print) + CSS مخصص،
-    // مفيش مكتبة PDF خارجية، الناتج بيتحدد بإعدادات "حفظ كـPDF"
-    // بتاعة المتصفح نفسه (زي ما اتفقنا: أبسط وأوثق مع العربي RTL)
-    function exportReportToPDF_(config) {
-      const printArea = document.getElementById('exportPrintArea');
-      let html = buildExportMetaHtml_(config);
+    // اختيار الاتجاه (Portrait/Landscape) حسب عدد أعمدة التقرير —
+    // مش Landscape ثابت لكل حاجة. حد بسيط: أكتر من 4 أعمدة = عريض
+    function computeReportOrientation_(headers) {
+      return (headers && headers.length > 4) ? 'landscape' : 'portrait';
+    }
 
+    // بناء محتوى التقرير (Header+Meta+جدول+إجماليات) داخل منطقة
+    // مخفية مشتركة — نفس الـHTML يُستخدم لكل من الطباعة وPDF، عشان
+    // نضمن Screen = Print = PDF بدون أي اختلاف في البيانات المعروضة
+    function buildExportContentHtml_(config) {
+      let html = '<div class="export-report-header">' +
+        '<img class="export-logo" src="' + document.querySelector('.app-logo img').src + '" alt="GHIS">' +
+        '<span class="export-brand">GHIS</span></div>';
+      html += buildExportMetaHtml_(config);
       html += '<div class="table-wrap"><table><thead><tr>';
       (config.headers || []).forEach(h => { html += '<th>' + escapeHtml_(h) + '</th>'; });
       html += '</tr></thead><tbody>';
@@ -1090,18 +1139,64 @@
       });
       html += '</tbody></table></div>';
       html += buildExportTotalsHtml_(config.totals);
+      return html;
+    }
 
-      printArea.innerHTML = html;
+    // طباعة — عبر window.print() (Browser Print/Print Preview العادي)
+    function printReport_(config) {
+      const printArea = document.getElementById('exportPrintArea');
+      printArea.innerHTML = buildExportContentHtml_(config);
       document.body.classList.add('printing-export');
+
+      const orientation = computeReportOrientation_(config.headers);
+      const styleTag = document.createElement('style');
+      styleTag.id = 'dynamicPrintPageStyle';
+      styleTag.textContent = '@page { size: A4 ' + orientation + '; margin: 12mm; }';
+      document.head.appendChild(styleTag);
 
       window.print();
 
-      // تنظيف المنطقة بعد إغلاق نافذة الطباعة (مفيش حدث "onafterprint"
-      // موثوق 100% عبر كل المتصفحات، فبنستخدم مهلة بسيطة كحل عملي)
       setTimeout(() => {
         document.body.classList.remove('printing-export');
         printArea.innerHTML = '';
+        const s = document.getElementById('dynamicPrintPageStyle');
+        if (s) s.remove();
       }, 1000);
+    }
+
+    // حفظ PDF — مستقل فعليًا عن الطباعة، عبر html2pdf.js (v0.10.1،
+    // نسخة مثبَّتة صراحةً). ⚠️ قيد تقني معروف ومُبلَّغ: النص جوه
+    // الـPDF الناتج صورة (مش نص حقيقي قابل للنسخ)، لأن المكتبة
+    // بتصوّر العنصر بصريًا وتحطه في PDF — قرار مقصود لضمان مطابقة
+    // بصرية 100% للعربي/RTL بدل مخاطرة jsPDF+AutoTable في تشكيل النص.
+    async function saveReportAsPDF_(config) {
+      if (typeof html2pdf === 'undefined') {
+        alert('❌ مكتبة إنشاء PDF لسه بتتحمّل، جرّب تاني بعد شوية ثواني.');
+        return;
+      }
+      const container = document.createElement('div');
+      container.className = 'pdf-export-container';
+      container.innerHTML = buildExportContentHtml_(config);
+      document.body.appendChild(container);
+
+      const orientation = computeReportOrientation_(config.headers);
+      const opt = {
+        margin: 10,
+        filename: sanitizeExportFileName_(config.fileName) + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: orientation },
+        pagebreak: { mode: ['css', 'legacy'] },
+      };
+
+      try {
+        await html2pdf().set(opt).from(container).save();
+      } catch (err) {
+        alert('❌ فشل إنشاء ملف PDF، يرجى المحاولة مرة أخرى.');
+        console.error('saveReportAsPDF_ failed:', err);
+      } finally {
+        document.body.removeChild(container);
+      }
     }
 
     // ============================================================
@@ -1170,7 +1265,7 @@
           title: 'بيانات الموظفين', headers, rows,
           fileName: 'بيانات_الموظفين_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -1712,7 +1807,7 @@
           employee: { code, nameAr: emp ? emp.nameAr : code },
           fileName: 'مستندات_' + code + '_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -1828,7 +1923,7 @@
           title: 'تقرير الموظفين الناقص لهم مستندات', headers, rows,
           fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -1859,7 +1954,7 @@
           title: 'تقرير المستندات قربت تنتهي', headers, rows,
           fileName: 'مستندات_قربت_تنتهي_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -1905,7 +2000,7 @@
           filters: { 'نوع المستند': type },
           fileName: 'تقرير_مستندات_' + type + '_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
