@@ -791,7 +791,7 @@
         (emp.dept ? ' — ' + escapeHtml_(emp.dept) : '') + '</h2>';
       html += '<div style="font-size:13px;color:#666;margin-bottom:12px;">الفترة: ' +
         report.fromDate + ' إلى ' + report.toDate + '</div>';
-      html += buildExportButtonsHtml_();
+      html += buildExportButtonsHtml_('exportCurrentEmployeeReport_');
 
       html += '<div class="metrics-grid">';
       html += metricCard_(s.attendanceRate != null ? s.attendanceRate + '%' : '-', 'نسبة الالتزام');
@@ -833,11 +833,14 @@
       return !!(currentSession && (currentSession.isAdmin || currentSession.sections.includes('reports_export')));
     }
 
-    function buildExportButtonsHtml_() {
+    // fnName: اسم الدالة المسؤولة عن تصدير التقرير الحالي — كل تقرير
+    // بيمرر اسم دالته الخاصة (نفس منطق exportCurrentEmployeeReport_
+    // بس معمَّم لأي تقرير تاني)
+    function buildExportButtonsHtml_(fnName) {
       if (!canExportReports_()) return '';
       return '<div class="form-actions" style="margin-bottom:10px">' +
-        '<button class="secondary" onclick="exportCurrentEmployeeReport_(\'excel\')">⬇️ Excel</button>' +
-        '<button class="secondary" onclick="exportCurrentEmployeeReport_(\'pdf\')">🖨️ طباعة / حفظ PDF</button>' +
+        '<button class="secondary" onclick="' + fnName + '(\'excel\')">⬇️ Excel</button>' +
+        '<button class="secondary" onclick="' + fnName + '(\'pdf\')">🖨️ طباعة / حفظ PDF</button>' +
         '</div>';
     }
 
@@ -1745,7 +1748,8 @@
     function renderMissingReport() {
       const q = (document.getElementById('missingSearchInput').value || '').trim().toLowerCase();
       const rows = missingReportCache.filter(r => !q || r.nameAr.toLowerCase().includes(q) || r.code.toLowerCase().includes(q));
-      let html = '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>عدد الناقص</th><th>الأنواع الناقصة</th></tr></thead><tbody>';
+      let html = buildExportButtonsHtml_('exportMissingDocumentsReport_');
+      html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>عدد الناقص</th><th>الأنواع الناقصة</th></tr></thead><tbody>';
       rows.forEach(r => {
         html += '<tr><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
           '<td>' + escapeHtml_(r.status) + '</td><td>' + r.missingCount + '</td>' +
@@ -1755,13 +1759,27 @@
       document.getElementById('missingReportArea').innerHTML = html || '<p style="font-size:13px;color:#777">مفيش موظفين ناقصهم مستندات 🎉</p>';
     }
 
+    async function exportMissingDocumentsReport_(format) {
+      try {
+        const json = await callApi_({ action: 'missingDocumentsReportExport' });
+        const headers = ['الكود', 'الاسم', 'الحالة', 'عدد الناقص', 'الأنواع الناقصة'];
+        const rows = json.rows.map(r => [r.code, r.nameAr, r.status, r.missingCount, r.missingTypes.join('، ')]);
+        const config = {
+          title: 'تقرير الموظفين الناقص لهم مستندات', headers, rows,
+          fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
+        };
+        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
     // ---- تقرير قربت تنتهي ----
     async function loadExpiryReport() {
       const el = document.getElementById('expiryReportArea');
       el.textContent = 'جاري التحميل...';
       try {
         const json = await callApi_({ action: 'nearExpiryDocumentsReport' });
-        let html = '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>النوع</th><th>الرقم</th><th>الانتهاء</th><th>الأيام المتبقية</th><th>الحالة</th></tr></thead><tbody>';
+        let html = buildExportButtonsHtml_('exportExpiryReport_');
+        html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>النوع</th><th>الرقم</th><th>الانتهاء</th><th>الأيام المتبقية</th><th>الحالة</th></tr></thead><tbody>';
         json.rows.forEach(r => {
           html += '<tr class="' + documentStatusClass_(r.status) + '"><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
             '<td>' + escapeHtml_(r.type) + '</td><td>' + escapeHtml_(r.documentNumber || '-') + '</td>' +
@@ -1770,6 +1788,19 @@
         html += '</tbody></table></div>';
         el.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش مستندات قربت تنتهي 🎉</p>';
       } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    async function exportExpiryReport_(format) {
+      try {
+        const json = await callApi_({ action: 'nearExpiryDocumentsReportExport' });
+        const headers = ['الكود', 'الاسم', 'النوع', 'الرقم', 'الانتهاء', 'الأيام المتبقية', 'الحالة'];
+        const rows = json.rows.map(r => [r.code, r.nameAr, r.type, r.documentNumber || '-', r.expiryDate || '-', r.daysLeft ?? '-', r.status]);
+        const config = {
+          title: 'تقرير المستندات قربت تنتهي', headers, rows,
+          fileName: 'مستندات_قربت_تنتهي_' + new Date().toISOString().slice(0, 10),
+        };
+        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+      } catch (err) { alert('❌ ' + err.message); }
     }
 
     // ---- تقرير حسب النوع ----
@@ -1791,7 +1822,8 @@
       try {
         const json = await callApi_({ action: 'documentsByType', type });
         const icon = s => s === 'ساري' ? '✅' : s === 'قريب الانتهاء' ? '🟡' : s === 'منتهي' ? '🔴' : '❌';
-        let html = '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>الرقم</th><th>الانتهاء</th></tr></thead><tbody>';
+        let html = buildExportButtonsHtml_('exportByTypeReport_');
+        html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>الرقم</th><th>الانتهاء</th></tr></thead><tbody>';
         json.rows.forEach(r => {
           html += '<tr><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
             '<td>' + icon(r.status) + ' ' + escapeHtml_(r.status) + '</td><td>' + escapeHtml_(r.documentNumber || '-') + '</td>' +
@@ -1800,6 +1832,21 @@
         html += '</tbody></table></div>';
         el.innerHTML = html;
       } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    async function exportByTypeReport_(format) {
+      const type = document.getElementById('byTypeSelect').value;
+      try {
+        const json = await callApi_({ action: 'documentsByTypeExport', type });
+        const headers = ['الكود', 'الاسم', 'الحالة', 'الرقم', 'الانتهاء'];
+        const rows = json.rows.map(r => [r.code, r.nameAr, r.status, r.documentNumber || '-', r.expiryDate || '-']);
+        const config = {
+          title: 'تقرير المستندات حسب النوع — ' + type, headers, rows,
+          filters: { 'نوع المستند': type },
+          fileName: 'تقرير_مستندات_' + type + '_' + new Date().toISOString().slice(0, 10),
+        };
+        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+      } catch (err) { alert('❌ ' + err.message); }
     }
 
     // ============================================================
