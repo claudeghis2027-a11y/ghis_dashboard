@@ -894,6 +894,32 @@
       }
     }
 
+    // تصدير وضع "كل الموظفين" — بينادي نفس reportExport (بس employee=all)،
+    // نفس الحماية الموجودة، صفر منطق جديد
+    async function exportAllEmployeesReport_(format) {
+      if (!lastReportContext) { alert('❌ اعرض تقرير الأول.'); return; }
+      try {
+        const json = await callApi_({
+          action: 'reportExport', employee: 'all',
+          from: lastReportContext.from, to: lastReportContext.to,
+        });
+        const headers = ['الكود', 'الاسم', 'أيام العمل', 'حضور', 'غياب', 'إجازات',
+          'مرات تأخير', 'دقائق تأخير', 'مرات مبكر', 'دقائق مبكر', 'إجمالي الخصم', 'نسبة الالتزام'];
+        const rows = json.rows.map(r => {
+          const s = r.summary;
+          return [r.employee.code, r.employee.nameAr, s.workDaysRequired, s.presentDays, s.absentDays,
+            s.leaveDays, s.lateCount, s.lateMinutesTotal, s.earlyCount, s.earlyMinutesTotal,
+            s.totalDeduction, s.attendanceRate != null ? s.attendanceRate + '%' : '-'];
+        });
+        const config = {
+          title: 'تقرير حضور — كل الموظفين', headers, rows,
+          period: { type: 'custom', from: json.fromDate, to: json.toDate },
+          fileName: 'تقرير_حضور_كل_الموظفين_' + json.fromDate,
+        };
+        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
     function renderDailyTable(days) {
       let html = '<div class="table-wrap"><table><thead><tr>';
       ['التاريخ', 'اليوم', 'الحالة', 'وقت الدخول', 'وقت الانصراف',
@@ -928,8 +954,10 @@
     }
 
     function renderAllEmployees(json) {
+      lastReportContext = { employee: 'all', from: json.fromDate, to: json.toDate };
       let html = '<div class="card">';
       html += '<h2>كل الموظفين — ' + json.fromDate + ' إلى ' + json.toDate + '</h2>';
+      html += buildExportButtonsHtml_('exportAllEmployeesReport_');
       html += '<div class="table-wrap"><table><thead><tr>';
       ['الكود', 'الاسم', 'أيام العمل', 'حضور', 'غياب', 'إجازات',
        'مرات تأخير', 'دقائق تأخير', 'مرات مبكر', 'دقائق مبكر',
@@ -1115,7 +1143,8 @@
         !q || e.nameAr.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.nameEn||'').toLowerCase().includes(q)
       );
 
-      let html = '<div class="table-wrap"><table><thead><tr>';
+      let html = buildExportButtonsHtml_('exportEmployeesList_');
+      html += '<div class="table-wrap"><table><thead><tr>';
       ['الكود', 'الاسم', 'القسم', 'الحالة', 'معفى من البصمة', 'المسمى الوظيفي'].forEach(h => html += '<th>' + h + '</th>');
       html += '</tr></thead><tbody>';
       rows.forEach(e => {
@@ -1130,6 +1159,19 @@
       });
       html += '</tbody></table></div>';
       document.getElementById('employeesListArea').innerHTML = html;
+    }
+
+    async function exportEmployeesList_(format) {
+      try {
+        const json = await callApi_({ action: 'employeesExport' });
+        const headers = ['الكود', 'الاسم', 'القسم', 'الحالة', 'معفى من البصمة', 'المسمى الوظيفي'];
+        const rows = json.employees.map(e => [e.code, e.nameAr, e.dept || '-', e.status, e.exempt ? 'نعم' : 'لا', e.jobTitle || '-']);
+        const config = {
+          title: 'بيانات الموظفين', headers, rows,
+          fileName: 'بيانات_الموظفين_' + new Date().toISOString().slice(0, 10),
+        };
+        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+      } catch (err) { alert('❌ ' + err.message); }
     }
 
     function openEmployeeProfile(code) {
@@ -1634,7 +1676,8 @@
 
     function renderDocumentsList(docs) {
       const code = document.getElementById('docsEmployeeSelect').value;
-      let html = '<div class="table-wrap"><table><thead><tr>' +
+      let html = buildExportButtonsHtml_('exportEmployeeDocuments_');
+      html += '<div class="table-wrap"><table><thead><tr>' +
         '<th>نوع المستند</th><th>الحالة</th><th>رقم المستند</th><th>أصل/صورة</th>' +
         '<th>تاريخ الإصدار</th><th>تاريخ الانتهاء</th><th>الملف</th><th></th></tr></thead><tbody>';
       docs.forEach(d => {
@@ -1654,6 +1697,23 @@
       });
       html += '</tbody></table></div>';
       document.getElementById('docsListArea').innerHTML = html;
+    }
+
+    async function exportEmployeeDocuments_(format) {
+      const code = document.getElementById('docsEmployeeSelect').value;
+      const emp = employeesCache.find(e => e.code === code);
+      if (!code) { alert('❌ اختار موظف الأول.'); return; }
+      try {
+        const json = await callApi_({ action: 'employeeDocumentsExport', employee: code });
+        const headers = ['نوع المستند', 'الحالة', 'رقم المستند', 'أصل/صورة', 'تاريخ الإصدار', 'تاريخ الانتهاء'];
+        const rows = json.documents.map(d => [d.type, d.status, d.documentNumber || '-', d.copyType || '-', d.issueDate || '-', d.expiryDate || '-']);
+        const config = {
+          title: 'مستندات الموظف — ' + (emp ? emp.nameAr : code), headers, rows,
+          employee: { code, nameAr: emp ? emp.nameAr : code },
+          fileName: 'مستندات_' + code + '_' + new Date().toISOString().slice(0, 10),
+        };
+        if (format === 'excel') exportReportToExcel_(config); else exportReportToPDF_(config);
+      } catch (err) { alert('❌ ' + err.message); }
     }
 
     // فتح الملف عن طريق الـ API (proxy) — الملف نفسه خاص تمامًا على
