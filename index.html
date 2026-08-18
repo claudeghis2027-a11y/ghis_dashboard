@@ -4,49 +4,102 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>GHIS — تقارير الحضور والخصومات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
+  /* ============================================================
+     GHIS Design System — متغيرات مركزية
+     كل الألوان/الأحجام هنا بس. أي تعديل مستقبلي (شعار، لون هوية
+     جديد) بيتغيّر من هنا فقط، مش موزّع في كل الملف.
+     ============================================================ */
+  :root {
+    --color-primary: #123166;
+    --color-primary-light: #e4e8f2;
+    --color-success: #1e7e34;
+    --color-success-bg: #e6f4ea;
+    --color-warning: #b8860b;
+    --color-warning-bg: #fff3cd;
+    --color-danger: #b00000;
+    --color-danger-bg: #ffe0e0;
+    --color-info: #1E4CA1;
+    --color-info-bg: #eaf0fb;
+    --color-bg: #f4f6f9;
+    --color-text: #1a1a2e;
+    --color-text-muted: #555;
+    --color-border: #d5d9e0;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+    --text-xs: 11px;
+    --text-sm: 12px;
+    --text-base: 13px;
+    --text-md: 14px;
+    --text-lg: 16px;
+    --text-xl: 20px;
+  }
+
   * { box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-    background: #f4f6f9;
+    font-family: var(--font-family);
+    background: var(--color-bg);
     margin: 0;
     padding: 16px;
-    color: #1a1a2e;
+    color: var(--color-text);
   }
-  h1 { font-size: 20px; color: #123166; margin: 0 0 16px; }
-  h2 { font-size: 16px; color: #123166; margin: 0 0 10px; }
+  h1 { font-size: var(--text-xl); color: var(--color-primary); margin: 0 0 16px; }
+  h2 { font-size: var(--text-lg); color: var(--color-primary); margin: 0 0 10px; }
 
+  /* ---- Header ---- */
+  .app-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .app-logo {
+    width: 40px; height: 40px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; flex-shrink: 0;
+  }
+  .app-logo img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+  .app-header h1 { margin: 0; flex: 1; }
+
+  /* ---- Navigation ---- */
   .tabbar { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
   .tab-btn {
-    background: #e4e8f2; color: #123166; border: none; padding: 9px 16px;
-    border-radius: 8px; font-size: 13px; cursor: pointer; width: auto;
+    background: var(--color-primary-light); color: var(--color-primary); border: none; padding: 9px 16px;
+    border-radius: var(--radius); font-size: var(--text-base); cursor: pointer; width: auto;
   }
-  .tab-btn.active { background: #123166; color: #fff; }
+  .tab-btn.active { background: var(--color-primary); color: #fff; }
+  .tab-btn:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--color-info); outline-offset: 2px;
+  }
 
+  /* ---- Forms ---- */
   .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 10px;
     margin: 12px 0;
   }
-  input[type=text], input[type=number] {
-    width: 100%; padding: 9px 10px; border: 1px solid #d5d9e0; border-radius: 8px; font-size: 14px;
+  input[type=text], input[type=number], input[type=password], input[type=date], input[type=file] {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: var(--text-md);
+    font-family: var(--font-family);
   }
   .form-actions { display: flex; gap: 8px; margin-top: 10px; }
   .form-actions button { width: auto; padding: 9px 16px; }
   .chip {
-    display: inline-flex; align-items: center; gap: 6px; background: #eef1f8;
-    border-radius: 20px; padding: 5px 12px; font-size: 12px; margin: 3px;
+    display: inline-flex; align-items: center; gap: 6px; background: var(--color-primary-light);
+    border-radius: 20px; padding: 5px 12px; font-size: var(--text-sm); margin: 3px;
   }
-  .chip button { width: auto; padding: 2px 8px; background: #c0392b; border-radius: 12px; font-size: 11px; }
-  .profile-field { margin-bottom: 8px; font-size: 13px; }
-  .profile-field b { color: #123166; }
+  .chip button { width: auto; padding: 2px 8px; background: var(--color-danger); border-radius: 12px; font-size: var(--text-xs); }
+  .profile-field { margin-bottom: 8px; font-size: var(--text-base); }
+  .profile-field b { color: var(--color-primary); }
   tr.clickable-row-emp { cursor: pointer; }
-  tr.clickable-row-emp:hover td { background: #eaf0fb; }
+  tr.clickable-row-emp:hover td { background: var(--color-info-bg); }
 
   .card {
     background: #fff;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 16px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     margin-bottom: 16px;
@@ -58,33 +111,60 @@
     gap: 10px;
     align-items: end;
   }
-  label { display: block; font-size: 12px; color: #555; margin-bottom: 4px; }
-  select, input[type=date] {
+  label { display: block; font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: 4px; }
+  select {
     width: 100%;
     padding: 9px 10px;
-    border: 1px solid #d5d9e0;
-    border-radius: 8px;
-    font-size: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: var(--text-md);
+    font-family: var(--font-family);
   }
+
+  /* ---- Buttons ---- */
   button {
-    background: #123166;
+    background: var(--color-primary);
     color: #fff;
     border: none;
     padding: 10px 18px;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: var(--radius);
+    font-size: var(--text-md);
     cursor: pointer;
     width: 100%;
+    font-family: var(--font-family);
   }
   button:disabled { background: #999; cursor: not-allowed; }
   button.secondary { background: #6c757d; }
+  button.success { background: var(--color-success); }
+  button.danger { background: var(--color-danger); }
   button.link-btn {
-    background: none; color: #1E4CA1; text-decoration: underline;
-    padding: 0; width: auto; font-size: 13px;
+    background: none; color: var(--color-info); text-decoration: underline;
+    padding: 0; width: auto; font-size: var(--text-base);
   }
+  button.is-loading { opacity: 0.7; cursor: wait; }
 
-  #status { font-size: 13px; color: #555; margin: 10px 0; min-height: 18px; }
+  #status { font-size: var(--text-base); color: var(--color-text-muted); margin: 10px 0; min-height: 18px; }
 
+  /* ---- Alerts ---- */
+  .alert {
+    padding: 10px 14px; border-radius: var(--radius); font-size: var(--text-base); margin: 8px 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .alert-success { background: var(--color-success-bg); color: var(--color-success); }
+  .alert-warning { background: var(--color-warning-bg); color: var(--color-warning); }
+  .alert-danger { background: var(--color-danger-bg); color: var(--color-danger); }
+  .alert-info { background: var(--color-info-bg); color: var(--color-info); }
+
+  /* ---- Status Badges ---- */
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: var(--text-xs); font-weight: 600;
+  }
+  .badge-success { background: var(--color-success-bg); color: var(--color-success); }
+  .badge-warning { background: var(--color-warning-bg); color: var(--color-warning); }
+  .badge-danger { background: var(--color-danger-bg); color: var(--color-danger); }
+  .badge-muted { background: #f0f0f0; color: var(--color-text-muted); }
+
+  /* ---- Cards / Metrics ---- */
   .metrics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -92,31 +172,54 @@
     margin-bottom: 10px;
   }
   .metric {
-    background: #f0f2f8;
+    background: var(--color-primary-light);
     border-radius: 10px;
     padding: 12px;
     text-align: center;
   }
-  .metric .value { font-size: 20px; font-weight: bold; color: #123166; }
-  .metric .label { font-size: 11px; color: #666; margin-top: 3px; }
-  .metric.warn .value { color: #b00000; }
+  .metric .value { font-size: var(--text-xl); font-weight: bold; color: var(--color-primary); }
+  .metric .label { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 3px; }
+  .metric.warn .value { color: var(--color-danger); }
 
+  /* ---- Tables ---- */
   .table-wrap { overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 12px; white-space: nowrap; }
+  table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); white-space: nowrap; }
   th, td { border: 1px solid #e2e2e2; padding: 6px 8px; text-align: center; }
-  th { background: #123166; color: #fff; position: sticky; top: 0; }
-  tr.status-غياب td { background: #ffe0e0; }
-  tr.status-اجازة-رسمية td, tr.status-اجازة-أسبوعية td, tr.status-اجازة-معتمدة td { background: #f2f2f2; color: #555; }
+  th { background: var(--color-primary); color: #fff; position: sticky; top: 0; }
+  tr.status-غياب td { background: var(--color-danger-bg); }
+  tr.status-اجازة-رسمية td, tr.status-اجازة-أسبوعية td, tr.status-اجازة-معتمدة td { background: #f2f2f2; color: var(--color-text-muted); }
   tr.status-معفى td { background: #e6d6f7; }
-  tr.status-حاضر.has-late td { background: #fff3cd; }
+  tr.status-حاضر.has-late td { background: var(--color-warning-bg); }
   tr.clickable-row { cursor: pointer; }
-  tr.clickable-row:hover td { background: #eaf0fb; }
+  tr.clickable-row:hover td { background: var(--color-info-bg); }
 
-  .breadcrumb { font-size: 13px; color: #555; margin-bottom: 10px; }
+  .breadcrumb { font-size: var(--text-base); color: var(--color-text-muted); margin-bottom: 10px; }
   .breadcrumb button { display: inline; width: auto; }
 
+  /* ---- Responsive ---- */
+  @media (max-width: 640px) {
+    body { padding: 10px; }
+    .card { padding: 12px; }
+    .form-grid, .filters { grid-template-columns: 1fr; }
+    .tabbar { gap: 4px; }
+    .tab-btn { padding: 8px 12px; font-size: var(--text-sm); }
+    h1 { font-size: var(--text-lg); }
+  }
+
+  /* ---- Print (لتقارير "طباعة / حفظ PDF" — Phase 2A) ---- */
+  #exportPrintArea { display: none; }
+  .export-meta h2 { margin: 0 0 6px; }
+  .export-meta p { margin: 2px 0; font-size: var(--text-base); }
+  .export-totals { margin-top: 10px; border-top: 1px solid #ccc; padding-top: 8px; }
+  .export-totals p { margin: 3px 0; font-size: var(--text-base); }
+
   @media print {
-    .filters, #status, button { display: none; }
+    body.printing-export > *:not(#exportPrintArea) { display: none !important; }
+    body.printing-export #exportPrintArea { display: block !important; }
+    #exportPrintArea table { border-collapse: collapse; width: 100%; font-size: 11px; }
+    #exportPrintArea th, #exportPrintArea td { border: 1px solid #999; padding: 4px 6px; text-align: center; }
+    #exportPrintArea th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .filters, #status, button, .app-header .app-logo + h1 + *, .tabbar { display: none; }
     body { padding: 0; }
   }
 </style>
@@ -143,9 +246,12 @@
 
   <!-- ============== محتوى النظام (يظهر بعد تسجيل الدخول بس) ============== -->
   <div id="appContent" style="display:none">
-  <h1>GHIS — نظام شئون العاملين
-    <span id="currentUserLabel" style="font-size:12px;color:#666;font-weight:normal"></span>
-  </h1>
+  <div class="app-header">
+    <div class="app-logo" id="appLogoContainer"><!-- مكان اللوجو — هيتحط هنا لما يوصل الملف --></div>
+    <h1>GHIS — نظام شئون العاملين
+      <span id="currentUserLabel" style="font-size:12px;color:#666;font-weight:normal"></span>
+    </h1>
+  </div>
 
   <!-- ============== شريط التنقل بين الأقسام ============== -->
   <div class="tabbar">
@@ -204,6 +310,25 @@
       <div id="empStatus" style="font-size:13px;color:#555;margin:8px 0;"></div>
       <div id="employeesListArea"></div>
     </div>
+
+    <div class="card">
+      <h2>إعداد توليد أكواد الموظفين</h2>
+      <div class="filters">
+        <div style="flex:1">
+          <label>توليد كود الموظف تلقائيًا؟</label>
+          <select id="autoCodeToggle">
+            <option value="true">نعم (افتراضي)</option>
+            <option value="false">لا — إدخال يدوي</option>
+          </select>
+        </div>
+        <div><button onclick="saveEmployeeCodeSetting()">حفظ</button></div>
+      </div>
+      <p style="font-size:12px;color:#777">
+        لو "نعم"، الكود بيتحدد أوتوماتيك (MAX الأكواد الحالية +1، أو X للمعفيين من البصمة) وميتغيّرش بعد الإنشاء.
+      </p>
+      <div id="autoCodeStatus" style="font-size:13px"></div>
+    </div>
+
     <div id="employeeDetailArea"></div>
   </div>
 
@@ -452,6 +577,10 @@
 
   </div> <!-- end appContent -->
 
+  <!-- منطقة مخفية بتتملى وقت التصدير بس (Excel/PDF) — الفريموورك
+       الموحّد بتاع Phase 2A، مش مربوطة بأي تقرير حاليًا -->
+  <div id="exportPrintArea"></div>
+
   <script>
     // ============================================================
     // حط هنا لينك الـ Web App بتاع Code.gs (GHIS) بعد النشر.
@@ -469,7 +598,7 @@
         const btn = document.getElementById('tabBtn-' + v);
         if (btn) btn.classList.toggle('active', v === name);
       });
-      if (name === 'employees' && fullEmployeesCache.length === 0) loadEmployeesList();
+      if (name === 'employees') { if (fullEmployeesCache.length === 0) loadEmployeesList(); loadEmployeeCodeSetting_(); }
       if (name === 'rules') loadRulesViews();
       if (name === 'documents') loadDocumentsView();
       if (name === 'users') loadUsersAndRolesView();
@@ -478,6 +607,7 @@
 
     let employeesCache = [];
     let lastPeriod = { from: "", to: "" };
+    let lastReportContext = null; // { employee, from, to } — آخر تقرير موظف فردي اتعرض، مصدر الـExport
     let currentSession = null; // { token, username, role, sections, isAdmin }
 
     function setStatus(msg, isError) {
@@ -649,6 +779,7 @@
     function renderEmployeeReport(report, cameFromAll) {
       const s = report.summary;
       const emp = report.employee;
+      lastReportContext = { employee: emp.code, from: report.fromDate, to: report.toDate };
 
       let html = '';
       if (cameFromAll) {
@@ -660,6 +791,7 @@
         (emp.dept ? ' — ' + escapeHtml_(emp.dept) : '') + '</h2>';
       html += '<div style="font-size:13px;color:#666;margin-bottom:12px;">الفترة: ' +
         report.fromDate + ' إلى ' + report.toDate + '</div>';
+      html += buildExportButtonsHtml_();
 
       html += '<div class="metrics-grid">';
       html += metricCard_(s.attendanceRate != null ? s.attendanceRate + '%' : '-', 'نسبة الالتزام');
@@ -689,6 +821,74 @@
     function metricCard_(value, label, warn) {
       return '<div class="metric' + (warn ? ' warn' : '') + '"><div class="value">' +
         escapeHtml_(value) + '</div><div class="label">' + escapeHtml_(label) + '</div></div>';
+    }
+
+    // ============================================================
+    // Phase 2B — ربط تقرير الحضور بالـExport Framework
+    // ============================================================
+    // الأزرار بتظهر بس لو المستخدم معاه reports_export صراحة
+    // (مش reports العادية) — فصل حقيقي مش شكلي، ومطابق لسلوك
+    // السيرفر اللي بيرفض الطلب لو الصلاحية دي مش موجودة
+    function canExportReports_() {
+      return !!(currentSession && (currentSession.isAdmin || currentSession.sections.includes('reports_export')));
+    }
+
+    function buildExportButtonsHtml_() {
+      if (!canExportReports_()) return '';
+      return '<div class="form-actions" style="margin-bottom:10px">' +
+        '<button class="secondary" onclick="exportCurrentEmployeeReport_(\'excel\')">⬇️ Excel</button>' +
+        '<button class="secondary" onclick="exportCurrentEmployeeReport_(\'pdf\')">🖨️ طباعة / حفظ PDF</button>' +
+        '</div>';
+    }
+
+    // بيطلب نفس التقرير من جديد من السيرفر عن طريق reportExport
+    // (بوابة صلاحية منفصلة عن العرض العادي) — مش بيستخدم البيانات
+    // المعروضة أصلاً في المتصفح، عشان الحماية تكون حقيقية Server-Side
+    async function exportCurrentEmployeeReport_(format) {
+      if (!lastReportContext) { alert('❌ افتح تقرير موظف الأول.'); return; }
+      try {
+        const json = await callApi_({
+          action: 'reportExport',
+          employee: lastReportContext.employee,
+          from: lastReportContext.from,
+          to: lastReportContext.to,
+        });
+        const report = json.report;
+        const emp = report.employee;
+        const s = report.summary;
+
+        const headers = ['التاريخ', 'اليوم', 'الحالة', 'وقت الدخول', 'وقت الانصراف',
+          'دقائق التأخير', 'دقائق الانصراف المبكر', 'نوع الإجازة', 'الخصم', 'ملاحظات'];
+        const rows = report.days.map(d => {
+          const notes = [];
+          if (d.missingCheckout) notes.push('بدون بصمة انصراف');
+          return [
+            d.dateKey, d.weekdayName, d.status, d.checkInActual, d.checkOutActual,
+            d.lateMinutes, d.earlyLeaveMinutes, d.holidayReason || '-',
+            d.deduction != null ? d.deduction : '-', notes.join(' / ') || '-',
+          ];
+        });
+        const totals = [
+          { label: 'نسبة الالتزام', value: s.attendanceRate != null ? s.attendanceRate + '%' : '-' },
+          { label: 'أيام الحضور', value: s.presentDays },
+          { label: 'أيام الغياب', value: s.absentDays },
+          { label: 'إجمالي دقائق التأخير', value: s.lateMinutesTotal },
+          { label: 'إجمالي الخصم (يوم)', value: s.totalDeduction },
+        ];
+
+        const config = {
+          title: 'تقرير حضور — ' + emp.nameAr,
+          headers, rows, totals,
+          period: { type: 'custom', from: report.fromDate, to: report.toDate },
+          employee: { code: emp.code, nameAr: emp.nameAr },
+          fileName: 'تقرير_حضور_' + emp.code + '_' + report.fromDate,
+        };
+
+        if (format === 'excel') exportReportToExcel_(config);
+        else exportReportToPDF_(config);
+      } catch (err) {
+        alert('❌ ' + err.message);
+      }
     }
 
     function renderDailyTable(days) {
@@ -763,6 +963,114 @@
       const div = document.createElement('div');
       div.textContent = str == null ? '' : String(str);
       return div.innerHTML;
+    }
+
+    // ============================================================
+    // Unified Export Framework (Phase 2A) — مستقل تمامًا، مش مربوط
+    // بأي تقرير حاليًا. بياخد نفس الـData Set المعروض للمستخدم
+    // بالظبط (يتمرر له من الخارج)، مفيش أي إعادة حساب هنا خالص.
+    //
+    // Config المتوقع:
+    // {
+    //   title: "عنوان التقرير",
+    //   headers: ["عمود1", "عمود2", ...],
+    //   rows: [["قيمة1","قيمة2"], ...],
+    //   filters: { "الفلتر": "القيمة" } (اختياري),
+    //   period: { type: 'payroll', name, from, to } أو { type: 'custom', from, to } (اختياري),
+    //   employee: { code, nameAr } (اختياري),
+    //   totals: [{ label, value }] (اختياري),
+    //   fileName: "اسم_الملف_المقترح" (بدون امتداد)
+    // }
+    // ============================================================
+
+    function buildExportMetaHtml_(config) {
+      let html = '<div class="export-meta">';
+      html += '<h2>' + escapeHtml_(config.title || 'تقرير') + '</h2>';
+
+      if (config.period) {
+        if (config.period.type === 'payroll') {
+          html += '<p><b>الفترة:</b> ' + escapeHtml_(config.period.name) + ' (' +
+            escapeHtml_(config.period.from) + ' → ' + escapeHtml_(config.period.to) + ')</p>';
+        } else if (config.period.from && config.period.to) {
+          html += '<p><b>الفترة:</b> من ' + escapeHtml_(config.period.from) + ' إلى ' + escapeHtml_(config.period.to) + '</p>';
+        }
+      }
+      if (config.employee) {
+        html += '<p><b>الموظف:</b> ' + escapeHtml_(config.employee.nameAr) + ' (' + escapeHtml_(config.employee.code) + ')</p>';
+      }
+      if (config.filters && Object.keys(config.filters).length > 0) {
+        const filterText = Object.entries(config.filters)
+          .map(([k, v]) => escapeHtml_(k) + ': ' + escapeHtml_(v))
+          .join('، ');
+        html += '<p><b>الفلاتر المطبَّقة:</b> ' + filterText + '</p>';
+      }
+      html += '<p style="font-size:11px;color:#777">تاريخ ووقت الاستخراج: ' + escapeHtml_(new Date().toLocaleString('ar-EG')) + '</p>';
+      html += '</div>';
+      return html;
+    }
+
+    function buildExportTotalsHtml_(totals) {
+      if (!totals || totals.length === 0) return '';
+      let html = '<div class="export-totals">';
+      totals.forEach(t => {
+        html += '<p><b>' + escapeHtml_(t.label) + ':</b> ' + escapeHtml_(String(t.value)) + '</p>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function sanitizeExportFileName_(name) {
+      return String(name || 'GHIS_Report').trim().replace(/[\\\/:*?"<>|]/g, '-').replace(/\s+/g, '_');
+    }
+
+    // تصدير Excel — بيانات Structured حقيقية عبر SheetJS، مش صورة
+    // للجدول ولا نص عادي
+    function exportReportToExcel_(config) {
+      if (typeof XLSX === 'undefined') {
+        alert('❌ مكتبة تصدير Excel لسه بتتحمّل، جرّب تاني بعد شوية ثواني.');
+        return;
+      }
+      const wsData = [config.headers || []];
+      (config.rows || []).forEach(row => wsData.push(row));
+      if (config.totals && config.totals.length > 0) {
+        wsData.push([]);
+        config.totals.forEach(t => wsData.push([t.label, t.value]));
+      }
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'التقرير');
+      XLSX.writeFile(wb, sanitizeExportFileName_(config.fileName) + '.xlsx');
+    }
+
+    // تصدير PDF — عبر طباعة المتصفح (window.print) + CSS مخصص،
+    // مفيش مكتبة PDF خارجية، الناتج بيتحدد بإعدادات "حفظ كـPDF"
+    // بتاعة المتصفح نفسه (زي ما اتفقنا: أبسط وأوثق مع العربي RTL)
+    function exportReportToPDF_(config) {
+      const printArea = document.getElementById('exportPrintArea');
+      let html = buildExportMetaHtml_(config);
+
+      html += '<div class="table-wrap"><table><thead><tr>';
+      (config.headers || []).forEach(h => { html += '<th>' + escapeHtml_(h) + '</th>'; });
+      html += '</tr></thead><tbody>';
+      (config.rows || []).forEach(row => {
+        html += '<tr>';
+        row.forEach(cell => { html += '<td>' + escapeHtml_(cell) + '</td>'; });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      html += buildExportTotalsHtml_(config.totals);
+
+      printArea.innerHTML = html;
+      document.body.classList.add('printing-export');
+
+      window.print();
+
+      // تنظيف المنطقة بعد إغلاق نافذة الطباعة (مفيش حدث "onafterprint"
+      // موثوق 100% عبر كل المتصفحات، فبنستخدم مهلة بسيطة كحل عملي)
+      setTimeout(() => {
+        document.body.classList.remove('printing-export');
+        printArea.innerHTML = '';
+      }, 1000);
     }
 
     // ============================================================
@@ -871,6 +1179,27 @@
       }
     }
 
+    let autoGenerateEnabled = true; // Default مبدئي لحد ما نجيب الإعداد الفعلي
+
+    async function loadEmployeeCodeSetting_() {
+      try {
+        const json = await callApi_({ action: 'employeeCodeSettingGet' });
+        autoGenerateEnabled = json.autoGenerate;
+        const toggleEl = document.getElementById('autoCodeToggle');
+        if (toggleEl) toggleEl.value = autoGenerateEnabled ? 'true' : 'false';
+      } catch (err) { /* لو مفيش صلاحية، نتجاهل بهدوء ونسيب الافتراضي */ }
+    }
+
+    async function saveEmployeeCodeSetting() {
+      const statusEl = document.getElementById('autoCodeStatus');
+      const enabled = document.getElementById('autoCodeToggle').value === 'true';
+      try {
+        await callApiPost_({ action: 'employeeCodeSettingSet', enabled });
+        autoGenerateEnabled = enabled;
+        statusEl.textContent = '✅ اتحفظ.';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
     function openEmployeeForm(code) {
       const emp = code ? fullEmployeesCache.find(e => e.code === code) : null;
       const isEdit = !!emp;
@@ -880,7 +1209,14 @@
 
       let html = '<div class="card"><h2>' + (isEdit ? 'تعديل بيانات موظف' : 'إضافة موظف جديد') + '</h2>';
       html += '<div class="form-grid">';
-      if (!isEdit) html += f('code', 'كود الموظف', 'text', '');
+      if (!isEdit) {
+        if (autoGenerateEnabled) {
+          html += `<div><label>كود الموظف</label>
+            <input type="text" value="هيتحدد تلقائيًا بعد الحفظ" disabled style="background:#eee;color:#777"></div>`;
+        } else {
+          html += f('code', 'كود الموظف', 'text', '');
+        }
+      }
       html += f('nameAr', 'الاسم بالعربي', 'text', emp?.nameAr);
       html += f('nameEn', 'الاسم بالإنجليزي', 'text', emp?.nameEn);
       html += f('dept', 'القسم', 'text', emp?.dept);
@@ -929,9 +1265,14 @@
         if (code) {
           await callApiPost_({ action: 'employeeUpdate', code, changes: fields, reason, user: 'index-user' });
         } else {
-          const newCode = document.getElementById('empForm_code').value.trim();
-          if (!newCode) { statusEl.textContent = '❌ لازم تكتب كود الموظف.'; return; }
-          fields.code = newCode;
+          if (autoGenerateEnabled) {
+            // مفيش أي حاجة نبعتها هنا — الكود بيتحدد بالكامل من
+            // السيرفر (رقمي بس، مفيش خيار X بعد الآن)
+          } else {
+            const newCode = document.getElementById('empForm_code').value.trim();
+            if (!newCode) { statusEl.textContent = '❌ لازم تكتب كود الموظف.'; return; }
+            fields.code = newCode;
+          }
           await callApiPost_({ action: 'employeeAdd', data: fields, user: 'index-user' });
         }
         statusEl.textContent = '✅ تم الحفظ.';
