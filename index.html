@@ -1996,6 +1996,70 @@
           'h2pInternalWrapper.offsetHeight * scale': h2pInternalWrapper.offsetHeight * usedScale,
         });
 
+        // ⚠️ Diagnostic فقط — await worker.toImg() (مش .then())، وبعدين
+        // بنقرا worker.prop.img بالطريقة الصحيحة زي ما worker.js
+        // نفسها بتخزّنه (toImg_main: this.prop.img.src = imgData).
+        await worker.toImg();
+        console.log('PDF STEP 3b: toImg completed');
+        const actualImg = worker.prop.img;
+        console.log('ACTUAL IMG MEASURE', {
+          imgWidth: actualImg.width,
+          imgHeight: actualImg.height,
+          imgNaturalWidth: actualImg.naturalWidth,
+          imgNaturalHeight: actualImg.naturalHeight,
+          imgStyleWidth: actualImg.style.width,
+          imgStyleHeight: actualImg.style.height,
+        });
+
+        // ⚠️ Diagnostic فقط — توقّع دقيق لمدخلات pdf.addImage() قبل
+        // ما toPdf() الحقيقية تتنفذ، محسوب بنفس المعادلة الحرفية من
+        // src/worker.js (toPdf_main) اللي فحصناها من المصدر الرسمي
+        // لنسخة 0.10.1 — صفر تعديل على addImage() الفعلية نفسها أو
+        // على toPdf() نفسها، مجرد إعادة حساب موازي بنفس القيم
+        // الحقيقية (worker.prop.canvas وworker.prop.pageSize) قبل
+        // ما toPdf() تتنفذ فعليًا.
+        (function predictAddImageCalls_() {
+          const canvas = worker.prop.canvas;
+          const pageSize = worker.prop.pageSize;
+          // ⚠️ تصحيح مهم قبل الرفع: opt.margin عندنا محليًا رقم مفرد
+          // (PDF_MARGIN_MM_ = 12)، لكن worker.js بتطبّعه لـ Array
+          // [top,left,bottom,right] داخليًا عبر setMargin() قبل ما
+          // toPdf_main تستخدمه فعليًا — فبنقرا worker.opt.margin
+          // (النسخة المُطبَّعة الحقيقية)، مش opt.margin المحلي.
+          const normalizedMargin = worker.opt.margin;
+          const pxFullHeight = canvas.height;
+          const pxPageHeight = Math.floor(canvas.width * pageSize.inner.ratio);
+          const nPages = Math.ceil(pxFullHeight / pxPageHeight);
+          let pageHeight = pageSize.inner.height;
+          const predictions = [];
+          for (let page = 0; page < nPages; page++) {
+            let pageCanvasWidth = canvas.width;
+            let pageCanvasHeight = pxPageHeight;
+            if (page === nPages - 1 && pxFullHeight % pxPageHeight !== 0) {
+              pageCanvasHeight = pxFullHeight % pxPageHeight;
+              pageHeight = pageCanvasHeight * pageSize.inner.width / pageCanvasWidth;
+            }
+            predictions.push({
+              pageNumber: page + 1,
+              x: normalizedMargin[1],
+              y: normalizedMargin[0],
+              width: pageSize.inner.width,
+              height: pageHeight,
+            });
+          }
+          console.log('PREDICTED TOPDF CALCULATIONS', {
+            pageSizeInnerWidth: pageSize.inner.width,
+            pageSizeInnerHeight: pageSize.inner.height,
+            pageSizeInnerRatio: pageSize.inner.ratio,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            pxPageHeight,
+            nPages,
+            normalizedMargin,
+          });
+          console.log('PREDICTED ADDIMAGE CALLS (لكل صفحة)', predictions);
+        })();
+
         await worker.toPdf();
         console.log('PDF STEP 4: toPdf completed');
         await worker.save();
