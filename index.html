@@ -1875,6 +1875,10 @@
           scrollX: 0, scrollY: 0,
           windowWidth: container.scrollWidth,
           windowHeight: container.scrollHeight,
+          // ⚠️ تجربة محدودة (بند 1) — width/height بالإضافة لـ
+          // windowWidth/windowHeight الموجودين. مش استبدال، إضافة بس.
+          width: container.offsetWidth,
+          height: container.offsetHeight,
           foreignObjectRendering: true,
         },
         jsPDF: { unit: 'mm', format: pageFormat.size.toLowerCase(), orientation: pageFormat.orientation },
@@ -1903,6 +1907,20 @@
           windowWidth: window.innerWidth,
           pageFormat,
           html2canvasOptions: opt.html2canvas,
+        });
+
+        // ⚠️ Diagnostic مطلوب صراحة (بند 1، تجربة width/height) —
+        // مفيش أي .toCanvas().then(canvas => ...) خالص، بس قراءة
+        // قيم موجودة فعليًا في الـDOM قبل استدعاء html2pdf().
+        console.log('PDF WIDTH/HEIGHT TEST', {
+          containerOffsetWidth: container.offsetWidth,
+          containerOffsetHeight: container.offsetHeight,
+          containerScrollWidth: container.scrollWidth,
+          containerScrollHeight: container.scrollHeight,
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight,
+          contentWidthPx: pageFormat.contentWidthPx,
+          contentHeightPx: pageFormat.contentHeightPx,
         });
 
         // ⚠️ Logging مرحلي مؤقت (مطلوب صراحة) — نفس الـchain
