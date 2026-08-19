@@ -2018,67 +2018,85 @@
         })();
 
         // ============================================================
-        // ⚠️ اختبار A/B مطلوب صراحة — استدعاءات html2canvas() منفصلة
-        // ومستقلة تمامًا عن مسار التصدير الحقيقي (worker.toCanvas()
-        // اللي جاية تحت لسه هتشتغل بإعداداتها الأصلية زي ما هي).
-        // الهدف: مقارنة foreignObjectRendering:true مقابل false على
-        // نفس العنصر (h2pInternalWrapper) بنفس باقي الإعدادات بالحرف،
-        // صفر تعديل على margin/width/Crop/Adaptive Height/CSS.
+        // ⚠️ اختبار A/B مُصحَّح — بيستخدم html2pdf() الحقيقية نفسها
+        // (المتاحة ومؤكَّدة شغالة أصلاً)، مش window.html2canvas.
+        // بننشئ Worker منفصل لكل تجربة (A/B)، وكل Worker بيمرّ على
+        // نفس المسار الحقيقي بالحرف: .set(opt).from(container) ثم
+        // await toContainer() ثم await toCanvas() — بالظبط زي مسار
+        // التصدير الحقيقي تحت، بس بـforeignObjectRendering مختلفة
+        // بس. باقي كل الإعدادات (width/height/scale/windowWidth/
+        // windowHeight/useCORS/scrollX/scrollY/jsPDF/margin) نفسها
+        // بالحرف. صفر تأثير على worker الحقيقي أو على opt الأصلي —
+        // Object جديد مستقل لكل تجربة.
         // ============================================================
-        if (typeof html2canvas === 'function') {
-          const abBaseOptions = {
-            scale: 2, useCORS: true,
-            scrollX: 0, scrollY: 0,
-            windowWidth: container.scrollWidth,
-            windowHeight: container.scrollHeight,
-            width: container.offsetWidth,
-            height: container.offsetHeight,
-          };
-
-          async function computeBoundingBoxForCanvas_(testCanvas) {
-            const ctx2d = testCanvas.getContext('2d');
-            const w = testCanvas.width, h = testCanvas.height;
-            const imageData = ctx2d.getImageData(0, 0, w, h);
-            const data = imageData.data;
-            let minX = w, maxX = -1;
-            const WHITE_THRESHOLD = 250;
-            const STEP = 2;
-            for (let y = 0; y < h; y += STEP) {
-              for (let x = 0; x < w; x += STEP) {
-                const idx = (y * w + x) * 4;
-                const a = data[idx + 3];
-                if (a <= 10) continue;
-                const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-                if (r < WHITE_THRESHOLD || g < WHITE_THRESHOLD || b < WHITE_THRESHOLD) {
-                  if (x < minX) minX = x;
-                  if (x > maxX) maxX = x;
-                }
+        async function computeBoundingBoxForCanvas_(testCanvas) {
+          const ctx2d = testCanvas.getContext('2d');
+          const w = testCanvas.width, h = testCanvas.height;
+          const imageData = ctx2d.getImageData(0, 0, w, h);
+          const data = imageData.data;
+          let minX = w, maxX = -1;
+          const WHITE_THRESHOLD = 250;
+          const STEP = 2;
+          for (let y = 0; y < h; y += STEP) {
+            for (let x = 0; x < w; x += STEP) {
+              const idx = (y * w + x) * 4;
+              const a = data[idx + 3];
+              if (a <= 10) continue;
+              const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+              if (r < WHITE_THRESHOLD || g < WHITE_THRESHOLD || b < WHITE_THRESHOLD) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
               }
             }
-            const found = maxX >= minX;
-            return {
-              canvasWidth: w, canvasHeight: h,
-              contentBoundingWidth: found ? (maxX - minX) : null,
-              whiteSpaceLeftPx: found ? minX : null,
-              whiteSpaceRightPx: found ? (w - maxX) : null,
-            };
           }
+          const found = maxX >= minX;
+          return {
+            contentBoundingWidth: found ? (maxX - minX) : null,
+            whiteSpaceLeftPx: found ? minX : null,
+            whiteSpaceRightPx: found ? (w - maxX) : null,
+          };
+        }
 
-          for (const variant of [
-            { label: 'A (foreignObjectRendering: true)', fo: true },
-            { label: 'B (foreignObjectRendering: false)', fo: false },
-          ]) {
-            try {
-              const testOptions = Object.assign({}, abBaseOptions, { foreignObjectRendering: variant.fo });
-              const testCanvas = await html2canvas(h2pInternalWrapper, testOptions);
-              const bbox = await computeBoundingBoxForCanvas_(testCanvas);
-              console.log('AB DIAGNOSTIC — ' + variant.label, bbox);
-            } catch (abErr) {
-              console.error('AB DIAGNOSTIC FAILED — ' + variant.label, abErr);
+        for (const variant of [
+          { label: 'true', fo: true },
+          { label: 'false', fo: false },
+        ]) {
+          try {
+            const testOpt = {
+              margin: PDF_MARGIN_MM_,
+              image: { type: 'png' },
+              html2canvas: {
+                scale: 2, useCORS: true,
+                scrollX: 0, scrollY: 0,
+                windowWidth: container.scrollWidth,
+                windowHeight: container.scrollHeight,
+                width: container.offsetWidth,
+                height: container.offsetHeight,
+                foreignObjectRendering: variant.fo,
+              },
+              jsPDF: { unit: 'mm', format: pageFormat.size.toLowerCase(), orientation: pageFormat.orientation },
+              pagebreak: { mode: ['css', 'legacy'] },
+            };
+            const testWorker = html2pdf().set(testOpt).from(container);
+            await testWorker.toContainer();
+            await testWorker.toCanvas();
+            const testCanvas = testWorker.prop.canvas;
+            const bbox = await computeBoundingBoxForCanvas_(testCanvas);
+            console.log('TEST: ' + variant.label, {
+              'canvas.width': testCanvas.width,
+              'canvas.height': testCanvas.height,
+              contentBoundingWidth: bbox.contentBoundingWidth,
+              whiteSpaceLeftPx: bbox.whiteSpaceLeftPx,
+              whiteSpaceRightPx: bbox.whiteSpaceRightPx,
+            });
+            // ⚠️ toCanvas_post (من مصدر المكتبة نفسه) بتشيل الـoverlay
+            // تلقائيًا بعد الالتقاط — فحص أمان بس لو فضل أي أثر
+            if (testWorker.prop.overlay && document.body.contains(testWorker.prop.overlay)) {
+              document.body.removeChild(testWorker.prop.overlay);
             }
+          } catch (testErr) {
+            console.error('TEST FAILED: ' + variant.label, testErr);
           }
-        } else {
-          console.error('AB DIAGNOSTIC SKIPPED — دالة html2canvas العامة مش متاحة (window.html2canvas) في النسخة المُحمَّلة.');
         }
 
         console.log('WRAPPER MEASURE BEFORE', {
