@@ -1845,6 +1845,17 @@
         catch (err) { alert('❌ ' + err.message); return; }
       }
 
+      // ⚠️ pdfConfig — نسخة محلية منفصلة تمامًا لنسخة الـPDF بس،
+      // بيتحذف منها عمود "الكود" (بالاسم، مش برقم ثابت). الـconfig
+      // الأصلي مالوش أي لمسة خالص — الشاشة وprintReport_(config)
+      // لسه بيستخدموا كل الأعمدة زي ما هي بالحرف.
+      const codeColIndex = config.headers.indexOf('الكود');
+      const pdfConfig = codeColIndex === -1 ? config : {
+        ...config,
+        headers: config.headers.filter((_, i) => i !== codeColIndex),
+        rows: config.rows.map(row => row.filter((_, i) => i !== codeColIndex)),
+      };
+
       // ⚠️ رجعنا للـwrapper (النسخة اللي أنت أكّدت إنها بيّنت
       // البيانات فعليًا) — كنت جرّبت تبسيطها بدون داعي كافٍ وده
       // سبب رجوع مشكلة الفراغ. مش هغيّر التصميم ده تاني إلا بعد
@@ -1853,7 +1864,7 @@
       wrapper.className = 'pdf-export-wrapper';
       const container = document.createElement('div');
       container.className = 'pdf-export-container';
-      container.innerHTML = buildExportContentHtml_(config);
+      container.innerHTML = buildExportContentHtml_(pdfConfig);
       wrapper.appendChild(container);
       document.body.appendChild(wrapper);
 
@@ -1861,7 +1872,7 @@
       // (مش بس مشكلة Layout). رجعنا لـcontentWidthPx زي آخر نسخة
       // مؤكَّدة إنها بتولّد PDF فعليًا (مع foreignObjectRendering:true
       // شغالة والعربي سليم، والمشكلة الوحيدة كانت العمود الأخير).
-      const pageFormat = computeReportPageFormat_(config);
+      const pageFormat = computeReportPageFormat_(pdfConfig);
       container.style.width = pageFormat.contentWidthPx + 'px';
 
       const opt = {
