@@ -1688,6 +1688,12 @@
     // (PDF_MARGIN_MM_) بيغذي الاتنين، فمستحيل يحصل تضارب تاني.
     // ============================================================
     const PDF_MARGIN_MM_ = 12; // نفس القيمة المستخدمة في @page (printReport_) بالظبط
+    // ⚠️ إزاحة أفقية خفيفة لليمين بس، جوه onclone، على الـWrapper
+    // الداخلي بتاع html2pdf.js نفسه (مش على أي عنصر من عناصرنا،
+    // ومش تعديل contentWidthPx/CSS/margin/direction/Crop/scale/
+    // Adaptive Height خالص). قيمة ابتدائية قابلة للتعديل لاحقًا لو
+    // احتجنا زيادة/نقصان بسيط.
+    const H2P_RIGHT_SHIFT_PX = 20;
     const PX_PER_MM_ = 96 / 25.4; // تحويل مم→بكسل عند 96dpi (نفس الافتراض في كل الحسابات)
     const PAGE_PHYSICAL_MM_ = { a4Portrait: 210, a4Landscape: 297, a3Landscape: 420 };
 
@@ -1879,7 +1885,7 @@
           // windowWidth/windowHeight الموجودين. مش استبدال، إضافة بس.
           width: container.offsetWidth,
           height: container.offsetHeight,
-          foreignObjectRendering: false,
+          foreignObjectRendering: true,
           // ⚠️ Diagnostic فقط (مطلوب صراحة) — onclone بتدّينا وصول
           // للـDOM Clone اللي html2canvas بتبنيه بنفسها (مختلف عن
           // Clone html2pdf.js الأول)، قبل التصوير مباشرة. Read-only
@@ -1893,6 +1899,13 @@
               // container بتاعنا مباشرة. محتوانا الحقيقي (class
               // pdf-export-container) موجود جواه كـfirstElementChild.
               const clonedH2pWrapper = clonedDocument.querySelector('.html2pdf__container');
+              // ⚠️ التعديل الوحيد الفعلي المطلوب: إزاحة أفقية بسيطة
+              // لليمين (marginLeft) على الـWrapper الداخلي بتاع
+              // html2pdf.js نفسه — بس جوه الـClone (onclone)، صفر
+              // تأثير على أي عنصر من عناصرنا أو على الصفحة الحقيقية.
+              if (clonedH2pWrapper) {
+                clonedH2pWrapper.style.marginLeft = H2P_RIGHT_SHIFT_PX + 'px';
+              }
               const clonedRoot = clonedDocument.querySelector('.pdf-export-container');
               const clonedFirstContent = clonedRoot ? clonedRoot.firstElementChild : null;
               const wrapperRect = clonedH2pWrapper ? clonedH2pWrapper.getBoundingClientRect() : null;
