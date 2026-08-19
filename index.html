@@ -1448,7 +1448,7 @@
         };
 
         if (format === 'excel') exportReportToExcel_(config);
-        else if (format === 'pdf') printReport_(config);
+        else if (format === 'pdf') saveReportAsPDF_(config);
         else printReport_(config);
       } catch (err) {
         alert('❌ ' + err.message);
@@ -1477,7 +1477,7 @@
           period: { type: 'custom', from: json.fromDate, to: json.toDate },
           fileName: 'تقرير_حضور_كل_الموظفين_' + json.fromDate,
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -2502,7 +2502,7 @@
           title: 'بيانات الموظفين', headers, rows,
           fileName: 'بيانات_الموظفين_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3063,7 +3063,7 @@
           employee: { code, nameAr: emp ? emp.nameAr : code },
           fileName: 'مستندات_' + code + '_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3179,7 +3179,7 @@
           title: 'تقرير الموظفين الناقص لهم مستندات', headers, rows,
           fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3210,7 +3210,7 @@
           title: 'تقرير المستندات قربت تنتهي', headers, rows,
           fileName: 'مستندات_قربت_تنتهي_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3256,7 +3256,7 @@
           filters: { 'نوع المستند': type },
           fileName: 'تقرير_مستندات_' + type + '_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
