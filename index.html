@@ -1848,15 +1848,19 @@
       wrapper.appendChild(container);
       document.body.appendChild(wrapper);
 
-      // ⚠️ Phase 2: نفس مصدر القرار بالظبط اللي printReport_ بتستخدمه
-      // (computeReportPageFormat_) — يعني الطباعة وPDF دايمًا هياخدوا
-      // نفس القرار (A4 Portrait/Landscape أو A3 Landscape) لنفس التقرير.
+      // ⚠️ computeReportPageFormat_ لسه بتتحدد وبتستخدم لقرار مقاس
+      // صفحة الـPDF نفسه (jsPDF format/orientation) بس — مالهاش أي
+      // علاقة بعرض الالتقاط دلوقتي (Phase 3 مرحلة 3: عرض الالتقاط
+      // بقى 800px ثابت تحت، مستقل تمامًا).
       const pageFormat = computeReportPageFormat_(config);
-      // عرض الـContainer بيتماشى مع مقاس/اتجاه الصفحة المُقرَّر فعليًا
-      // (96dpi تقريبًا)، بدل قيمتين ثابتتين زي الأول (794/1122) —
-      // دلوقتي بياخد contentWidthPx من نفس دالة القرار، فمفيش أي
-      // احتمال يتفرق عن اللي هيطبع فعليًا. Presentation فقط.
-      container.style.width = pageFormat.contentWidthPx + 'px';
+
+      // ⚠️ Phase 3 (مرحلة 3 — اختبار أول، مش قرار نهائي): عرض ثابت
+      // 800px بدل contentWidthPx (703/1032/1497 حسب A4/A3) — مؤكَّد
+      // من GitHub Issue #1754 في مستودع html2canvas الرسمي إن
+      // foreignObjectRendering بتتجاهل windowWidth/windowHeight
+      // وبتستخدم عرض نافذة المستند الحقيقي بدلها، فالـ800 دي لازم
+      // تكون أصغر من أي نافذة متصفح واقعية عشان الالتقاط ميتقصش.
+      container.style.width = '800px';
 
       const opt = {
         // ⚠️ Phase 3 (المرحلة 1): بدل الرقم الثابت 10 (كان بيتعارض
@@ -1869,16 +1873,12 @@
         // png (بدون فقدان) بيحافظ على حواف النص حادة وواضحة. حجم
         // الملف هيكبر شوية، تنازل معقول لتقرير نصه هو المهم.
         image: { type: 'png' },
-        // ⚠️ scrollX/scrollY:0 + windowWidth/Height مربوطين بحجم الـ
-        // container نفسه — إصلاح Root Cause الأصلي (حجم Canvas مستحيل).
+        // ⚠️ Phase 3 (مرحلة 3): شيلنا scrollX/scrollY/windowWidth/
+        // windowHeight بالكامل — مؤكَّد (GitHub Issue #1754) إنهم
+        // بيتجاهلوا مع foreignObjectRendering:true، فإبقاؤهم كان
+        // كود ميت بيوهم بضبط مش موجود فعليًا.
         html2canvas: {
           scale: 2, useCORS: true,
-          scrollX: 0, scrollY: 0,
-          windowWidth: container.scrollWidth,
-          windowHeight: container.scrollHeight,
-          // ⚠️ اختبار معزول (Phase 3 — مرحلة 2): التغيير الوحيد في
-          // الاختبار ده. لو فشل (البيانات اختفت/PDF فاضي)، لازم
-          // يترجع لـfalse فورًا من غير أي تعديل إضافي معاه.
           foreignObjectRendering: true,
         },
         jsPDF: { unit: 'mm', format: pageFormat.size.toLowerCase(), orientation: pageFormat.orientation },
@@ -1897,7 +1897,22 @@
         await document.fonts.ready;
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-        await html2pdf().set(opt).from(container).save();
+        // ⚠️ Logging تشخيصي مؤقت (مطلوب صراحة) — بيطبع القيم الخمسة
+        // المتفق عليها في الـConsole قبل وبعد الالتقاط. مش جزء دائم
+        // من الكود، سهل نشيله بعد ما نتأكد من النتيجة.
+        console.log('📏 [PDF Diagnostic] قبل الالتقاط:', {
+          'container.getBoundingClientRect().width': container.getBoundingClientRect().width,
+          'container.scrollWidth': container.scrollWidth,
+          'window.innerWidth': window.innerWidth,
+        });
+
+        await html2pdf().set(opt).from(container).toCanvas().then(canvas => {
+          console.log('📏 [PDF Diagnostic] بعد الالتقاط (canvas الناتج فعليًا):', {
+            'canvas.width': canvas.width,
+            'canvas.height': canvas.height,
+          });
+          return canvas;
+        }).toPdf().save();
       } catch (err) {
         alert('❌ فشل إنشاء ملف PDF، يرجى المحاولة مرة أخرى.');
         console.error('saveReportAsPDF_ failed:', err);
@@ -1905,6 +1920,7 @@
         document.body.removeChild(wrapper);
       }
     }
+
 
     // ============================================================
     // اتصال POST عام (للإضافة/التعديل) — بنفس أسلوب نظام الحضور
