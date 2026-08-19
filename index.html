@@ -1849,14 +1849,13 @@
           scrollX: 0, scrollY: 0,
           windowWidth: container.scrollWidth,
           windowHeight: container.scrollHeight,
-          // ⚠️ إصلاح "الحروف العربية منفصلة/مقلوبة": html2canvas
-          // افتراضيًا بترسم النص يدويًا حرف حرف على Canvas، وده بيكسر
-          // تشكيل الحروف العربية المتصلة (باج معروف وموثّق في
-          // المكتبة مع النصوص العربية/المعقدة). foreignObjectRendering
-          // بيخلي المتصفح نفسه يرسم النص (عبر SVG foreignObject) بدل
-          // ما المكتبة تعيد رسمه — فالحروف بترجع تتصل طبيعي زي أي نص
-          // عربي عادي. مدعومة في Chrome (الأساس هنا) بشكل موثوق.
-          foreignObjectRendering: true,
+          // ⚠️ رجعنا عن foreignObjectRendering: true — كان الهدف
+          // منها إصلاح تشكيل الحروف العربية، لكنها سبّبت مشكلة أكبر
+          // (البيانات اختفت تمامًا). foreignObjectRendering معروف
+          // إنها بتفشل بصمت في حالات كتير (خصوصًا مع Google Fonts/
+          // صور Base64 مُضمَّنة) وترجع Canvas فاضي بدل ما تصلح
+          // التشكيل. الأولوية دلوقتي: البيانات تظهر (حتى لو الحروف
+          // شكلها مش مثالي 100%) أهم من شكل مثالي بدون بيانات خالص.
         },
         jsPDF: { unit: 'mm', format: pageFormat.size.toLowerCase(), orientation: pageFormat.orientation },
         pagebreak: { mode: ['css', 'legacy'] },
