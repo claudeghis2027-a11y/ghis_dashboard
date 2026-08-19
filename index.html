@@ -1968,6 +1968,34 @@
 
         await worker.toCanvas();
         console.log('PDF STEP 3: toCanvas completed');
+
+        // ⚠️ Diagnostic فقط (مطلوب صراحة) — بنقرا الـCanvas الفعلي من
+        // worker.prop.canvas (بالطريقة الصحيحة اللي worker.js نفسها
+        // بتخزّنه بيها في toCanvas_post: this.prop.canvas = canvas)،
+        // مش عبر .toCanvas().then(canvas => ...). صفر تعديل على أي
+        // width/height/CSS/jsPDF هنا — قراءة وقياس بس.
+        const actualCanvas = worker.prop.canvas;
+        const usedScale = (opt.html2canvas && opt.html2canvas.scale) || 1;
+        console.log('ACTUAL CANVAS MEASURE', {
+          canvasWidth: actualCanvas.width,
+          canvasHeight: actualCanvas.height,
+          canvasStyleWidth: actualCanvas.style.width,
+          canvasStyleHeight: actualCanvas.style.height,
+          containerOffsetWidth: container.offsetWidth,
+          containerOffsetHeight: container.offsetHeight,
+          h2pInternalWrapperOffsetWidth: h2pInternalWrapper.offsetWidth,
+          h2pInternalWrapperOffsetHeight: h2pInternalWrapper.offsetHeight,
+          scale: usedScale,
+        });
+        console.log('ACTUAL CANVAS MEASURE — المقارنة', {
+          'canvas.width': actualCanvas.width,
+          'container.offsetWidth * scale': container.offsetWidth * usedScale,
+          'h2pInternalWrapper.offsetWidth * scale': h2pInternalWrapper.offsetWidth * usedScale,
+          'canvas.height': actualCanvas.height,
+          'container.offsetHeight * scale': container.offsetHeight * usedScale,
+          'h2pInternalWrapper.offsetHeight * scale': h2pInternalWrapper.offsetHeight * usedScale,
+        });
+
         await worker.toPdf();
         console.log('PDF STEP 4: toPdf completed');
         await worker.save();
