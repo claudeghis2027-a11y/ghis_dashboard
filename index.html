@@ -624,6 +624,9 @@
         <button class="sidebar-link" id="tabBtn-documents" onclick="switchView('documents')">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.2V6.4a1.6 1.6 0 0 1 1.6-1.6h4.3l1.8 2h7.2a1.6 1.6 0 0 1 1.6 1.6v1.1"/><path d="M3.5 8.2h16.4l-2 9.6a1.8 1.8 0 0 1-1.76 1.4H7.26a1.8 1.8 0 0 1-1.76-1.4l-2-9.6Z"/></svg></span> المستندات
         </button>
+        <button class="sidebar-link" id="tabBtn-reportCenter" onclick="switchView('reportCenter')">
+          <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-7"/><circle cx="18" cy="6" r="2.2"/></svg></span> مركز التقارير
+        </button>
         <button class="sidebar-link" id="tabBtn-backup" onclick="switchView('backup')">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 17.5a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.62-1.9A4.25 4.25 0 0 1 17 17.5H7.5Z"/><path d="M12 10.5v6.5M9.3 13.2 12 10.5l2.7 2.7"/></svg></span> نسخ احتياطي
         </button>
@@ -918,6 +921,18 @@
     </div>
   </div>
 
+  <!-- ============== قسم مركز التقارير (Report Center) — Metadata
+       Catalog بس، بيوديك لنفس الـView/الـHandler الحالي. صفر تكرار
+       منطق أو بيانات. ============== -->
+  <div id="view-reportCenter" class="view" style="display:none">
+    <div class="card">
+      <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:10px">
+        التقارير <span style="margin:0 4px">●</span> <b>مركز التقارير</b>
+      </div>
+      <div id="reportCenterArea"></div>
+    </div>
+  </div>
+
   <!-- ============== 5) قسم المستخدمين والصلاحيات (أدمن بس) ============== -->
   <div id="view-users" class="view" style="display:none">
     <div class="card">
@@ -984,18 +999,109 @@
     // التنقل بين الأقسام
     // ============================================================
     function switchView(name) {
-      ['reports', 'employees', 'rules', 'documents', 'backup', 'users', 'account'].forEach(v => {
+      ['reports', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
         const btn = document.getElementById('tabBtn-' + v);
         if (btn) btn.classList.toggle('active', v === name);
       });
+      sessionStorage.setItem('ghis_last_view', name);
       if (name === 'employees') { if (fullEmployeesCache.length === 0) loadEmployeesList(); loadEmployeeCodeSetting_(); }
       if (name === 'rules') { if (!rulesLoaded_) { loadRulesViews(); rulesLoaded_ = true; } }
       if (name === 'documents') { if (!documentsViewLoaded_) { loadDocumentsView(); documentsViewLoaded_ = true; } }
       if (name === 'users') { if (!usersViewLoaded_) { loadUsersAndRolesView(); usersViewLoaded_ = true; } }
       if (name === 'backup') { if (!backupViewLoaded_) { loadBackupsList(); loadBackupConfig(); backupViewLoaded_ = true; } }
+      if (name === 'reportCenter') { renderReportCenter_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
+    }
+
+    // ============================================================
+    // ⚠️ Report Center — Metadata Catalog بس (صفر منطق بيانات/عرض/
+    // صلاحيات جديد). كل entry بيوصف تقرير موجود بالفعل، وبيوديك
+    // لنفس الـView/Sub-tab بتاعه بالضغطة — صفر تكرار لأي Handler
+    // أو Business Logic أو Data Source موجودة.
+    //
+    // permission: نفس المفتاح الحقيقي من ACTION_SECTION_MAP_ في
+    // Code.gs (مؤكَّد بالفحص المباشر، مش تخمين) — reports_export
+    // (صلاحية التصدير) لسه مستقلة تمامًا ومالهاش أي علاقة هنا،
+    // لإن الدخول من هنا بيوديك للـView على الشاشة بس، مش بيصدّر.
+    // ============================================================
+    const REPORT_REGISTRY_ = [
+      { id: 'attendance_single', name: 'تقرير حضور موظف واحد',
+        description: 'عرض تفصيلي لحضور وانصراف وخصومات موظف معيّن خلال فترة محددة',
+        category: 'الحضور', permission: 'reports', targetView: 'reports', targetSubView: null },
+      { id: 'attendance_all', name: 'تقرير حضور كل الموظفين',
+        description: 'ملخص حضور وخصومات كل الموظفين خلال فترة محددة',
+        category: 'الحضور', permission: 'reports', targetView: 'reports', targetSubView: null },
+      { id: 'employees_list', name: 'بيانات الموظفين',
+        description: 'قائمة كاملة ببيانات كل الموظفين النشطين والمنتهية خدمتهم',
+        category: 'الموظفين', permission: 'employees', targetView: 'employees', targetSubView: null },
+      { id: 'employee_documents', name: 'تقرير مستندات موظف',
+        description: 'كل المستندات المسجّلة لموظف معيّن وحالتها',
+        category: 'المستندات', permission: 'docs_view', targetView: 'documents', targetSubView: 'employee' },
+      { id: 'missing_documents', name: 'الموظفين الناقص لهم مستندات',
+        description: 'قائمة الموظفين اللي لسه ناقصهم مستندات مطلوبة',
+        category: 'المستندات', permission: 'docs_reports', targetView: 'documents', targetSubView: 'missing' },
+      { id: 'expiring_documents', name: 'مستندات قربت تنتهي',
+        description: 'المستندات اللي قربت تنتهي صلاحيتها',
+        category: 'المستندات', permission: 'docs_reports', targetView: 'documents', targetSubView: 'expiry' },
+      { id: 'documents_by_type', name: 'مستندات حسب النوع',
+        description: 'حالة كل الموظفين بالنسبة لنوع مستند معيّن',
+        category: 'المستندات', permission: 'docs_reports', targetView: 'documents', targetSubView: 'bytype' },
+    ];
+
+    // نفس منطق checkPermission_ (Code.gs) بالحرف: isAdmin أو
+    // sections.includes(permission) — صفر نظام صلاحيات جديد أو
+    // مستقل. الـBackend يفضل الحارس الحقيقي والنهائي دايمًا.
+    function filterReportRegistryByPermission_(session) {
+      if (!session) return [];
+      return REPORT_REGISTRY_.filter(r => session.isAdmin || session.sections.includes(r.permission));
+    }
+
+    function hasAnyReportAccess_(session) {
+      return filterReportRegistryByPermission_(session).length > 0;
+    }
+
+    // بيوديك لمكان التقرير الحقيقي — نفس switchView/switchDocsSubView
+    // الموجودين، صفر تعديل عليهم، صفر Handler جديد.
+    function openReportFromRegistry_(reportId) {
+      const entry = REPORT_REGISTRY_.find(r => r.id === reportId);
+      if (!entry) return;
+      switchView(entry.targetView);
+      if (entry.targetSubView) switchDocsSubView(entry.targetSubView);
+    }
+
+    function switchReportCenterTab_(category) {
+      document.querySelectorAll('.rc-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category));
+      document.querySelectorAll('.rc-panel').forEach(panel => panel.style.display = (panel.dataset.category === category) ? '' : 'none');
+      sessionStorage.setItem('ghis_last_report_center_category', category);
+    }
+
+    function renderReportCenter_() {
+      const visible = filterReportRegistryByPermission_(currentSession);
+      const area = document.getElementById('reportCenterArea');
+      if (visible.length === 0) { area.innerHTML = '<p style="font-size:13px;color:#777">مفيش تقارير متاحة لصلاحيتك الحالية.</p>'; return; }
+
+      const categories = [...new Set(visible.map(r => r.category))]; // ترتيب الظهور = ترتيب أول ظهور في الـRegistry
+
+      let html = '<div class="tabbar" style="margin-bottom:14px">';
+      categories.forEach((cat, i) => {
+        html += '<button class="tab-btn' + (i === 0 ? ' active' : '') + ' rc-tab" data-category="' +
+          escapeHtml_(cat) + '" onclick="switchReportCenterTab_(\'' + escapeHtml_(cat) + '\')">' + escapeHtml_(cat) + '</button>';
+      });
+      html += '</div>';
+
+      categories.forEach((cat, i) => {
+        html += '<div class="rc-panel" data-category="' + escapeHtml_(cat) + '" style="display:' + (i === 0 ? '' : 'none') + '">';
+        html += '<div class="table-wrap"><table><thead><tr><th>اسم التقرير</th><th>الوصف</th></tr></thead><tbody>';
+        visible.filter(r => r.category === cat).forEach(r => {
+          html += '<tr><td><a href="#" onclick="openReportFromRegistry_(\'' + r.id + '\'); return false;">' +
+            escapeHtml_(r.name) + '</a></td><td style="text-align:right">' + escapeHtml_(r.description) + '</td></tr>';
+        });
+        html += '</tbody></table></div></div>';
+      });
+
+      area.innerHTML = html;
     }
 
     // ============================================================
@@ -1123,6 +1229,41 @@
         const btn = document.getElementById('tabBtn-' + tab);
         if (btn) btn.style.display = allowed ? '' : 'none';
       });
+
+      // ⚠️ مركز التقارير: بيظهر بس لو عند المستخدم صلاحية وصول لتقرير
+      // واحد على الأقل من الـRegistry — نفس منطق checkPermission_
+      // (isAdmin أو sections.includes)، صفر نظام صلاحيات جديد.
+      const reportCenterBtn = document.getElementById('tabBtn-reportCenter');
+      if (reportCenterBtn) reportCenterBtn.style.display = hasAnyReportAccess_(currentSession) ? '' : 'none';
+
+      // ⚠️ Navigation Persistence — نسترجع آخر View بس لو محفوظة،
+      // معروفة، ومسموح للمستخدم الحالي بيها فعليًا (بنفس فحوصات
+      // الصلاحية اللي فوق بالحرف، صفر منطق صلاحيات إضافي أو جديد).
+      // لو أي شرط فشل، بنسيب السلوك الافتراضي الحالي زي ما هو
+      // (View "التقارير" ظاهرة أصلاً من الـHTML من غير أي تدخّل).
+      const allowedViews = { account: true }; // "حسابي" مسموحة لأي حد عنده جلسة، زي ما هي حاليًا
+      Object.keys(tabSectionMap).forEach(tab => {
+        allowedViews[tab] = currentSession.isAdmin || currentSession.sections.includes(tabSectionMap[tab]);
+      });
+      allowedViews.users = usersTabAllowed;
+      allowedViews.reportCenter = hasAnyReportAccess_(currentSession);
+
+      const lastView = sessionStorage.getItem('ghis_last_view');
+      if (lastView && allowedViews[lastView]) {
+        switchView(lastView);
+        if (lastView === 'documents') {
+          const lastDocsSub = sessionStorage.getItem('ghis_last_docs_subview');
+          if (lastDocsSub && document.getElementById('docsSubTab-' + lastDocsSub)) {
+            switchDocsSubView(lastDocsSub);
+          }
+        }
+        if (lastView === 'reportCenter') {
+          const lastCategory = sessionStorage.getItem('ghis_last_report_center_category');
+          if (lastCategory && document.querySelector('.rc-panel[data-category="' + CSS.escape(lastCategory) + '"]')) {
+            switchReportCenterTab_(lastCategory);
+          }
+        }
+      }
 
       runInitialLoad_();
     }
@@ -2830,6 +2971,7 @@
         document.getElementById('docsSub-' + v).style.display = (v === name) ? '' : 'none';
         document.getElementById('docsSubTab-' + v).classList.toggle('active', v === name);
       });
+      sessionStorage.setItem('ghis_last_docs_subview', name);
       if (name === 'missing') loadMissingReport();
       if (name === 'expiry') loadExpiryReport();
       if (name === 'bytype') loadByTypeTypesList_();
