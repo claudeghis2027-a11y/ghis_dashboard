@@ -1073,6 +1073,77 @@
     }
 
     // ============================================================
+    // ⚠️ Phase A — API/JSON Error Fix
+    // ============================================================
+    // Root Cause الأصلي: callApi_/callApiPost_ كانوا بينادوا res.json()
+    // مباشرة من غير أي فحص. لو Apps Script رجّع أي حاجة مش JSON فعلي
+    // (صفحة HTML من بنية Google — انتهاء تفويض، تجاوز حد التنفيذات
+    // المتزامنة، Timeout، إلخ)، فـres.json() كان بيرمي مباشرة:
+    // "Unexpected token '<', "<!DOCTYPE ..." is not valid JSON" —
+    // رسالة تقنية خام تظهر للمستخدم من غير أي تفسير.
+    //
+    // الدالة دي بقت نقطة مرور واحدة مشتركة لكل الردود (GET وPOST)،
+    // بتعمل بالترتيب:
+    //  1) تقيس مدة الطلب (Request Duration).
+    //  2) تتأكد إن الرد أصلاً وصل (مش Network Error خام).
+    //  3) تفحص Content-Type قبل أي محاولة Parse.
+    //  4) لو مش JSON (غالبًا HTML بيبدأ بـ<!DOCTYPE)، تسجّل تشخيص
+    //     كامل في الـConsole (للمطوّر) وترمي رسالة عربي مفهومة
+    //     للمستخدم — من غير ما تخفي أي حاجة، الـLog فيه كل التفاصيل.
+    //  5) صفر تغيير في أي Business Logic أو في شكل الـjson اللي
+    //     بيرجع لباقي الكود لو كل حاجة تمام (نفس {status, ...} زي الأول).
+    // ============================================================
+    async function parseApiResponse_(res, action, startTime) {
+      const durationMs = Math.round(performance.now() - startTime);
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.indexOf('application/json') !== -1;
+
+      if (!res.ok || !isJson) {
+        // بنقرا النص الخام (مش Parse كـJSON) عشان نقدر نشخّص بالظبط
+        // من غير ما نكسر تاني على res.json() نفسها
+        let preview = '';
+        try {
+          const text = await res.text();
+          preview = text.slice(0, 300);
+        } catch (readErr) {
+          preview = '(تعذّرت قراءة محتوى الرد أصلاً: ' + readErr.message + ')';
+        }
+
+        const looksLikeHtml = /^\s*<(!DOCTYPE|html)/i.test(preview);
+        const diagnostic = {
+          action: action,
+          httpStatus: res.status,
+          httpStatusText: res.statusText,
+          contentType: contentType || '(غير محدد)',
+          durationMs: durationMs,
+          looksLikeHtml: looksLikeHtml,
+          responsePreview: preview,
+          timestamp: new Date().toISOString(),
+        };
+        // Diagnostic Logging كامل — ده اللي بيوضح السبب الحقيقي لو
+        // المشكلة تكررت، من غير ما نخفي حاجة عن نفسنا وقت الدباجة
+        console.error('❌ GHIS API — رد غير صالح (مش JSON):', diagnostic);
+
+        const userMessage = looksLikeHtml
+          ? 'تعذّر الاتصال بالخادم أو انتهت الجلسة. يرجى تحديث الصفحة وتسجيل الدخول مرة أخرى.'
+          : 'حدث خطأ غير متوقع في الاتصال بالخادم (كود ' + res.status + '). يرجى المحاولة مرة أخرى.';
+        const err = new Error(userMessage);
+        err.diagnostic = diagnostic; // متاح لو حد عايز يفحصه من Console وقت الدباجة
+        throw err;
+      }
+
+      try {
+        return await res.json();
+      } catch (parseErr) {
+        // حالة نادرة: Content-Type قال JSON بس المحتوى فعليًا تالف
+        console.error('❌ GHIS API — Content-Type=JSON لكن الـParse فشل:', {
+          action, httpStatus: res.status, durationMs, parseError: String(parseErr),
+        });
+        throw new Error('تعذّر قراءة رد الخادم. يرجى المحاولة مرة أخرى.');
+      }
+    }
+
+    // ============================================================
     // اتصال بالـ API — GET بس، زي doGet(e) في Code.gs. مفيش أي
     // حساب هنا خالص، بس تمرير باراميترات واستقبال JSON جاهز.
     // ============================================================
@@ -1082,8 +1153,17 @@
       }
       const withToken = Object.assign({}, params, { token: currentSession ? currentSession.token : '' });
       const qs = new URLSearchParams(withToken).toString();
-      const res = await fetch(CONFIG.SCRIPT_URL + '?' + qs);
-      const json = await res.json();
+      const startTime = performance.now();
+
+      let res;
+      try {
+        res = await fetch(CONFIG.SCRIPT_URL + '?' + qs);
+      } catch (networkErr) {
+        console.error('❌ GHIS API — فشل الاتصال بالشبكة:', { action: params.action, error: String(networkErr) });
+        throw new Error('تعذّر الوصول للخادم — تأكد من اتصالك بالإنترنت وحاول تاني.');
+      }
+
+      const json = await parseApiResponse_(res, params.action, startTime);
       if (json.status !== 'ok') {
         handleSessionError_(new Error(json.message || ''));
         throw new Error(json.message || 'خطأ غير معروف من السيرفر');
@@ -1670,8 +1750,17 @@
     // ============================================================
     async function callApiPost_(payload) {
       const withToken = Object.assign({}, payload, { token: currentSession ? currentSession.token : '' });
-      const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(withToken) });
-      const json = await res.json();
+      const startTime = performance.now();
+
+      let res;
+      try {
+        res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(withToken) });
+      } catch (networkErr) {
+        console.error('❌ GHIS API — فشل الاتصال بالشبكة:', { action: payload.action, error: String(networkErr) });
+        throw new Error('تعذّر الوصول للخادم — تأكد من اتصالك بالإنترنت وحاول تاني.');
+      }
+
+      const json = await parseApiResponse_(res, payload.action, startTime);
       if (json.status !== 'ok') {
         handleSessionError_(new Error(json.message || ''));
         throw new Error(json.message || 'خطأ غير معروف من السيرفر');
