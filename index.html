@@ -1016,11 +1016,26 @@
       statusEl.textContent = 'جاري تسجيل الدخول...';
       statusEl.style.color = '#555';
       try {
-        const res = await fetch(CONFIG.SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'login', username, password }),
-        });
-        const json = await res.json();
+        // ⚠️ إصلاح (كان الثغرة المتبقية من Phase A): كانت هنا بتعمل
+        // fetch() و res.json() مباشرة، من غير ما تمر على
+        // parseApiResponse_ زي callApi_/callApiPost_ — فلو Google
+        // رجّعت HTML بدل JSON (Timeout/Authorization/Quota) وقت
+        // تسجيل الدخول تحديدًا، كانت بترمي "Unexpected token '<'"
+        // الخام. دلوقتي بتستخدم نفس دالة الفحص المشتركة، بنفس
+        // Diagnostic Logging ورسالة عربي واضحة. صفر تغيير في منطق
+        // تسجيل الدخول نفسه (نفس action, نفس username/password).
+        const startTime = performance.now();
+        let res;
+        try {
+          res = await fetch(CONFIG.SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'login', username, password }),
+          });
+        } catch (networkErr) {
+          console.error('❌ GHIS API — فشل الاتصال بالشبكة:', { action: 'login', error: String(networkErr) });
+          throw new Error('تعذّر الوصول للخادم — تأكد من اتصالك بالإنترنت وحاول تاني.');
+        }
+        const json = await parseApiResponse_(res, 'login', startTime);
         if (json.status !== 'ok') throw new Error(json.message || 'خطأ غير معروف');
 
         currentSession = json.result;
