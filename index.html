@@ -1393,13 +1393,16 @@
     }
 
     // fnName: اسم الدالة المسؤولة عن تصدير التقرير الحالي — كل تقرير
-    // بيمرر اسم دالته الخاصة. 3 أزرار مستقلة فعليًا (مش شكليًا):
-    // طباعة (window.print)، حفظ PDF (html2pdf.js)، Excel (SheetJS)
+    // بيمرر اسم دالته الخاصة. زرارين بس دلوقتي: طباعة (window.print،
+    // شامل خيار "Save as PDF" من نافذة الطباعة نفسها) وExcel (SheetJS).
+    // ⚠️ زرار "حفظ PDF" (html2pdf.js) اتشال من الواجهة بالكامل —
+    // مشكلة القص الأفقي المعروفة والموثّقة عبر جلسة تشخيص طويلة.
+    // saveReportAsPDF_() لسه موجودة في الكود (مش محذوفة)، بس مفيش
+    // أي زرار بينادها بعد كده.
     function buildExportButtonsHtml_(fnName) {
       if (!canExportReports_()) return '';
       return '<div class="form-actions export-buttons" style="margin-bottom:10px">' +
         '<button class="secondary" onclick="' + fnName + '(\'print\')">🖨 طباعة</button>' +
-        '<button class="secondary" onclick="' + fnName + '(\'pdf\')">📄 حفظ PDF</button>' +
         '<button class="secondary" onclick="' + fnName + '(\'excel\')">📊 Excel</button>' +
         '</div>';
     }
@@ -1448,7 +1451,6 @@
         };
 
         if (format === 'excel') exportReportToExcel_(config);
-        else if (format === 'pdf') saveReportAsPDF_(config);
         else printReport_(config);
       } catch (err) {
         alert('❌ ' + err.message);
@@ -1477,7 +1479,7 @@
           period: { type: 'custom', from: json.fromDate, to: json.toDate },
           fileName: 'تقرير_حضور_كل_الموظفين_' + json.fromDate,
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -1845,17 +1847,6 @@
         catch (err) { alert('❌ ' + err.message); return; }
       }
 
-      // ⚠️ pdfConfig — نسخة محلية منفصلة تمامًا لنسخة الـPDF بس،
-      // بيتحذف منها عمود "الكود" (بالاسم، مش برقم ثابت). الـconfig
-      // الأصلي مالوش أي لمسة خالص — الشاشة وprintReport_(config)
-      // لسه بيستخدموا كل الأعمدة زي ما هي بالحرف.
-      const codeColIndex = config.headers.indexOf('الكود');
-      const pdfConfig = codeColIndex === -1 ? config : {
-        ...config,
-        headers: config.headers.filter((_, i) => i !== codeColIndex),
-        rows: config.rows.map(row => row.filter((_, i) => i !== codeColIndex)),
-      };
-
       // ⚠️ رجعنا للـwrapper (النسخة اللي أنت أكّدت إنها بيّنت
       // البيانات فعليًا) — كنت جرّبت تبسيطها بدون داعي كافٍ وده
       // سبب رجوع مشكلة الفراغ. مش هغيّر التصميم ده تاني إلا بعد
@@ -1864,7 +1855,7 @@
       wrapper.className = 'pdf-export-wrapper';
       const container = document.createElement('div');
       container.className = 'pdf-export-container';
-      container.innerHTML = buildExportContentHtml_(pdfConfig);
+      container.innerHTML = buildExportContentHtml_(config);
       wrapper.appendChild(container);
       document.body.appendChild(wrapper);
 
@@ -1872,7 +1863,7 @@
       // (مش بس مشكلة Layout). رجعنا لـcontentWidthPx زي آخر نسخة
       // مؤكَّدة إنها بتولّد PDF فعليًا (مع foreignObjectRendering:true
       // شغالة والعربي سليم، والمشكلة الوحيدة كانت العمود الأخير).
-      const pageFormat = computeReportPageFormat_(pdfConfig);
+      const pageFormat = computeReportPageFormat_(config);
       container.style.width = pageFormat.contentWidthPx + 'px';
 
       const opt = {
@@ -2513,7 +2504,7 @@
           title: 'بيانات الموظفين', headers, rows,
           fileName: 'بيانات_الموظفين_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3074,7 +3065,7 @@
           employee: { code, nameAr: emp ? emp.nameAr : code },
           fileName: 'مستندات_' + code + '_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3190,7 +3181,7 @@
           title: 'تقرير الموظفين الناقص لهم مستندات', headers, rows,
           fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3221,7 +3212,7 @@
           title: 'تقرير المستندات قربت تنتهي', headers, rows,
           fileName: 'مستندات_قربت_تنتهي_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3267,7 +3258,7 @@
           filters: { 'نوع المستند': type },
           fileName: 'تقرير_مستندات_' + type + '_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
