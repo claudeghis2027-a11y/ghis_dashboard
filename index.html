@@ -1905,7 +1905,14 @@
           html2canvasOptions: opt.html2canvas,
         });
 
-        await html2pdf().set(opt).from(container).save();
+        // ⚠️ Logging مرحلي مؤقت (مطلوب صراحة) — نفس الـchain
+        // بالحرف (set → from → save)، بس مقسّم بـlogs بين كل مرحلة
+        // عشان نحدد بالظبط آخر مرحلة نجحت وأول مرحلة فشلت.
+        console.log('PDF STEP 1: before html2pdf');
+        const worker = html2pdf().set(opt).from(container);
+        console.log('PDF STEP 2: worker created');
+        await worker.save();
+        console.log('PDF STEP 3: save completed');
       } catch (err) {
         // ⚠️ Diagnostic Logging مطلوب صراحة — الخطأ الحقيقي وStack
         // Trace كامل، بدل الرسالة العامة بس. الـalert فضل زي ما هو
