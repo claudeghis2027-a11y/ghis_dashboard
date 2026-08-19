@@ -1880,6 +1880,56 @@
           width: container.offsetWidth,
           height: container.offsetHeight,
           foreignObjectRendering: true,
+          // ⚠️ Diagnostic فقط (مطلوب صراحة) — onclone بتدّينا وصول
+          // للـDOM Clone اللي html2canvas بتبنيه بنفسها (مختلف عن
+          // Clone html2pdf.js الأول)، قبل التصوير مباشرة. Read-only
+          // تمامًا — صفر تعديل على العنصر، صفر تأثير على scale/
+          // foreignObjectRendering/أي سلوك رسم فعلي.
+          onclone: function(clonedDocument) {
+            try {
+              // ⚠️ العنصر الفعلي اللي بيتمرر لـhtml2canvas هو
+              // worker.prop.container (الـWrapper الداخلي بتاع
+              // html2pdf.js، class="html2pdf__container") — مش
+              // container بتاعنا مباشرة. محتوانا الحقيقي (class
+              // pdf-export-container) موجود جواه كـfirstElementChild.
+              const clonedH2pWrapper = clonedDocument.querySelector('.html2pdf__container');
+              const clonedRoot = clonedDocument.querySelector('.pdf-export-container');
+              const clonedFirstContent = clonedRoot ? clonedRoot.firstElementChild : null;
+              const wrapperRect = clonedH2pWrapper ? clonedH2pWrapper.getBoundingClientRect() : null;
+              const rootRect = clonedRoot ? clonedRoot.getBoundingClientRect() : null;
+              const firstContentRect = clonedFirstContent ? clonedFirstContent.getBoundingClientRect() : null;
+              const wrapperStyle = clonedH2pWrapper ? clonedDocument.defaultView.getComputedStyle(clonedH2pWrapper) : null;
+              const rootStyle = clonedRoot ? clonedDocument.defaultView.getComputedStyle(clonedRoot) : null;
+              const firstContentStyle = clonedFirstContent ? clonedDocument.defaultView.getComputedStyle(clonedFirstContent) : null;
+
+              console.log('ONCLONE — DOM CLONE MEASUREMENT (قبل التصوير مباشرة)', {
+                // 1) العنصر الفعلي الممرَّر لـhtml2canvas (html2pdf__container)
+                clonedH2pWrapperFound: !!clonedH2pWrapper,
+                clonedH2pWrapperRect: wrapperRect ? { left: wrapperRect.left, right: wrapperRect.right, width: wrapperRect.width } : null,
+                clonedH2pWrapperOffsetLeft: clonedH2pWrapper ? clonedH2pWrapper.offsetLeft : null,
+                clonedH2pWrapperScrollLeft: clonedH2pWrapper ? clonedH2pWrapper.scrollLeft : null,
+                clonedH2pWrapperComputedMargin: wrapperStyle ? (wrapperStyle.marginLeft + ' / ' + wrapperStyle.marginRight) : null,
+                clonedH2pWrapperComputedTransform: wrapperStyle ? wrapperStyle.transform : null,
+                // 2) محتوانا الحقيقي (pdf-export-container) جوه الـWrapper
+                clonedRootFound: !!clonedRoot,
+                clonedRootRect: rootRect ? { left: rootRect.left, right: rootRect.right, width: rootRect.width } : null,
+                clonedRootOffsetLeft: clonedRoot ? clonedRoot.offsetLeft : null,
+                clonedRootScrollLeft: clonedRoot ? clonedRoot.scrollLeft : null,
+                clonedRootComputedMargin: rootStyle ? (rootStyle.marginLeft + ' / ' + rootStyle.marginRight) : null,
+                clonedRootComputedPadding: rootStyle ? (rootStyle.paddingLeft + ' / ' + rootStyle.paddingRight) : null,
+                clonedRootComputedTransform: rootStyle ? rootStyle.transform : null,
+                // 3) أول عنصر محتوى رئيسي جوه محتوانا (report-doc غالبًا)
+                clonedFirstContentTag: clonedFirstContent ? clonedFirstContent.tagName : null,
+                clonedFirstContentRect: firstContentRect ? { left: firstContentRect.left, right: firstContentRect.right, width: firstContentRect.width } : null,
+                clonedFirstContentOffsetLeft: clonedFirstContent ? clonedFirstContent.offsetLeft : null,
+                clonedFirstContentComputedMargin: firstContentStyle ? (firstContentStyle.marginLeft + ' / ' + firstContentStyle.marginRight) : null,
+                clonedFirstContentComputedTransform: firstContentStyle ? firstContentStyle.transform : null,
+                'ملحوظة': 'عنصر <foreignObject> الداخلي بتاع html2canvas نفسه مش متاح للفحص من أي API عام — onclone بتديّنا الـDOM Clone قبل التغليف في foreignObject، مش بعده.',
+              });
+            } catch (oncloneErr) {
+              console.error('ONCLONE MEASUREMENT FAILED', oncloneErr);
+            }
+          },
         },
         jsPDF: { unit: 'mm', format: pageFormat.size.toLowerCase(), orientation: pageFormat.orientation },
         pagebreak: { mode: ['css', 'legacy'] },
