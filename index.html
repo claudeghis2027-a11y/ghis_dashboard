@@ -1941,6 +1941,32 @@
         const h2pInternalWrapper = worker.prop.container;
         const h2pPageSize = worker.prop.pageSize;
 
+        // ⚠️ Diagnostic واحد مطلوب صراحة (بدون أي تعديل على margin/
+        // width/Canvas/Adaptive Height) — قياسات هندسية لاختبار
+        // فرضية margin:auto كمصدر لـminX=792. صفر تغيير، قراءة بس.
+        (function measureCenteringHypothesis_() {
+          const wrapperRect = h2pInternalWrapper.getBoundingClientRect();
+          const overlayEl = worker.prop.overlay;
+          const overlayRect = overlayEl ? overlayEl.getBoundingClientRect() : null;
+          const computedStyle = getComputedStyle(h2pInternalWrapper);
+          const overlayWidth = overlayRect ? (overlayRect.right - overlayRect.left) : null;
+          const wrapperWidth = wrapperRect.right - wrapperRect.left;
+          const expectedCenteredLeft = overlayWidth != null ? (overlayWidth - wrapperWidth) / 2 : null;
+
+          console.log('CENTERING HYPOTHESIS MEASUREMENT', {
+            wrapperGetBoundingLeft: wrapperRect.left,
+            wrapperGetBoundingRight: wrapperRect.right,
+            wrapperOffsetWidth: h2pInternalWrapper.offsetWidth,
+            windowInnerWidth: window.innerWidth,
+            documentClientWidth: document.documentElement.clientWidth,
+            overlayGetBoundingLeft: overlayRect ? overlayRect.left : null,
+            overlayGetBoundingRight: overlayRect ? overlayRect.right : null,
+            computedMarginLeft: computedStyle.marginLeft,
+            computedMarginRight: computedStyle.marginRight,
+            expectedCenteredLeft,
+          });
+        })();
+
         console.log('WRAPPER MEASURE BEFORE', {
           wrapperGetBoundingWidth: h2pInternalWrapper.getBoundingClientRect().width,
           wrapperScrollWidth: h2pInternalWrapper.scrollWidth,
@@ -1953,10 +1979,11 @@
           pageSizeInnerPxWidth: h2pPageSize.inner.px.width,
         });
 
-        // ⚠️ التعديل الوحيد المسموح في التجربة دي: عرض الـWrapper
-        // الداخلي بتاع html2pdf.js نفسه — بنخليه يطابق contentWidthPx
-        // (زي ما هو، صفر تغيير فيه أو في أي رقم ثابت زي 800px).
-        h2pInternalWrapper.style.width = pageFormat.contentWidthPx + 'px';
+        // ⚠️ السطر اللي كان هنا (h2pInternalWrapper.style.width = ...)
+        // اتشال بالكامل — كان متبقي من تجربة Option B قديمة، وكان
+        // بيلوّث قياس CENTERING HYPOTHESIS MEASUREMENT لإنه بيغيّر
+        // عرض الـWrapper قبل أي التقاط فعلي. دلوقتي عرض الـWrapper
+        // بيفضل زي ما html2pdf.js نفسها بتحدده افتراضيًا، صفر تدخّل.
 
         console.log('WRAPPER MEASURE AFTER', {
           wrapperGetBoundingWidth: h2pInternalWrapper.getBoundingClientRect().width,
