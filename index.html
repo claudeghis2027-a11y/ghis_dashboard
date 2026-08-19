@@ -369,15 +369,20 @@
   .report-chip b { font-weight: 800; }
 
   .report-table-wrap { width: 100%; }
-  table.report-table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  /* ⚠️ Phase 2 — table-layout:fixed بيضمن رياضيًا إن مجموع عرض
+     الأعمدة مايتخطاش عرض الصفحة أبدًا (Root Cause الحقيقي لمشكلة
+     قص الأعمدة في A4 كان table-layout:auto + white-space:nowrap
+     على العناوين، اللي كانوا بيفرضوا عرض أكبر من الصفحة). */
+  table.report-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-size: 10.5px; }
   table.report-table thead { display: table-header-group; } /* تكرار الهيدر في كل صفحة PDF/Print */
   table.report-table th {
     background: var(--color-primary); color: #fff; font-weight: 700;
     padding: 8px 7px; text-align: center; border: 1px solid var(--color-primary-dark);
-    white-space: nowrap;
+    white-space: normal; word-break: normal; overflow-wrap: break-word; line-height: 1.3;
   }
   table.report-table td {
     padding: 6.5px 7px; text-align: center; border: 1px solid #e4e7ee; color: var(--color-text);
+    white-space: normal; word-break: normal; overflow-wrap: break-word; line-height: 1.35;
   }
   table.report-table tbody tr:nth-child(even) td { background: #f7f8fb; }
   table.report-table tr { page-break-inside: avoid; break-inside: avoid; }
@@ -1619,8 +1624,67 @@
 
     // اختيار الاتجاه (Portrait/Landscape) حسب عدد أعمدة التقرير —
     // مش Landscape ثابت لكل حاجة. حد بسيط: أكتر من 4 أعمدة = عريض
+    // ============================================================
+    // ⚠️ Phase 2 — قرار حجم/اتجاه الصفحة بناءً على عرض الجدول
+    // المُقدَّر فعليًا (مش عدد الأعمدة وحده). Presentation Logic
+    // بحتة: بتاخد config.headers/rows زي ما هم من غير أي تعديل أو
+    // إعادة حساب لأي قيمة — بس بتقيس أطوال النصوص عشان تقدّر
+    // العرض المطلوب. صفر علاقة بـbuildEmployeeReport_/classifyDay_
+    // أو أي حساب تاني.
+    //
+    // القيم (6.5px لكل حرف تقريبًا، 46px حد أدنى للعمود) قيم بداية
+    // مقترحة قابلة للضبط لاحقًا حسب نتيجة الاختبار الحقيقي — مش
+    // أرقام نهائية جامدة.
+    // ============================================================
+    const PAGE_CONTENT_WIDTH_PX_ = {
+      a4Portrait: 703,   // A4 210مم - 24مم هوامش، عند 96dpi تقريبًا
+      a4Landscape: 1032, // A4 297مم - 24مم هوامش
+      a3Landscape: 1497, // A3 420مم - 24مم هوامش
+    };
+    const CHAR_WIDTH_PX_ = 6.5;
+    const MIN_COL_WIDTH_PX_ = 46;
+    const CELL_PADDING_BORDER_PX_ = 20; // 7px+7px padding + ~6px borders/هامش أمان
+
+    function estimateReportTableWidth_(config) {
+      const headers = config.headers || [];
+      const rows = config.rows || [];
+      let total = 0;
+      headers.forEach((h, i) => {
+        let longest = String(h == null ? '' : h).length;
+        rows.forEach(row => {
+          const cellLen = String(row[i] == null ? '' : row[i]).length;
+          if (cellLen > longest) longest = cellLen;
+        });
+        const colWidth = Math.max(MIN_COL_WIDTH_PX_, longest * CHAR_WIDTH_PX_ + CELL_PADDING_BORDER_PX_);
+        total += colWidth;
+      });
+      return total;
+    }
+
+    // بيرجّع { size: 'A4'|'A3', orientation: 'portrait'|'landscape',
+    // contentWidthPx } — مصدر قرار واحد بيتنادى من printReport_ و
+    // saveReportAsPDF_ الاتنين، عشان يستخدموا نفس القاعدة بالظبط.
+    function computeReportPageFormat_(config) {
+      const headers = config.headers || [];
+      const estimatedWidth = estimateReportTableWidth_(config);
+
+      if (headers.length <= 4 && estimatedWidth <= PAGE_CONTENT_WIDTH_PX_.a4Portrait) {
+        return { size: 'A4', orientation: 'portrait', contentWidthPx: PAGE_CONTENT_WIDTH_PX_.a4Portrait };
+      }
+      if (estimatedWidth <= PAGE_CONTENT_WIDTH_PX_.a4Landscape) {
+        return { size: 'A4', orientation: 'landscape', contentWidthPx: PAGE_CONTENT_WIDTH_PX_.a4Landscape };
+      }
+      // A3 بس لو فعلاً العرض المُقدَّر أكبر من A4 Landscape — مش
+      // الحل الافتراضي لمعظم التقارير
+      return { size: 'A3', orientation: 'landscape', contentWidthPx: PAGE_CONTENT_WIDTH_PX_.a3Landscape };
+    }
+
+    // ⚠️ التوافق القديم: computeReportOrientation_ فضلت موجودة بنفس
+    // الاسم والمخرج (بس 'portrait'/'landscape') لأي كود تاني ممكن
+    // لسه بينادها — بترجّع بس جزء orientation من القرار الجديد
+    // الأشمل، صفر كسر لأي استخدام قديم.
     function computeReportOrientation_(headers) {
-      return (headers && headers.length > 4) ? 'landscape' : 'portrait';
+      return computeReportPageFormat_({ headers: headers, rows: [] }).orientation;
     }
 
     // بناء محتوى التقرير (Header+Meta+جدول+إجماليات) داخل منطقة
@@ -1677,10 +1741,14 @@
       printArea.innerHTML = buildExportContentHtml_(config);
       document.body.classList.add('printing-export');
 
-      const orientation = computeReportOrientation_(config.headers);
+      // ⚠️ Phase 2: بدل computeReportOrientation_(headers) بس، دلوقتي
+      // بيستخدم computeReportPageFormat_(config) الكامل — نفس مصدر
+      // القرار بالظبط اللي saveReportAsPDF_ تحت بتستخدمه، فالاتنين
+      // (طباعة وPDF) دايمًا متطابقين في القرار.
+      const pageFormat = computeReportPageFormat_(config);
       const styleTag = document.createElement('style');
       styleTag.id = 'dynamicPrintPageStyle';
-      styleTag.textContent = '@page { size: A4 ' + orientation + '; margin: 12mm; }';
+      styleTag.textContent = '@page { size: ' + pageFormat.size + ' ' + pageFormat.orientation + '; margin: 12mm; }';
       document.head.appendChild(styleTag);
 
       // ⚠️ نفس إصلاح الـTiming بتاع saveReportAsPDF_ (Phase A بند 2):
@@ -1714,13 +1782,15 @@
       container.innerHTML = buildExportContentHtml_(config);
       document.body.appendChild(container);
 
-      const orientation = computeReportOrientation_(config.headers);
-      // عرض الـ Container بيتماشى مع اتجاه الصفحة (A4 عند 96dpi):
-      // Portrait ≈ 794px، Landscape ≈ 1122px — عشان التقارير العريضة
-      // تاخد مساحة حقيقية بدل ما تتمطط/تتقزّم لعرض ضيق ثابت. Presentation
-      // فقط — مفيش أي علاقة بحساب orientation نفسه (computeReportOrientation_
-      // زي ما هي، صفر تغيير).
-      container.style.width = (orientation === 'landscape' ? '1122px' : '794px');
+      // ⚠️ Phase 2: نفس مصدر القرار بالظبط اللي printReport_ بتستخدمه
+      // (computeReportPageFormat_) — يعني الطباعة وPDF دايمًا هياخدوا
+      // نفس القرار (A4 Portrait/Landscape أو A3 Landscape) لنفس التقرير.
+      const pageFormat = computeReportPageFormat_(config);
+      // عرض الـContainer بيتماشى مع مقاس/اتجاه الصفحة المُقرَّر فعليًا
+      // (96dpi تقريبًا)، بدل قيمتين ثابتتين زي الأول (794/1122) —
+      // دلوقتي بياخد contentWidthPx من نفس دالة القرار، فمفيش أي
+      // احتمال يتفرق عن اللي هيطبع فعليًا. Presentation فقط.
+      container.style.width = pageFormat.contentWidthPx + 'px';
 
       const opt = {
         margin: 10,
@@ -1734,7 +1804,7 @@
           windowWidth: container.scrollWidth,
           windowHeight: container.scrollHeight,
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: orientation },
+        jsPDF: { unit: 'mm', format: pageFormat.size.toLowerCase(), orientation: pageFormat.orientation },
         pagebreak: { mode: ['css', 'legacy'] },
       };
 
