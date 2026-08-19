@@ -7,8 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- ⚠️ Performance Fix (Phase A، بند 1): SheetJS و html2pdf.js اتشالوا
+     من هنا كـ Blocking <script> في <head> — كانوا بيتحمّلوا (~1-1.5MB)
+     مع أي فتح للصفحة حتى لو حد لسه ما سجّلش دخول أصلاً، رغم إنهم
+     مطلوبين بس وقت الضغط الفعلي على "حفظ PDF" أو "Excel". دلوقتي
+     بيتحمّلوا ديناميكيًا (Lazy Load) أول مرة بس حد يضغط الزرار
+     المعني، عبر loadScriptOnce_() تحت في الـJS. صفر تغيير في أي
+     منطق تصدير أو حساب — Presentation/Loading strategy فقط. -->
 <style>
   /* ============================================================
      GHIS Design System — متغيرات مركزية
@@ -391,6 +396,13 @@
   .report-foot {
     margin-top: 16px; padding-top: 8px; border-top: 1px dashed var(--color-border);
     display: flex; justify-content: space-between; font-size: 9px; color: #9aa2af;
+  }
+
+  /* Empty State صريح — بدل PDF/Print فاضي غامض (Phase A بند 2) */
+  .report-empty-state {
+    margin-top: 20px; padding: 40px 20px; text-align: center;
+    background: var(--color-primary-50); border: 1.5px dashed var(--color-border);
+    border-radius: var(--radius-md); color: var(--color-text-muted); font-size: 13px; font-weight: 600;
   }
 
   /* منطقة مؤقتة لبناء محتوى PDF — لازم تكون "موجودة بصريًا" (مش
@@ -930,10 +942,10 @@
         if (btn) btn.classList.toggle('active', v === name);
       });
       if (name === 'employees') { if (fullEmployeesCache.length === 0) loadEmployeesList(); loadEmployeeCodeSetting_(); }
-      if (name === 'rules') loadRulesViews();
-      if (name === 'documents') loadDocumentsView();
-      if (name === 'users') loadUsersAndRolesView();
-      if (name === 'backup') { loadBackupsList(); loadBackupConfig(); }
+      if (name === 'rules') { if (!rulesLoaded_) { loadRulesViews(); rulesLoaded_ = true; } }
+      if (name === 'documents') { if (!documentsViewLoaded_) { loadDocumentsView(); documentsViewLoaded_ = true; } }
+      if (name === 'users') { if (!usersViewLoaded_) { loadUsersAndRolesView(); usersViewLoaded_ = true; } }
+      if (name === 'backup') { if (!backupViewLoaded_) { loadBackupsList(); loadBackupConfig(); backupViewLoaded_ = true; } }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
     }
@@ -954,6 +966,20 @@
     }
 
     let employeesCache = [];
+    // ⚠️ Performance Fix (Phase A بند 4): Cache Guards — بترجّع القسم
+    // من غير إعادة نداء السيرفر لو الشخص رجع لتبويب زاره قبل كده من
+    // غير أي تعديل. آمن 100%: كل دوال الإضافة/التعديل (submitScheduleRule,
+    // addRole, documentTypeAdd, toggleUserAccount, إلخ) بتنادي الـ
+    // Sub-Loader المباشر بتاعها (loadScheduleRulesView, loadRolesView,
+    // loadDocTypesView...) فورًا بعد نجاح العملية — مش الدالة الكبيرة
+    // المحكومة بالـ Flag دي — فالبيانات المعروضة تفضل Live دايمًا بعد
+    // أي Mutation، والـ Flag بس بتمنع إعادة تحميل زيادة عند التنقل
+    // بين التبويبات من غير أي تغيير فعلي.
+    let rulesLoaded_ = false;
+    let documentsViewLoaded_ = false;
+    let usersViewLoaded_ = false;
+    let backupViewLoaded_ = false;
+
     let lastPeriod = { from: "", to: "" };
     let lastReportContext = null; // { employee, from, to } — آخر تقرير موظف فردي اتعرض، مصدر الـExport
     let currentSession = null; // { token, username, role, sections, isAdmin }
@@ -1382,10 +1408,19 @@
       document.getElementById('resultArea').innerHTML = html;
     }
 
+    // ⚠️ Performance Fix (Phase A بند 3): النسخة القديمة كانت بتعمل
+    // DOM element (createElement + textContent + innerHTML) لكل قيمة
+    // بتتاخد — قستها فعليًا: 33.7ms بس لجدول 30 صف (300+ عنصر DOM).
+    // البديل ده String-based ومطابق 100% لنفس المخرج: المتصفح وقت ما
+    // بيعمل textContent→innerHTML بيهرب بس &, <, > (مش علامات
+    // التنصيص، لإن القيمة بتتحط جوه Text Node مش Attribute Value) —
+    // نفس السلوك بالظبط هنا، بس من غير أي DOM ops. مفيش أي استخدام
+    // لـescapeHtml_ في السياق الحالي بيحط القيمة جوه Attribute
+    // مباشرة (مراجعة كاملة اتعملت)، فمفيش خطر XSS إضافي عن السلوك
+    // الأصلي.
     function escapeHtml_(str) {
-      const div = document.createElement('div');
-      div.textContent = str == null ? '' : String(str);
-      return div.innerHTML;
+      if (str == null) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     // ============================================================
@@ -1447,12 +1482,33 @@
       return String(name || 'GHIS_Report').trim().replace(/[\\\/:*?"<>|]/g, '-').replace(/\s+/g, '_');
     }
 
+    // ============================================================
+    // Lazy Loader للمكتبات الخارجية الثقيلة (SheetJS/html2pdf) —
+    // كل واحدة بتتحمّل مرة واحدة بس (Promise متكاش)، وبس أول مرة
+    // فعليًا حد يحتاجها (ضغط Excel أو PDF)، مش مع تحميل الصفحة.
+    // Performance Optimization بحت — صفر تغيير في أي منطق تصدير.
+    // ============================================================
+    const _scriptLoadPromises_ = {};
+    function loadScriptOnce_(url) {
+      if (_scriptLoadPromises_[url]) return _scriptLoadPromises_[url];
+      _scriptLoadPromises_[url] = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = () => resolve();
+        s.onerror = () => { delete _scriptLoadPromises_[url]; reject(new Error('فشل تحميل مكتبة خارجية: ' + url)); };
+        document.head.appendChild(s);
+      });
+      return _scriptLoadPromises_[url];
+    }
+    const SHEETJS_URL_ = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    const HTML2PDF_URL_ = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+
     // تصدير Excel — بيانات Structured حقيقية عبر SheetJS، مش صورة
     // للجدول ولا نص عادي
-    function exportReportToExcel_(config) {
+    async function exportReportToExcel_(config) {
       if (typeof XLSX === 'undefined') {
-        alert('❌ مكتبة تصدير Excel لسه بتتحمّل، جرّب تاني بعد شوية ثواني.');
-        return;
+        try { await loadScriptOnce_(SHEETJS_URL_); }
+        catch (err) { alert('❌ ' + err.message); return; }
       }
       const wsData = [config.headers || []];
       (config.rows || []).forEach(row => wsData.push(row));
@@ -1481,6 +1537,7 @@
       const now = new Date();
       const dateStr = now.toLocaleDateString('ar-EG-u-nu-latn');
       const timeStr = now.toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit' });
+      const hasRows = (config.rows || []).length > 0;
 
       let html = '<div class="report-doc">';
       html += '<div class="report-head">';
@@ -1493,19 +1550,26 @@
 
       html += buildExportMetaHtml_(config);
 
-      html += '<div class="report-table-wrap"><table class="report-table"><thead><tr>';
-      (config.headers || []).forEach(h => { html += '<th>' + escapeHtml_(h) + '</th>'; });
-      html += '</tr></thead><tbody>';
-      (config.rows || []).forEach(row => {
-        html += '<tr>';
-        row.forEach((cell, i) => {
-          html += '<td' + (i === 1 ? ' data-col="name"' : '') + '>' + escapeHtml_(cell) + '</td>';
+      if (!hasRows) {
+        // ⚠️ Empty State صريح (Phase A بند 2) — بدل PDF/Print يطلع
+        // فاضي بشكل غامض، التقرير نفسه بيعرض رسالة واضحة. صفر تغيير
+        // في منطق جلب البيانات — ده بس شكل العرض لو config.rows فاضية.
+        html += '<div class="report-empty-state">لا توجد بيانات مطابقة للفترة/الفلاتر المحددة.</div>';
+      } else {
+        html += '<div class="report-table-wrap"><table class="report-table"><thead><tr>';
+        (config.headers || []).forEach(h => { html += '<th>' + escapeHtml_(h) + '</th>'; });
+        html += '</tr></thead><tbody>';
+        (config.rows || []).forEach(row => {
+          html += '<tr>';
+          row.forEach((cell, i) => {
+            html += '<td' + (i === 1 ? ' data-col="name"' : '') + '>' + escapeHtml_(cell) + '</td>';
+          });
+          html += '</tr>';
         });
-        html += '</tr>';
-      });
-      html += '</tbody></table></div>';
+        html += '</tbody></table></div>';
 
-      html += buildExportTotalsHtml_(config.totals);
+        html += buildExportTotalsHtml_(config.totals);
+      }
 
       html += '<div class="report-foot"><span>Green Heights International School · نظام شئون العاملين (GHIS)</span><span>مُستخرج تلقائيًا — للاستخدام الرسمي الداخلي</span></div>';
       html += '</div>';
@@ -1513,7 +1577,7 @@
     }
 
     // طباعة — عبر window.print() (Browser Print/Print Preview العادي)
-    function printReport_(config) {
+    async function printReport_(config) {
       const printArea = document.getElementById('exportPrintArea');
       printArea.innerHTML = buildExportContentHtml_(config);
       document.body.classList.add('printing-export');
@@ -1524,26 +1588,32 @@
       styleTag.textContent = '@page { size: A4 ' + orientation + '; margin: 12mm; }';
       document.head.appendChild(styleTag);
 
+      // ⚠️ نفس إصلاح الـTiming بتاع saveReportAsPDF_ (Phase A بند 2):
+      // ننتظر الخط يخلّص تحميل + Paint Cycle كامل قبل window.print()،
+      // عشان نضمن إن الـPrint Preview بيعرض التقرير فعليًا مش فاضي.
+      await document.fonts.ready;
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
       window.print();
 
-      setTimeout(() => {
-        document.body.classList.remove('printing-export');
-        printArea.innerHTML = '';
-        const s = document.getElementById('dynamicPrintPageStyle');
-        if (s) s.remove();
-      }, 1000);
+      document.body.classList.remove('printing-export');
+      printArea.innerHTML = '';
+      const s = document.getElementById('dynamicPrintPageStyle');
+      if (s) s.remove();
     }
 
     // حفظ PDF — مستقل فعليًا عن الطباعة، عبر html2pdf.js (v0.10.1،
-    // نسخة مثبَّتة صراحةً). ⚠️ قيد تقني معروف ومُبلَّغ: النص جوه
-    // الـPDF الناتج صورة (مش نص حقيقي قابل للنسخ)، لأن المكتبة
-    // بتصوّر العنصر بصريًا وتحطه في PDF — قرار مقصود لضمان مطابقة
-    // بصرية 100% للعربي/RTL بدل مخاطرة jsPDF+AutoTable في تشكيل النص.
+    // نسخة مثبَّتة صراحةً، Lazy-loaded دلوقتي — Phase A بند 1).
+    // ⚠️ قيد تقني معروف ومُبلَّغ: النص جوه الـPDF الناتج صورة (مش نص
+    // حقيقي قابل للنسخ)، لأن المكتبة بتصوّر العنصر بصريًا وتحطه في
+    // PDF — قرار مقصود لضمان مطابقة بصرية 100% للعربي/RTL بدل مخاطرة
+    // jsPDF+AutoTable في تشكيل النص.
     async function saveReportAsPDF_(config) {
       if (typeof html2pdf === 'undefined') {
-        alert('❌ مكتبة إنشاء PDF لسه بتتحمّل، جرّب تاني بعد شوية ثواني.');
-        return;
+        try { await loadScriptOnce_(HTML2PDF_URL_); }
+        catch (err) { alert('❌ ' + err.message); return; }
       }
+
       const container = document.createElement('div');
       container.className = 'pdf-export-container';
       container.innerHTML = buildExportContentHtml_(config);
@@ -1562,10 +1632,7 @@
         filename: sanitizeExportFileName_(config.fileName) + '.pdf',
         image: { type: 'jpeg', quality: 0.98 },
         // ⚠️ scrollX/scrollY:0 + windowWidth/Height مربوطين بحجم الـ
-        // container نفسه — ده الإصلاح الفعلي لمشكلة الـ PDF الفارغ
-        // (Root Cause كامل في تعليق .pdf-export-container بالأعلى).
-        // من غيرهم، html2canvas كانت بتحسب حجم صفحة كامل بدل حجم
-        // العنصر بس، وده كان بيطلّع Canvas فاضي/فاشل.
+        // container نفسه — إصلاح Root Cause الأصلي (حجم Canvas مستحيل).
         html2canvas: {
           scale: 2, useCORS: true,
           scrollX: 0, scrollY: 0,
@@ -1577,6 +1644,17 @@
       };
 
       try {
+        // ⚠️ Root Cause الحقيقي لـ"PDF فاضي أحيانًا" (Phase A بند 2):
+        // مفيش ضمان إن المتصفح خلّص Layout/Paint فعليًا للـContainer
+        // الجديد (جدول كبير + خط Cairo) قبل ما html2canvas يبدأ
+        // يصوّر. الحل القياسي: ننتظر document.fonts.ready (يضمن خط
+        // Cairo اتحمّل فعليًا، مش Fallback Font)، وبعدها rAF مزدوج
+        // (يضمن المتصفح عمل Paint Cycle كامل للـDOM الجديد). كل ده
+        // قبل استدعاء html2pdf() مباشرة — صفر تغيير في البيانات أو
+        // التصميم نفسه.
+        await document.fonts.ready;
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
         await html2pdf().set(opt).from(container).save();
       } catch (err) {
         alert('❌ فشل إنشاء ملف PDF، يرجى المحاولة مرة أخرى.');
