@@ -1996,6 +1996,67 @@
           'h2pInternalWrapper.offsetHeight * scale': h2pInternalWrapper.offsetHeight * usedScale,
         });
 
+        // ============================================================
+        // ⚠️ Conditional Adaptive Page Height — التنفيذ المتفَق عليه
+        // صراحة. صفر تغيير في contentWidthPx/html2canvas/CSS. التعديل
+        // الوحيد: لو التقرير One-page (nPagesStd === 1)، نستخدم
+        // worker.set({jsPDF:...}) الموثّقة عشان نخلي ارتفاع صفحة
+        // الـPDF يطابق المحتوى الفعلي بدل A3/A4 الكامل — فيختفي
+        // الفراغ الأبيض من غير أي تصغير للمحتوى. لو Multi-page،
+        // صفر تدخّل خالص — toPdf()/pagebreak الأصليين زي ما هما.
+        // ============================================================
+        const stdPageSize = worker.prop.pageSize;
+        const pxPageHeightStd = Math.floor(actualCanvas.width * stdPageSize.inner.ratio);
+        const nPagesStd = Math.ceil(actualCanvas.height / pxPageHeightStd);
+
+        console.log('STANDARD PAGE COUNT', {
+          canvasWidth: actualCanvas.width,
+          canvasHeight: actualCanvas.height,
+          stdPageInnerRatio: stdPageSize.inner.ratio,
+          pxPageHeightStd,
+          nPagesStd,
+        });
+
+        if (nPagesStd === 1) {
+          // ⚠️ customPageWidthMM = عرض الصفحة الأصلي الكامل (زي ما
+          // هو بالحرف، مش عرض جديد) — pageSize.width (مش .inner.width)
+          // هو العرض الكامل شامل الهوامش، بالظبط زي ما jsPDF بتفهمه
+          // كـformat.
+          const customPageWidthMM = stdPageSize.width;
+          const marginArr = worker.opt.margin; // [top, left, bottom, right] مُطبَّعة فعليًا
+          const customHeightMM = actualCanvas.height * (stdPageSize.inner.width / actualCanvas.width);
+          const customPageHeightMM = customHeightMM + marginArr[0] + marginArr[2];
+
+          const isSane = Number.isFinite(customPageHeightMM)
+            && customPageHeightMM > 0
+            && customPageHeightMM > (marginArr[0] + marginArr[2]);
+
+          console.log('CUSTOM PAGE HEIGHT', {
+            customPageWidthMM,
+            customHeightMM,
+            marginTop: marginArr[0],
+            marginBottom: marginArr[2],
+            customPageHeightMM,
+            isSane,
+          });
+
+          if (isSane) {
+            await worker.set({
+              jsPDF: { unit: 'mm', format: [customPageWidthMM, customPageHeightMM], orientation: pageFormat.orientation },
+            });
+            console.log('ADAPTIVE PAGE DECISION', { activated: true, reason: 'nPagesStd === 1 && isSane' });
+            console.log('FINAL PDF PAGE FORMAT', {
+              format: [customPageWidthMM, customPageHeightMM],
+              orientation: pageFormat.orientation,
+              newPageSizeInner: worker.prop.pageSize.inner,
+            });
+          } else {
+            console.log('ADAPTIVE PAGE DECISION', { activated: false, reason: 'sanity check failed — بقيت على المقاس القياسي' });
+          }
+        } else {
+          console.log('ADAPTIVE PAGE DECISION', { activated: false, reason: 'nPagesStd > 1 — تقرير متعدد الصفحات، مقاس A4/A3 القياسي محفوظ' });
+        }
+
         // ⚠️ Diagnostic فقط — await worker.toImg() (مش .then())، وبعدين
         // بنقرا worker.prop.img بالطريقة الصحيحة زي ما worker.js
         // نفسها بتخزّنه (toImg_main: this.prop.img.src = imgData).
