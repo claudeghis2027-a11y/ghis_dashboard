@@ -1990,6 +1990,7 @@
 
         const h2pInternalWrapper = worker.prop.container;
         const h2pPageSize = worker.prop.pageSize;
+        h2pInternalWrapper.style.direction = 'ltr';
 
         // ⚠️ Diagnostic واحد مطلوب صراحة (بدون أي تعديل على margin/
         // width/Canvas/Adaptive Height) — قياسات هندسية لاختبار
