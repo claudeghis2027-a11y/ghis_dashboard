@@ -1898,6 +1898,19 @@
               const wrapperRect = clonedH2pWrapper ? clonedH2pWrapper.getBoundingClientRect() : null;
               const rootRect = clonedRoot ? clonedRoot.getBoundingClientRect() : null;
               const firstContentRect = clonedFirstContent ? clonedFirstContent.getBoundingClientRect() : null;
+
+              // ⚠️ Diagnostic إضافي مطلوب صراحة — أبعاد الـViewport
+              // زي ما شايفاها الـClone نفسه (ممكن تختلف عن نافذتنا
+              // الحقيقية لو html2canvas بترندر الـClone في Document/
+              // Iframe مختلف). قراءة بس، صفر تعديل.
+              const clonedWindow = clonedDocument.defaultView;
+              console.log('ONCLONE — CLONED VIEWPORT MEASUREMENT', {
+                clonedWindowInnerWidth: clonedWindow ? clonedWindow.innerWidth : null,
+                clonedDocumentClientWidth: clonedDocument.documentElement ? clonedDocument.documentElement.clientWidth : null,
+                clonedH2pWrapperRectWidth: wrapperRect ? wrapperRect.width : null,
+                clonedH2pWrapperRectLeft: wrapperRect ? wrapperRect.left : null,
+                clonedH2pWrapperRectRight: wrapperRect ? wrapperRect.right : null,
+              });
               const wrapperStyle = clonedH2pWrapper ? clonedDocument.defaultView.getComputedStyle(clonedH2pWrapper) : null;
               const rootStyle = clonedRoot ? clonedDocument.defaultView.getComputedStyle(clonedRoot) : null;
               const firstContentStyle = clonedFirstContent ? clonedDocument.defaultView.getComputedStyle(clonedFirstContent) : null;
@@ -1990,7 +2003,22 @@
 
         const h2pInternalWrapper = worker.prop.container;
         const h2pPageSize = worker.prop.pageSize;
-        h2pInternalWrapper.style.direction = 'ltr';
+        // ⚠️ direction:ltr اتشالت — رجعنا للحالة الأصلية بدون أي
+        // تعديل، عشان قياس الـDiagnostic ده يعكس الوضع الطبيعي
+        // تمامًا من غير تأثير أي تجربة سابقة.
+
+        // ⚠️ Diagnostic واحد مطلوب صراحة — قياس مباشر لقيمة
+        // windowWidth الفعلية اللي worker.opt.html2canvas بتحملها،
+        // مقارنة بأبعاد النافذة الحقيقية والـWrapper. صفر تعديل على
+        // أي إعداد، قراءة بس.
+        console.log('WORKER OPT vs REAL VIEWPORT MEASUREMENT', {
+          workerOptHtml2canvasWindowWidth: worker.opt && worker.opt.html2canvas ? worker.opt.html2canvas.windowWidth : undefined,
+          windowInnerWidth: window.innerWidth,
+          documentClientWidth: document.documentElement.clientWidth,
+          wrapperRectWidth: h2pInternalWrapper.getBoundingClientRect().width,
+          wrapperRectLeft: h2pInternalWrapper.getBoundingClientRect().left,
+          wrapperRectRight: h2pInternalWrapper.getBoundingClientRect().right,
+        });
 
         // ⚠️ Diagnostic واحد مطلوب صراحة (بدون أي تعديل على margin/
         // width/Canvas/Adaptive Height) — قياسات هندسية لاختبار
