@@ -458,9 +458,16 @@
      عنصر عادي)، ومختفي عن المستخدم لإن محتوى التطبيق الحقيقي
      (loginScreen أو appContent) بيغطي كامل الشاشة فوقه دايمًا. صفر
      Wrapper، صفر Overflow، صفر إحداثيات غريبة — أقل تعقيد ممكن. */
+  /* ⚠️ رجعنا للتصميم ده بالظبط — ده اللي أنت أكّدت إنه شغّال
+     وبيّن البيانات فعليًا (قبل ما أجرّب تبسيطه بدون داعي). درس
+     مهم: مش هغيّر أكتر من حاجة واحدة تانية في نفس الوقت تاني. */
+  .pdf-export-wrapper {
+    direction: ltr;
+    position: fixed; top: 0; left: 0; width: 0; height: 0; overflow: hidden; z-index: -1;
+  }
   .pdf-export-container {
-    position: fixed; top: 0; left: 0; width: 794px; background: #fff; padding: 26px 28px;
-    z-index: -1; opacity: 1; pointer-events: none;
+    width: 794px; background: #fff; padding: 26px 28px;
+    pointer-events: none;
   }
 
   @media print {
@@ -1813,16 +1820,17 @@
         catch (err) { alert('❌ ' + err.message); return; }
       }
 
-      // ⚠️ الجولة الأخيرة (بعد اكتشاف "العمود الأخير مش ظاهر بالكامل"
-      // مع تصميم الـwrapper): شيلنا الـwrapper خالص. الـcontainer
-      // بقى بيتضاف مباشرة لـbody، بإحداثيات طبيعية 100% (top:0,
-      // left:0 من CSS)، ومختفي عن المستخدم بـz-index:-1 بس (محتوى
-      // التطبيق الحقيقي بيغطيه دايمًا) — صفر Wrapper، صفر Overflow
-      // clipping ممكن يأثر على استنساخ html2canvas الداخلي.
+      // ⚠️ رجعنا للـwrapper (النسخة اللي أنت أكّدت إنها بيّنت
+      // البيانات فعليًا) — كنت جرّبت تبسيطها بدون داعي كافٍ وده
+      // سبب رجوع مشكلة الفراغ. مش هغيّر التصميم ده تاني إلا بعد
+      // تأكيد صريح إن فيه مشكلة فيه تحديدًا.
+      const wrapper = document.createElement('div');
+      wrapper.className = 'pdf-export-wrapper';
       const container = document.createElement('div');
       container.className = 'pdf-export-container';
       container.innerHTML = buildExportContentHtml_(config);
-      document.body.appendChild(container);
+      wrapper.appendChild(container);
+      document.body.appendChild(wrapper);
 
       // ⚠️ Phase 2: نفس مصدر القرار بالظبط اللي printReport_ بتستخدمه
       // (computeReportPageFormat_) — يعني الطباعة وPDF دايمًا هياخدوا
@@ -1878,7 +1886,7 @@
         alert('❌ فشل إنشاء ملف PDF، يرجى المحاولة مرة أخرى.');
         console.error('saveReportAsPDF_ failed:', err);
       } finally {
-        document.body.removeChild(container);
+        document.body.removeChild(wrapper);
       }
     }
 
