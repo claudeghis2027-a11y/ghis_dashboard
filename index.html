@@ -448,19 +448,19 @@
      (position:static ضمنيًا، top/left طبيعيين) — يعني
      getBoundingClientRect().top هيبقى قريب من 0 دايمًا، مفيش أي
      إحداثية غريبة تلخبط html2canvas. */
-  .pdf-export-wrapper {
-    /* direction:ltr هنا تحديدًا (مش على المحتوى نفسه) — عشان نمنع
-       تأثير RTL الصفحة العامة من دفع الـcontainer لإحداثية x سالبة
-       جوه الـwrapper صفر العرض (لاحظنا left:-794 بدلاً من 0 وقت
-       الاختبار). النص جوه .pdf-export-container نفسه لسه RTL طبيعي
-       تمامًا (.report-doc بتحدد direction:rtl بشكل مستقل) — ده تعديل
-       هندسة الموضع بس، صفر علاقة باتجاه النص المعروض. */
-    direction: ltr;
-    position: fixed; top: 0; left: 0; width: 0; height: 0; overflow: hidden; z-index: -1;
-  }
+  /* ⚠️ الجولة الأخيرة (بعد اكتشاف "العمود الأخير مش ظاهر بالكامل"):
+     الـwrapper بحجم صفر + overflow:hidden كان أب مباشر للـcontainer
+     — وده معروف إنه ممكن يأثر على آلية استنساخ html2canvas الداخلية
+     (بتستنسخ الأصول أحيانًا وبتورّث الـclipping بتاعهم)، حتى لو
+     الـcontainer نفسه بعرضه الصحيح. الحل الأبسط والأضمن: نشيل أي
+     خدعة حجم/Overflow خالص، ونعتمد بس على ترتيب الطبقات (z-index:-1)
+     — العنصر بيقعد في إحداثيات طبيعية 100% (top:0, left:0، زي أي
+     عنصر عادي)، ومختفي عن المستخدم لإن محتوى التطبيق الحقيقي
+     (loginScreen أو appContent) بيغطي كامل الشاشة فوقه دايمًا. صفر
+     Wrapper، صفر Overflow، صفر إحداثيات غريبة — أقل تعقيد ممكن. */
   .pdf-export-container {
-    width: 794px; background: #fff; padding: 26px 28px;
-    pointer-events: none;
+    position: fixed; top: 0; left: 0; width: 794px; background: #fff; padding: 26px 28px;
+    z-index: -1; opacity: 1; pointer-events: none;
   }
 
   @media print {
@@ -1813,20 +1813,16 @@
         catch (err) { alert('❌ ' + err.message); return; }
       }
 
-      // ⚠️ Root Cause الكامل (اتأكد بقياس مباشر): position:fixed +
-      // إزاحة سالبة كانت بتخلي getBoundingClientRect().top للعنصر
-      // إحداثية بعيدة جدًا، وhtml2canvas بتستخدمها لتحديد منطقة
-      // القص فبترجع فاضية. الحل: wrapper بحجم صفر (overflow:hidden)
-      // هو اللي بيقص العنصر عن رؤية المستخدم، والـcontainer نفسه
-      // بقى في Normal Flow عادي جواه (getBoundingClientRect().top
-      // قريب من 0 دايمًا) — صفر لبس على html2canvas.
-      const wrapper = document.createElement('div');
-      wrapper.className = 'pdf-export-wrapper';
+      // ⚠️ الجولة الأخيرة (بعد اكتشاف "العمود الأخير مش ظاهر بالكامل"
+      // مع تصميم الـwrapper): شيلنا الـwrapper خالص. الـcontainer
+      // بقى بيتضاف مباشرة لـbody، بإحداثيات طبيعية 100% (top:0,
+      // left:0 من CSS)، ومختفي عن المستخدم بـz-index:-1 بس (محتوى
+      // التطبيق الحقيقي بيغطيه دايمًا) — صفر Wrapper، صفر Overflow
+      // clipping ممكن يأثر على استنساخ html2canvas الداخلي.
       const container = document.createElement('div');
       container.className = 'pdf-export-container';
       container.innerHTML = buildExportContentHtml_(config);
-      wrapper.appendChild(container);
-      document.body.appendChild(wrapper);
+      document.body.appendChild(container);
 
       // ⚠️ Phase 2: نفس مصدر القرار بالظبط اللي printReport_ بتستخدمه
       // (computeReportPageFormat_) — يعني الطباعة وPDF دايمًا هياخدوا
@@ -1841,7 +1837,11 @@
       const opt = {
         margin: 10,
         filename: sanitizeExportFileName_(config.fileName) + '.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
+        // ⚠️ jpeg (ضغط بفقدان جودة) ممكن يخلي النص العربي الدقيق
+        // (حروف متصلة، خط 10.5px مُكبَّر ×2) يظهر مش واضح/متشوّه —
+        // png (بدون فقدان) بيحافظ على حواف النص حادة وواضحة. حجم
+        // الملف هيكبر شوية، تنازل معقول لتقرير نصه هو المهم.
+        image: { type: 'png' },
         // ⚠️ scrollX/scrollY:0 + windowWidth/Height مربوطين بحجم الـ
         // container نفسه — إصلاح Root Cause الأصلي (حجم Canvas مستحيل).
         html2canvas: {
@@ -1849,6 +1849,14 @@
           scrollX: 0, scrollY: 0,
           windowWidth: container.scrollWidth,
           windowHeight: container.scrollHeight,
+          // ⚠️ إصلاح "الحروف العربية منفصلة/مقلوبة": html2canvas
+          // افتراضيًا بترسم النص يدويًا حرف حرف على Canvas، وده بيكسر
+          // تشكيل الحروف العربية المتصلة (باج معروف وموثّق في
+          // المكتبة مع النصوص العربية/المعقدة). foreignObjectRendering
+          // بيخلي المتصفح نفسه يرسم النص (عبر SVG foreignObject) بدل
+          // ما المكتبة تعيد رسمه — فالحروف بترجع تتصل طبيعي زي أي نص
+          // عربي عادي. مدعومة في Chrome (الأساس هنا) بشكل موثوق.
+          foreignObjectRendering: true,
         },
         jsPDF: { unit: 'mm', format: pageFormat.size.toLowerCase(), orientation: pageFormat.orientation },
         pagebreak: { mode: ['css', 'legacy'] },
@@ -1871,7 +1879,7 @@
         alert('❌ فشل إنشاء ملف PDF، يرجى المحاولة مرة أخرى.');
         console.error('saveReportAsPDF_ failed:', err);
       } finally {
-        document.body.removeChild(wrapper);
+        document.body.removeChild(container);
       }
     }
 
