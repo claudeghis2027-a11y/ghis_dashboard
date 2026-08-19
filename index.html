@@ -1679,10 +1679,26 @@
     // مقترحة قابلة للضبط لاحقًا حسب نتيجة الاختبار الحقيقي — مش
     // أرقام نهائية جامدة.
     // ============================================================
+    // ============================================================
+    // ⚠️ Phase 3 (المرحلة 1) — توحيد الهامش بين حساب عرض الصفحة
+    // وإعدادات html2pdf الفعلية. Root Cause قص آخر عمود: كانت
+    // PAGE_CONTENT_WIDTH_PX_ مبنية على افتراض 12مم هامش (24مم
+    // إجمالي)، لكن saveReportAsPDF_ كانت بتستخدم margin:10 (10مم) —
+    // تضارب حقيقي بين رقمين مختلفين. دلوقتي مصدر واحد بس
+    // (PDF_MARGIN_MM_) بيغذي الاتنين، فمستحيل يحصل تضارب تاني.
+    // ============================================================
+    const PDF_MARGIN_MM_ = 12; // نفس القيمة المستخدمة في @page (printReport_) بالظبط
+    const PX_PER_MM_ = 96 / 25.4; // تحويل مم→بكسل عند 96dpi (نفس الافتراض في كل الحسابات)
+    const PAGE_PHYSICAL_MM_ = { a4Portrait: 210, a4Landscape: 297, a3Landscape: 420 };
+
+    // القيم دي بتتحسب برمجيًا دلوقتي من PDF_MARGIN_MM_ بدل أرقام
+    // ثابتة منفصلة — نفس القيم بالظبط اللي كانت موجودة قبل كده
+    // (703/1032/1497)، اتأكد بالحساب اليدوي قبل التنفيذ، صفر تغيير
+    // في حدود قرار A4/A3 الفعلية.
     const PAGE_CONTENT_WIDTH_PX_ = {
-      a4Portrait: 703,   // A4 210مم - 24مم هوامش، عند 96dpi تقريبًا
-      a4Landscape: 1032, // A4 297مم - 24مم هوامش
-      a3Landscape: 1497, // A3 420مم - 24مم هوامش
+      a4Portrait: Math.round((PAGE_PHYSICAL_MM_.a4Portrait - 2 * PDF_MARGIN_MM_) * PX_PER_MM_),
+      a4Landscape: Math.round((PAGE_PHYSICAL_MM_.a4Landscape - 2 * PDF_MARGIN_MM_) * PX_PER_MM_),
+      a3Landscape: Math.round((PAGE_PHYSICAL_MM_.a3Landscape - 2 * PDF_MARGIN_MM_) * PX_PER_MM_),
     };
     const CHAR_WIDTH_PX_ = 6.5;
     const MIN_COL_WIDTH_PX_ = 46;
@@ -1843,7 +1859,10 @@
       container.style.width = pageFormat.contentWidthPx + 'px';
 
       const opt = {
-        margin: 10,
+        // ⚠️ Phase 3 (المرحلة 1): بدل الرقم الثابت 10 (كان بيتعارض
+        // مع 12مم المفترضة في PAGE_CONTENT_WIDTH_PX_)، دلوقتي بيستخدم
+        // نفس PDF_MARGIN_MM_ بالظبط — مصدر واحد، صفر تضارب ممكن.
+        margin: PDF_MARGIN_MM_,
         filename: sanitizeExportFileName_(config.fileName) + '.pdf',
         // ⚠️ jpeg (ضغط بفقدان جودة) ممكن يخلي النص العربي الدقيق
         // (حروف متصلة، خط 10.5px مُكبَّر ×2) يظهر مش واضح/متشوّه —
