@@ -1448,7 +1448,7 @@
         };
 
         if (format === 'excel') exportReportToExcel_(config);
-        else if (format === 'pdf') saveReportAsPDF_(config);
+        else if (format === 'pdf') printReport_(config);
         else printReport_(config);
       } catch (err) {
         alert('❌ ' + err.message);
@@ -1477,7 +1477,7 @@
           period: { type: 'custom', from: json.fromDate, to: json.toDate },
           fileName: 'تقرير_حضور_كل_الموظفين_' + json.fromDate,
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -1693,7 +1693,10 @@
     // ومش تعديل contentWidthPx/CSS/margin/direction/Crop/scale/
     // Adaptive Height خالص). قيمة ابتدائية قابلة للتعديل لاحقًا لو
     // احتجنا زيادة/نقصان بسيط.
-    const H2P_RIGHT_SHIFT_PX = -84;
+    // ⚠️ استراتيجية Pixel Shift اتلغت بالكامل — التجربة أثبتت إنها
+    // بتنقل المشكلة بس (تحريك يمين بيقص شمال والعكس)، مش بتحلها.
+    // القيمة صفر دلوقتي، وهنبني بدلها استراتيجية Fit-to-Page.
+    const H2P_RIGHT_SHIFT_PX = 0;
     const PX_PER_MM_ = 96 / 25.4; // تحويل مم→بكسل عند 96dpi (نفس الافتراض في كل الحسابات)
     const PAGE_PHYSICAL_MM_ = { a4Portrait: 210, a4Landscape: 297, a3Landscape: 420 };
 
@@ -1904,30 +1907,41 @@
               // html2pdf.js نفسه — بس جوه الـClone (onclone)، صفر
               // تأثير على أي عنصر من عناصرنا أو على الصفحة الحقيقية.
               if (clonedH2pWrapper) {
-                clonedH2pWrapper.style.marginLeft = H2P_RIGHT_SHIFT_PX + 'px';
+                clonedH2pWrapper.style.marginLeft = H2P_RIGHT_SHIFT_PX + 'px'; // = '0px' دلوقتي
               }
-              // ⚠️ Diagnostic بسيط مطلوب صراحة — قياس موضع الجدول
-              // الفعلي جوه الـClone بعد تطبيق الإزاحة الحالية (20px)،
-              // مقارنة بحدود الـWrapper نفسه (اللي بيمثّل مساحة
-              // الصفحة/الـCanvas). صفر تعديل جديد هنا — قراءة بس،
-              // عشان نحدد رياضيًا هل الإزاحة الحالية كافية، ناقصة،
-              // أو زايدة.
+              // ⚠️ Diagnostic جديد مطلوب صراحة — استراتيجية Fit-to-
+              // Page بدل Pixel Shift. بنقيس: عرض مساحة الصفحة المتاحة
+              // (الـWrapper)، عرض الجدول نفسه، عرض كل عمود لوحده،
+              // ومجموعهم — عشان نتحقق رياضيًا قبل أي تعديل CSS:
+              // (أ) table width <= page inner width
+              // (ب) مجموع عرض الأعمدة = عرض الجدول نفسه
+              // صفر تعديل CSS في الخطوة دي — قراءة وتحقق بس.
               const clonedTable = clonedDocument.querySelector('table.report-table');
               if (clonedTable && clonedH2pWrapper) {
                 const tableRect = clonedTable.getBoundingClientRect();
                 const wrapperBoundsRect = clonedH2pWrapper.getBoundingClientRect();
-                console.log('TABLE POSITION DIAGNOSTIC (بعد الإزاحة الحالية 20px)', {
-                  tableLeft: tableRect.left,
-                  tableRight: tableRect.right,
-                  tableWidth: tableRect.width,
-                  wrapperBoundsLeft: wrapperBoundsRect.left,
-                  wrapperBoundsRight: wrapperBoundsRect.right,
-                  wrapperBoundsWidth: wrapperBoundsRect.width,
-                  'مساحة فاضية يسار (tableLeft - wrapperLeft)': tableRect.left - wrapperBoundsRect.left,
-                  'مساحة فاضية يمين (wrapperRight - tableRight)': wrapperBoundsRect.right - tableRect.right,
-                  currentShiftApplied: H2P_RIGHT_SHIFT_PX,
+                const pageInnerWidth = wrapperBoundsRect.width;
+                const tableWidth = tableRect.width;
+
+                const headerCells = Array.from(clonedTable.querySelectorAll('thead th'));
+                const columnWidths = headerCells.map(th => {
+                  const r = th.getBoundingClientRect();
+                  return { text: th.textContent.trim(), width: r.width };
+                });
+                const sumOfColumnWidths = columnWidths.reduce((sum, c) => sum + c.width, 0);
+
+                console.log('FIT-TO-PAGE DIAGNOSTIC', {
+                  pageInnerWidth,
+                  tableWidth,
+                  columnWidths,
+                  sumOfColumnWidths,
+                  'table <= page? ': tableWidth <= pageInnerWidth,
+                  'الفرق (pageInnerWidth - tableWidth)': pageInnerWidth - tableWidth,
+                  'مجموع الأعمدة == عرض الجدول؟ (بهامش تقريب 1px)': Math.abs(sumOfColumnWidths - tableWidth) <= headerCells.length,
+                  'الفرق (tableWidth - sumOfColumnWidths)': tableWidth - sumOfColumnWidths,
                 });
               }
+
               const clonedRoot = clonedDocument.querySelector('.pdf-export-container');
               const clonedFirstContent = clonedRoot ? clonedRoot.firstElementChild : null;
               const wrapperRect = clonedH2pWrapper ? clonedH2pWrapper.getBoundingClientRect() : null;
@@ -2488,7 +2502,7 @@
           title: 'بيانات الموظفين', headers, rows,
           fileName: 'بيانات_الموظفين_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3049,7 +3063,7 @@
           employee: { code, nameAr: emp ? emp.nameAr : code },
           fileName: 'مستندات_' + code + '_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3165,7 +3179,7 @@
           title: 'تقرير الموظفين الناقص لهم مستندات', headers, rows,
           fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3196,7 +3210,7 @@
           title: 'تقرير المستندات قربت تنتهي', headers, rows,
           fileName: 'مستندات_قربت_تنتهي_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3242,7 +3256,7 @@
           filters: { 'نوع المستند': type },
           fileName: 'تقرير_مستندات_' + type + '_' + new Date().toISOString().slice(0, 10),
         };
-        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') saveReportAsPDF_(config); else printReport_(config);
+        if (format === 'excel') exportReportToExcel_(config); else if (format === 'pdf') printReport_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
