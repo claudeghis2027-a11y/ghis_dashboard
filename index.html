@@ -1906,6 +1906,28 @@
               if (clonedH2pWrapper) {
                 clonedH2pWrapper.style.marginLeft = H2P_RIGHT_SHIFT_PX + 'px';
               }
+              // ⚠️ Diagnostic بسيط مطلوب صراحة — قياس موضع الجدول
+              // الفعلي جوه الـClone بعد تطبيق الإزاحة الحالية (20px)،
+              // مقارنة بحدود الـWrapper نفسه (اللي بيمثّل مساحة
+              // الصفحة/الـCanvas). صفر تعديل جديد هنا — قراءة بس،
+              // عشان نحدد رياضيًا هل الإزاحة الحالية كافية، ناقصة،
+              // أو زايدة.
+              const clonedTable = clonedDocument.querySelector('table.report-table');
+              if (clonedTable && clonedH2pWrapper) {
+                const tableRect = clonedTable.getBoundingClientRect();
+                const wrapperBoundsRect = clonedH2pWrapper.getBoundingClientRect();
+                console.log('TABLE POSITION DIAGNOSTIC (بعد الإزاحة الحالية 20px)', {
+                  tableLeft: tableRect.left,
+                  tableRight: tableRect.right,
+                  tableWidth: tableRect.width,
+                  wrapperBoundsLeft: wrapperBoundsRect.left,
+                  wrapperBoundsRight: wrapperBoundsRect.right,
+                  wrapperBoundsWidth: wrapperBoundsRect.width,
+                  'مساحة فاضية يسار (tableLeft - wrapperLeft)': tableRect.left - wrapperBoundsRect.left,
+                  'مساحة فاضية يمين (wrapperRight - tableRight)': wrapperBoundsRect.right - tableRect.right,
+                  currentShiftApplied: H2P_RIGHT_SHIFT_PX,
+                });
+              }
               const clonedRoot = clonedDocument.querySelector('.pdf-export-container');
               const clonedFirstContent = clonedRoot ? clonedRoot.firstElementChild : null;
               const wrapperRect = clonedH2pWrapper ? clonedH2pWrapper.getBoundingClientRect() : null;
