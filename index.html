@@ -1926,11 +1926,52 @@
         // ⚠️ Logging مرحلي مؤقت (مطلوب صراحة) — نفس الـchain
         // بالحرف (set → from → save)، بس مقسّم بـlogs بين كل مرحلة
         // عشان نحدد بالظبط آخر مرحلة نجحت وأول مرحلة فشلت.
+        // ⚠️ Option B — تجربة تشخيصية محدودة (مش حل نهائي): نفصل
+        // الـchain عشان نمسك الـWrapper الداخلي اللي html2pdf.js
+        // بتبنيه بنفسها (worker.prop.container) بعد toContainer()
+        // وقبل toCanvas()، ونقيس أبعاده قبل/بعد أي تعديل. التعديل
+        // الوحيد المسموح: عرض الـWrapper الداخلي ده بس.
         console.log('PDF STEP 1: before html2pdf');
         const worker = html2pdf().set(opt).from(container);
         console.log('PDF STEP 2: worker created');
+
+        await worker.toContainer();
+        console.log('PDF STEP 2b: toContainer completed');
+
+        const h2pInternalWrapper = worker.prop.container;
+        const h2pPageSize = worker.prop.pageSize;
+
+        console.log('WRAPPER MEASURE BEFORE', {
+          wrapperGetBoundingWidth: h2pInternalWrapper.getBoundingClientRect().width,
+          wrapperScrollWidth: h2pInternalWrapper.scrollWidth,
+          wrapperOffsetWidth: h2pInternalWrapper.offsetWidth,
+          firstChildGetBoundingWidth: h2pInternalWrapper.firstChild.getBoundingClientRect().width,
+          firstChildScrollWidth: h2pInternalWrapper.firstChild.scrollWidth,
+          pageSizeInnerWidth: h2pPageSize.inner.width,
+          pageSizeInnerHeight: h2pPageSize.inner.height,
+          pageSizeUnit: h2pPageSize.unit,
+          pageSizeInnerPxWidth: h2pPageSize.inner.px.width,
+        });
+
+        // ⚠️ التعديل الوحيد المسموح في التجربة دي: عرض الـWrapper
+        // الداخلي بتاع html2pdf.js نفسه — بنخليه يطابق contentWidthPx
+        // (زي ما هو، صفر تغيير فيه أو في أي رقم ثابت زي 800px).
+        h2pInternalWrapper.style.width = pageFormat.contentWidthPx + 'px';
+
+        console.log('WRAPPER MEASURE AFTER', {
+          wrapperGetBoundingWidth: h2pInternalWrapper.getBoundingClientRect().width,
+          wrapperScrollWidth: h2pInternalWrapper.scrollWidth,
+          wrapperOffsetWidth: h2pInternalWrapper.offsetWidth,
+          firstChildGetBoundingWidth: h2pInternalWrapper.firstChild.getBoundingClientRect().width,
+          firstChildScrollWidth: h2pInternalWrapper.firstChild.scrollWidth,
+        });
+
+        await worker.toCanvas();
+        console.log('PDF STEP 3: toCanvas completed');
+        await worker.toPdf();
+        console.log('PDF STEP 4: toPdf completed');
         await worker.save();
-        console.log('PDF STEP 3: save completed');
+        console.log('PDF STEP 5: save completed');
       } catch (err) {
         // ⚠️ Diagnostic Logging مطلوب صراحة — الخطأ الحقيقي وStack
         // Trace كامل، بدل الرسالة العامة بس. الـalert فضل زي ما هو
