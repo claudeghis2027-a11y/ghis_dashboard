@@ -1974,7 +1974,7 @@
         // بتخزّنه بيها في toCanvas_post: this.prop.canvas = canvas)،
         // مش عبر .toCanvas().then(canvas => ...). صفر تعديل على أي
         // width/height/CSS/jsPDF هنا — قراءة وقياس بس.
-        const actualCanvas = worker.prop.canvas;
+        let actualCanvas = worker.prop.canvas;
         const usedScale = (opt.html2canvas && opt.html2canvas.scale) || 1;
         console.log('ACTUAL CANVAS MEASURE', {
           canvasWidth: actualCanvas.width,
@@ -2039,6 +2039,42 @@
             whiteSpaceLeftPx: contentFound ? minX : null,
             'نسبة عرض المحتوى الفعلي لعرض الـCanvas الكامل': contentFound ? ((maxX - minX) / w).toFixed(3) : null,
           });
+
+          // ============================================================
+          // ⚠️ Implementation (مطلوب صراحة) — إزاحة/قص أفقي محسوب من
+          // minX نفسه (مش رقم ثابت خالص). بنبني Canvas جديد بعرض
+          // (w - minX) — من بداية المحتوى الحقيقي (minX) لحد الحافة
+          // اليمنى الأصلية للـCanvas (w) — وبننسخ فيه بس المنطقة دي
+          // من الـCanvas الأصلي عبر drawImage. النتيجة: contentBoundingBox.left
+          // بيبقى 0 فعليًا، وعرض المحتوى (contentBoundingWidth) بيفضل
+          // زي ما هو بالحرف (منسخوش أي تصغير أو تكبير للمحتوى نفسه،
+          // نسخ 1:1 بس لمنطقة مختلفة). worker.prop.canvas بيتحدّث
+          // للنسخة الجديدة دي، فكل حاجة بعد كده (Adaptive Page Height،
+          // toImg، toPdf) بتشتغل على الـCanvas المقصوص تلقائيًا —
+          // صفر تعديل على toPdf()/addImage() نفسهم.
+          // ============================================================
+          if (contentFound && minX > 0) {
+            const croppedWidth = w - minX;
+            const croppedCanvas = document.createElement('canvas');
+            croppedCanvas.width = croppedWidth;
+            croppedCanvas.height = h;
+            const croppedCtx = croppedCanvas.getContext('2d');
+            croppedCtx.drawImage(actualCanvas, minX, 0, croppedWidth, h, 0, 0, croppedWidth, h);
+
+            worker.prop.canvas = croppedCanvas;
+            actualCanvas = croppedCanvas;
+
+            console.log('CANVAS HORIZONTAL CROP APPLIED', {
+              originalWidth: w,
+              croppedFromX: minX,
+              newCanvasWidth: croppedCanvas.width,
+              newCanvasHeight: croppedCanvas.height,
+            });
+          } else {
+            console.log('CANVAS HORIZONTAL CROP SKIPPED', {
+              reason: contentFound ? 'minX === 0 (مفيش فراغ يسار أصلاً)' : 'contentFound=false (تعذّر تحديد حدود المحتوى)',
+            });
+          }
         } catch (canvasReadErr) {
           console.error('CANVAS CONTENT BOUNDING BOX — فشل القراءة (Tainted Canvas محتمل)', canvasReadErr);
         }
