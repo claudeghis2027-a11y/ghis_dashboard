@@ -1997,6 +1997,53 @@
         });
 
         // ============================================================
+        // ⚠️ Diagnostic أخير مطلوب صراحة — فحص فعلي لبكسلات الـCanvas
+        // نفسه (مش بس أبعاده) عشان نحدد بدقة: هل المحتوى الحقيقي
+        // بيملأ الـCanvas بالكامل، ولا فيه مساحة بيضاء داخل الـCanvas
+        // نفسه (قبل حتى toImg/toPdf/addImage). صفر تعديل على أي
+        // إعداد أو Pipeline — قراءة بكسلات بس، عبر getImageData
+        // (آمنة طالما الصورة/الخط مش Cross-Origin بدون CORS، وعندنا
+        // useCORS:true + اللوجو Base64 مُضمَّن أصلاً).
+        // ============================================================
+        try {
+          const ctx2d = actualCanvas.getContext('2d');
+          const w = actualCanvas.width, h = actualCanvas.height;
+          const imageData = ctx2d.getImageData(0, 0, w, h);
+          const data = imageData.data;
+          let minX = w, maxX = -1, minY = h, maxY = -1;
+          const WHITE_THRESHOLD = 250; // أي قناة لونية أقل من كده = "مش أبيض تمامًا"
+          const STEP = 2; // فحص كل بكسل تاني — أسرع، دقة كافية للـBounding Box
+          for (let y = 0; y < h; y += STEP) {
+            for (let x = 0; x < w; x += STEP) {
+              const idx = (y * w + x) * 4;
+              const a = data[idx + 3];
+              if (a <= 10) continue; // بكسل شفاف تمامًا، نتجاهله
+              const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+              if (r < WHITE_THRESHOLD || g < WHITE_THRESHOLD || b < WHITE_THRESHOLD) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+              }
+            }
+          }
+          const contentFound = maxX >= minX && maxY >= minY;
+          console.log('CANVAS CONTENT BOUNDING BOX', {
+            canvasWidth: w,
+            canvasHeight: h,
+            contentFound,
+            contentBoundingBox: contentFound ? { left: minX, right: maxX, top: minY, bottom: maxY } : null,
+            contentBoundingWidth: contentFound ? (maxX - minX) : null,
+            contentBoundingHeight: contentFound ? (maxY - minY) : null,
+            whiteSpaceRightPx: contentFound ? (w - maxX) : null,
+            whiteSpaceLeftPx: contentFound ? minX : null,
+            'نسبة عرض المحتوى الفعلي لعرض الـCanvas الكامل': contentFound ? ((maxX - minX) / w).toFixed(3) : null,
+          });
+        } catch (canvasReadErr) {
+          console.error('CANVAS CONTENT BOUNDING BOX — فشل القراءة (Tainted Canvas محتمل)', canvasReadErr);
+        }
+
+        // ============================================================
         // ⚠️ Conditional Adaptive Page Height — التنفيذ المتفَق عليه
         // صراحة. صفر تغيير في contentWidthPx/html2canvas/CSS. التعديل
         // الوحيد: لو التقرير One-page (nPagesStd === 1)، نستخدم
