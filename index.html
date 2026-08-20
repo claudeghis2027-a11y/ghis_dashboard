@@ -3116,7 +3116,13 @@
 
     // ⚠️ Reference Photo — يتحول لـBase64 Client-side بس عشان يترفع،
     // صفر تخزين مؤقت إضافي، صفر نداء API خارجي.
-    function fileToBase64_(file) {
+    // ⚠️ اسم مميز (مش fileToBase64_) — كان فيه تعارض اسم مع دالة
+    // رفع المستندات (سطر ~3653) اللي بترجع Base64 خام بدون Prefix؛
+    // بما إن الاتنين بنفس الاسم، تعريف المستندات (الأخير في الملف)
+    // كان بيغلب على ده وقت التشغيل (Hoisting)، فكانت الصورة المرجعية
+    // بتوصل للسيرفر بدون data:image/...;base64, في الأول، فيفشل الـ
+    // Regex في employeePhotoUpload_ ويطلع "صيغة الصورة غير صحيحة".
+    function fileToDataUrl_(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -3131,7 +3137,7 @@
       if (!input.files || !input.files[0]) { statusEl.textContent = '❌ اختر صورة الأول.'; return; }
       statusEl.textContent = 'جاري الرفع...';
       try {
-        const photoBase64 = await fileToBase64_(input.files[0]);
+        const photoBase64 = await fileToDataUrl_(input.files[0]);
         await callApiPost_({ action: 'employeePhotoUpload', code, photoBase64 });
         statusEl.textContent = '✅ اترفعت.';
         await loadEmployeesList();
