@@ -933,6 +933,36 @@
     </div>
   </div>
 
+  <!-- ============== تقرير الموظفين الجدد — View مستقلة، فلاتر
+       تاريخ بس، Server-side Filtering بالكامل ============== -->
+  <div id="view-newHires" class="view" style="display:none">
+    <div class="card">
+      <h2>الموظفين الجدد</h2>
+      <div class="filters">
+        <div><label>من تاريخ</label><input type="date" id="newHiresFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="newHiresTo"></div>
+        <div><button onclick="loadNewHiresReport_()">عرض التقرير</button></div>
+      </div>
+      <div id="newHiresStatus" style="font-size:13px;margin:8px 0;"></div>
+      <div id="newHiresArea"></div>
+    </div>
+  </div>
+
+  <!-- ============== تقرير نهاية الخدمة — View مستقلة، صلاحية
+       end_of_service_reports منفصلة تمامًا ============== -->
+  <div id="view-endOfService" class="view" style="display:none">
+    <div class="card">
+      <h2>نهاية الخدمة</h2>
+      <div class="filters">
+        <div><label>من تاريخ</label><input type="date" id="endOfServiceFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="endOfServiceTo"></div>
+        <div><button onclick="loadEndOfServiceReport_()">عرض التقرير</button></div>
+      </div>
+      <div id="endOfServiceStatus" style="font-size:13px;margin:8px 0;"></div>
+      <div id="endOfServiceArea"></div>
+    </div>
+  </div>
+
   <!-- ============== 5) قسم المستخدمين والصلاحيات (أدمن بس) ============== -->
   <div id="view-users" class="view" style="display:none">
     <div class="card">
@@ -952,6 +982,17 @@
       </div>
       <button onclick="addRole()">+ إضافة صلاحية</button>
       <div id="roleFormStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+
+    <!-- ============== Access Levels Matrix — صفر تعديل على الشاشة
+         القديمة فوق، إضافة مستقلة بس ============== -->
+    <div class="card" style="margin-top:16px">
+      <h2>مصفوفة الصلاحيات (Access Levels Matrix)</h2>
+      <div class="filters">
+        <div><label>اختر الصلاحية</label><select id="matrixRoleSelect" onchange="openMatrixForRole_()"><option value="">اختر...</option></select></div>
+      </div>
+      <div id="matrixStatus" style="font-size:13px;margin:8px 0;"></div>
+      <div id="matrixArea"></div>
     </div>
 
     <div class="card">
@@ -999,17 +1040,18 @@
     // التنقل بين الأقسام
     // ============================================================
     function switchView(name) {
-      ['reports', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter'].forEach(v => {
+      ['reports', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
         const btn = document.getElementById('tabBtn-' + v);
         if (btn) btn.classList.toggle('active', v === name);
       });
       sessionStorage.setItem('ghis_last_view', name);
-      if (name === 'employees') { if (fullEmployeesCache.length === 0) loadEmployeesList(); loadEmployeeCodeSetting_(); }
+      if (name === 'employees') { if (employeesCache.length === 0) loadEmployeesList(); loadEmployeeCodeSetting_(); }
       if (name === 'rules') { if (!rulesLoaded_) { loadRulesViews(); rulesLoaded_ = true; } }
       if (name === 'documents') { if (!documentsViewLoaded_) { loadDocumentsView(); documentsViewLoaded_ = true; } }
       if (name === 'users') { if (!usersViewLoaded_) { loadUsersAndRolesView(); usersViewLoaded_ = true; } }
       if (name === 'backup') { if (!backupViewLoaded_) { loadBackupsList(); loadBackupConfig(); backupViewLoaded_ = true; } }
+      if (name === 'reports') { if (!reportsViewLoaded_) { loadEmployees_(); reportsViewLoaded_ = true; } }
       if (name === 'reportCenter') { renderReportCenter_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
@@ -1036,6 +1078,12 @@
       { id: 'employees_list', name: 'بيانات الموظفين',
         description: 'قائمة كاملة ببيانات كل الموظفين النشطين والمنتهية خدمتهم',
         category: 'الموظفين', permission: 'employees', targetView: 'employees', targetSubView: null },
+      { id: 'new_hires', name: 'الموظفين الجدد',
+        description: 'قائمة الموظفين اللي تم تعيينهم خلال فترة محددة',
+        category: 'الموظفين', permission: 'employees', targetView: 'newHires', targetSubView: null },
+      { id: 'end_of_service', name: 'نهاية الخدمة',
+        description: 'قائمة الموظفين اللي انتهت خدمتهم خلال فترة محددة، مع حالة استلام المستندات والملاحظات',
+        category: 'الموظفين', permission: 'end_of_service_reports', targetView: 'endOfService', targetSubView: null },
       { id: 'employee_documents', name: 'تقرير مستندات موظف',
         description: 'كل المستندات المسجّلة لموظف معيّن وحالتها',
         category: 'المستندات', permission: 'docs_view', targetView: 'documents', targetSubView: 'employee' },
@@ -1093,6 +1141,7 @@
 
       categories.forEach((cat, i) => {
         html += '<div class="rc-panel" data-category="' + escapeHtml_(cat) + '" style="display:' + (i === 0 ? '' : 'none') + '">';
+        html += '<h2 style="text-align:center;margin:6px 0 14px">' + escapeHtml_(cat) + '</h2>';
         html += '<div class="table-wrap"><table><thead><tr><th>اسم التقرير</th><th>الوصف</th></tr></thead><tbody>';
         visible.filter(r => r.category === cat).forEach(r => {
           html += '<tr><td><a href="#" onclick="openReportFromRegistry_(\'' + r.id + '\'); return false;">' +
@@ -1133,6 +1182,7 @@
     let documentsViewLoaded_ = false;
     let usersViewLoaded_ = false;
     let backupViewLoaded_ = false;
+    let reportsViewLoaded_ = false;
 
     let lastPeriod = { from: "", to: "" };
     let lastReportContext = null; // { employee, from, to } — آخر تقرير موظف فردي اتعرض، مصدر الـExport
@@ -1263,6 +1313,12 @@
             switchReportCenterTab_(lastCategory);
           }
         }
+      } else {
+        // ⚠️ ضروري بعد Lazy Loading لـ"التقارير": الـView دي ظاهرة
+        // افتراضيًا من الـHTML الأصلي من غير أي نداء switchView صريح
+        // (أول زيارة، أو Storage غير صالح) — لازم ننادي switchView('reports')
+        // صراحة عشان reportsViewLoaded_/loadEmployees_() يتفعّلوا صح.
+        switchView('reports');
       }
 
       runInitialLoad_();
@@ -1375,19 +1431,24 @@
       return json;
     }
 
-    async function loadEmployees_() {
-      const json = await callApi_({ action: 'employees' });
-      employeesCache = json.employees;
+    // ⚠️ استخراج منطق بناء الـDropdown لوحده (Render بس، صفر Fetch) —
+    // نفس فلسفة renderEmployeesList() الموجودة، عشان نقدر نستدعيه من
+    // غير Fetch جديد لما البيانات تكون محدَّثة أصلاً (زي submitEmployeeForm).
+    function renderEmployeeDropdown_() {
       const sel = document.getElementById('employeeSelect');
-      // نمسح أي خيارات قديمة (غير "كل الموظفين") قبل ما نعيد التعبئة،
-      // عشان لو الدالة دي اتنادت تاني (بعد إضافة موظف) متتكررش الأسماء
       Array.from(sel.querySelectorAll('option[value]:not([value="all"])')).forEach(o => o.remove());
-      json.employees.forEach(emp => {
+      employeesCache.forEach(emp => {
         const opt = document.createElement('option');
         opt.value = emp.code;
         opt.textContent = emp.nameAr + ' (' + emp.code + ')' + (emp.dept ? ' — ' + emp.dept : '');
         sel.appendChild(opt);
       });
+    }
+
+    async function loadEmployees_() {
+      const json = await callApi_({ action: 'employees' });
+      employeesCache = json.employees;
+      renderEmployeeDropdown_();
     }
 
     function defaultDates_() {
@@ -2597,15 +2658,12 @@
     // ============================================================
     // قسم: بيانات الموظفين
     // ============================================================
-    let fullEmployeesCache = [];
-
     async function loadEmployeesList() {
       document.getElementById('empStatus').textContent = 'جاري التحميل...';
       try {
         const json = await callApi_({ action: 'employees' });
-        fullEmployeesCache = json.employees;
-        employeesCache = json.employees; // نفس الكاش المستخدم في تبويب التقارير
-        document.getElementById('empStatus').textContent = fullEmployeesCache.length + ' موظف.';
+        employeesCache = json.employees;
+        document.getElementById('empStatus').textContent = employeesCache.length + ' موظف.';
         renderEmployeesList();
       } catch (err) {
         document.getElementById('empStatus').textContent = '❌ ' + err.message;
@@ -2614,7 +2672,7 @@
 
     function renderEmployeesList() {
       const q = (document.getElementById('empSearchInput').value || '').trim().toLowerCase();
-      const rows = fullEmployeesCache.filter(e =>
+      const rows = employeesCache.filter(e =>
         !q || e.nameAr.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.nameEn||'').toLowerCase().includes(q)
       );
 
@@ -2650,7 +2708,7 @@
     }
 
     function openEmployeeProfile(code) {
-      const emp = fullEmployeesCache.find(e => e.code === code);
+      const emp = employeesCache.find(e => e.code === code);
       if (!emp) return;
 
       let html = '<div class="card">';
@@ -2721,7 +2779,7 @@
     }
 
     function openEmployeeForm(code) {
-      const emp = code ? fullEmployeesCache.find(e => e.code === code) : null;
+      const emp = code ? employeesCache.find(e => e.code === code) : null;
       const isEdit = !!emp;
 
       const f = (id, label, type, value) => `
@@ -2798,7 +2856,7 @@
         statusEl.textContent = '✅ تم الحفظ.';
         document.getElementById('employeeFormArea').innerHTML = '';
         await loadEmployeesList();
-        await loadEmployees_(); // نحدّث قائمة الموظفين في تبويب التقارير كمان
+        renderEmployeeDropdown_(); // نفس التحديث، بدون Fetch تاني — employeesCache محدَّثة أصلاً من loadEmployeesList()
         if (code) openEmployeeProfile(code);
       } catch (err) {
         statusEl.textContent = '❌ ' + err.message;
@@ -3405,6 +3463,98 @@
     }
 
     // ============================================================
+    // تقرير الموظفين الجدد — Server-side Filtering بالكامل (hireDate
+    // بيتفلتر في Code.gs، صفر فلترة Client-side). نفس نظام العرض/
+    // التصدير الموحّد الموجود (buildExportButtonsHtml_/printReport_/
+    // exportReportToExcel_)، صفر Template جديد.
+    // ============================================================
+    let lastNewHiresRows_ = null, lastNewHiresRange_ = null;
+
+    async function loadNewHiresReport_() {
+      const from = document.getElementById('newHiresFrom').value;
+      const to = document.getElementById('newHiresTo').value;
+      const statusEl = document.getElementById('newHiresStatus');
+      const area = document.getElementById('newHiresArea');
+      if (!from || !to) { statusEl.textContent = '❌ حدد الفترة الأول.'; return; }
+      statusEl.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'newHiresReportExport', from, to });
+        lastNewHiresRows_ = json.rows;
+        lastNewHiresRange_ = { from, to };
+        statusEl.textContent = '';
+        let html = buildExportButtonsHtml_('exportNewHiresReport_');
+        html += '<div class="table-wrap"><table><thead><tr><th>الاسم</th><th>تاريخ التعيين</th></tr></thead><tbody>';
+        json.rows.forEach(r => {
+          html += '<tr><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td><td>' + (r.hireDate || '-') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        area.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش موظفين جدد في الفترة دي.</p>';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function exportNewHiresReport_(format) {
+      if (!lastNewHiresRows_) { alert('❌ اعرض التقرير الأول.'); return; }
+      const headers = ['الاسم', 'تاريخ التعيين'];
+      const rows = lastNewHiresRows_.map(r => [r.nameAr, r.hireDate || '-']);
+      const config = {
+        title: 'تقرير الموظفين الجدد', headers, rows,
+        period: { type: 'custom', from: lastNewHiresRange_.from, to: lastNewHiresRange_.to },
+        fileName: 'الموظفين_الجدد_' + lastNewHiresRange_.from + '_' + lastNewHiresRange_.to,
+      };
+      if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+    }
+
+    // ============================================================
+    // تقرير نهاية الخدمة — صلاحية end_of_service_reports مستقلة
+    // (بتتفحص في Code.gs عبر checkPermission_ زي أي Action تاني، صفر
+    // منطق صلاحيات جديد). ملاحظة نهاية الخدمة بتيجي جاهزة ومؤكَّدة
+    // من الـBackend (getEndOfServiceReport_) — الفرونت إند بيعرضها
+    // زي ما هي، صفر منطق تأكيد إضافي هنا.
+    // ============================================================
+    let lastEndOfServiceRows_ = null, lastEndOfServiceRange_ = null;
+
+    async function loadEndOfServiceReport_() {
+      const from = document.getElementById('endOfServiceFrom').value;
+      const to = document.getElementById('endOfServiceTo').value;
+      const statusEl = document.getElementById('endOfServiceStatus');
+      const area = document.getElementById('endOfServiceArea');
+      if (!from || !to) { statusEl.textContent = '❌ حدد الفترة الأول.'; return; }
+      statusEl.textContent = 'جاري التحميل...';
+      try {
+        // ⚠️ View بس — صلاحية end_of_service_reports (منفصلة عن Export)
+        const json = await callApi_({ action: 'endOfServiceReport', from, to });
+        lastEndOfServiceRange_ = { from, to };
+        statusEl.textContent = '';
+        let html = buildExportButtonsHtml_('exportEndOfServiceReport_');
+        html += '<div class="table-wrap"><table><thead><tr><th>الاسم</th><th>تاريخ نهاية الخدمة</th><th>استلم الورقة؟</th><th>الملاحظة</th></tr></thead><tbody>';
+        json.rows.forEach(r => {
+          html += '<tr><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td><td>' + (r.endDate || '-') + '</td>' +
+            '<td>' + (r.receivedDocumentsAfterEnd ? 'نعم' : 'لا') + '</td><td style="text-align:right">' + escapeHtml_(r.note) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        area.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش موظفين انتهت خدمتهم في الفترة دي.</p>';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function exportEndOfServiceReport_(format) {
+      if (!lastEndOfServiceRange_) { alert('❌ اعرض التقرير الأول.'); return; }
+      try {
+        // ⚠️ نداء سيرفر مستقل حقيقي — صلاحية end_of_service_reports_export
+        // منفصلة تمامًا عن صلاحية العرض (endOfServiceReport). لو المستخدم
+        // عنده View بس، checkPermission_ هترفض النداء ده تحديدًا.
+        const json = await callApi_({ action: 'endOfServiceReportExport', from: lastEndOfServiceRange_.from, to: lastEndOfServiceRange_.to });
+        const headers = ['الاسم', 'تاريخ نهاية الخدمة', 'استلم الورقة؟', 'الملاحظة'];
+        const rows = json.rows.map(r => [r.nameAr, r.endDate || '-', r.receivedDocumentsAfterEnd ? 'نعم' : 'لا', r.note]);
+        const config = {
+          title: 'تقرير نهاية الخدمة', headers, rows,
+          period: { type: 'custom', from: lastEndOfServiceRange_.from, to: lastEndOfServiceRange_.to },
+          fileName: 'نهاية_الخدمة_' + lastEndOfServiceRange_.from + '_' + lastEndOfServiceRange_.to,
+        };
+        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ============================================================
     // قسم: النسخ الاحتياطي
     // ============================================================
     async function backupNow() {
@@ -3606,6 +3756,16 @@
 
         roleSelect.innerHTML = json.roles.filter(r => r.active).map(r =>
           '<option value="' + escapeHtml_(r.name) + '">' + escapeHtml_(r.name) + '</option>').join('');
+
+        // ⚠️ إضافة — تعبئة Dropdown مصفوفة الصلاحيات بنفس الأدوار
+        // النشطة، صفر تعديل على منطق الشاشة القديمة فوق
+        const matrixSelect = document.getElementById('matrixRoleSelect');
+        if (matrixSelect) {
+          const currentVal = matrixSelect.value;
+          matrixSelect.innerHTML = '<option value="">اختر...</option>' + json.roles.filter(r => r.active).map(r =>
+            '<option value="' + escapeHtml_(r.name) + '">' + escapeHtml_(r.name) + '</option>').join('');
+          matrixSelect.value = currentVal;
+        }
       } catch (err) { el.textContent = '❌ ' + err.message; }
     }
 
@@ -3627,6 +3787,109 @@
     async function toggleRole(name, active) {
       try { await callApiPost_({ action: 'roleToggle', name, active }); loadRolesView(); }
       catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ============================================================
+    // ⚠️ Access Levels Matrix — UI بس، صفر طبقة أمان هنا خالص. الحماية
+    // الحقيقية بالكامل في checkPermission_()/validateMatrixRows_()
+    // على السيرفر. الـMatrix Source of Truth للـRole بس بعد ضغط
+    // "حفظ" صراحة — قبل كده Preview محسوبة من الـLegacy بس، صفر كتابة.
+    // ============================================================
+    let currentMatrixRegistry_ = null;
+    let currentMatrixIsAdmin_ = false;
+
+    async function openMatrixForRole_() {
+      const roleName = document.getElementById('matrixRoleSelect').value;
+      const statusEl = document.getElementById('matrixStatus');
+      const area = document.getElementById('matrixArea');
+      if (!roleName) { area.innerHTML = ''; return; }
+      statusEl.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'matrixGet', roleName });
+        currentMatrixRegistry_ = json.registry;
+        currentMatrixIsAdmin_ = json.isAdmin;
+        statusEl.textContent = json.hasSavedMatrix
+          ? 'مصفوفة محفوظة فعليًا لهذه الصلاحية.'
+          : '⚠️ معاينة محسوبة من الصلاحيات الحالية (Legacy) — لسه متسجّلتش، هتتسجّل بس لما تدوس "حفظ".';
+        area.innerHTML = renderMatrixTable_(json.registry, json.matrixRows, json.isAdmin);
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    function renderMatrixTable_(registry, matrixRows, isAdmin) {
+      const rowsByModule = {};
+      matrixRows.forEach(r => { rowsByModule[r.module] = r; });
+
+      let html = '<div class="table-wrap"><table><thead><tr><th>Module</th><th>View</th><th>Create</th><th>Update</th><th>Delete</th><th>Export</th><th>Upload</th><th>Restore</th></tr></thead><tbody>';
+      registry.forEach(entry => {
+        const row = rowsByModule[entry.module] || {};
+        html += '<tr><td style="text-align:right">' + escapeHtml_(entry.label) + '</td>';
+        ['view', 'create', 'update', 'delete', 'export'].forEach(action => {
+          const available = !!entry.actions[action];
+          const groupKey = (entry.sharedGroups.find(g => g.actions.includes(action)) || {}).key || '';
+          html += '<td>' + (available
+            ? '<input type="checkbox" data-module="' + entry.module + '" data-action="' + action + '"' +
+              (groupKey ? ' data-group="' + entry.module + ':' + groupKey + '"' : '') +
+              (row[action] ? ' checked' : '') +
+              (isAdmin ? ' disabled checked' : ' onchange="onMatrixCheckboxChange_(this)"') + '>'
+            : '—') + '</td>';
+        });
+        ['upload', 'restore'].forEach(action => {
+          const available = !!(entry.special && entry.special[action]);
+          html += '<td>' + (available
+            ? '<input type="checkbox" data-module="' + entry.module + '" data-action="' + action + '"' +
+              (row[action] ? ' checked' : '') +
+              (isAdmin ? ' disabled checked' : '') + '>'
+            : '—') + '</td>';
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      if (isAdmin) {
+        html += '<p style="font-size:13px;color:#777">هذه الصلاحية أدمن — كل شيء مفعّل دائمًا (isAdmin على السيرفر)، والمصفوفة هنا للعرض فقط.</p>';
+      } else {
+        html += '<button onclick="saveMatrixForRole_()">حفظ</button>';
+      }
+      return html;
+    }
+
+    // ⚠️ Shared Group Toggle — لو الـCheckbox دي جزء من مجموعة مشتركة
+    // (نفس مفتاح الصلاحية فعليًا)، باقي الـCheckboxes في نفس المجموعة
+    // بتتحدث لنفس القيمة فورًا — صفر إمكانية تظهر حالة متعارضة بصريًا.
+    function onMatrixCheckboxChange_(checkbox) {
+      const groupAttr = checkbox.dataset.group;
+      if (!groupAttr) return;
+      document.querySelectorAll('[data-group="' + groupAttr + '"]').forEach(cb => { cb.checked = checkbox.checked; });
+    }
+
+    async function saveMatrixForRole_() {
+      const roleName = document.getElementById('matrixRoleSelect').value;
+      const statusEl = document.getElementById('matrixStatus');
+      if (!roleName || !currentMatrixRegistry_) return;
+
+      const matrixRows = currentMatrixRegistry_.map(entry => {
+        const row = { module: entry.module };
+        ['view', 'create', 'update', 'delete', 'export'].forEach(action => {
+          const cb = document.querySelector('[data-module="' + entry.module + '"][data-action="' + action + '"]');
+          row[action] = cb ? cb.checked : false;
+        });
+        if (entry.special) {
+          Object.keys(entry.special).forEach(sa => {
+            const cb = document.querySelector('[data-module="' + entry.module + '"][data-action="' + sa + '"]');
+            row[sa] = cb ? cb.checked : false;
+          });
+        }
+        return row;
+      });
+
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        // ⚠️ Validation الحقيقية هتحصل على السيرفر (validateMatrixRows_)
+        // حتى لو الـFrontend هنا بيمنع التعارض البصري أصلاً عبر
+        // onMatrixCheckboxChange_ — دي مش طبقة أمان، مجرد راحة استخدام.
+        await callApiPost_({ action: 'matrixSave', roleName, matrixRows, user: 'index-user' });
+        statusEl.textContent = '✅ اتحفظت — المصفوفة بقت المصدر الفعلي لهذه الصلاحية من دلوقتي.';
+        openMatrixForRole_();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
     }
 
     async function loadUsersView() {
@@ -3681,11 +3944,6 @@
     // ============================================================
     async function runInitialLoad_() {
       defaultDates_();
-      try {
-        await loadEmployees_();
-      } catch (err) {
-        setStatus('❌ ' + err.message, true);
-      }
     }
 
     (function initPage() {
