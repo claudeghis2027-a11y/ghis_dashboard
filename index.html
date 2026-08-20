@@ -692,7 +692,7 @@
       <div class="filters">
         <div style="flex:1">
           <label>بحث (بالاسم أو الكود)</label>
-          <input type="text" id="empSearchInput" oninput="renderEmployeesList()" placeholder="اكتب اسم أو كود...">
+          <input type="text" id="empSearchInput" oninput="resetPaginationPage_('employees'); renderEmployeesList()" placeholder="اكتب اسم أو كود...">
         </div>
         <div>
           <button onclick="openEmployeeForm(null)">+ إضافة موظف جديد</button>
@@ -748,6 +748,53 @@
         </div>
         <div><button onclick="addExemptDept()">+ إضافة</button></div>
       </div>
+    </div>
+
+    <!-- ⚠️ Phase 3 — نفس نمط تسجيل واقعة بس زي أي فورم موجود، صفر
+         تصميم جديد -->
+    <div class="card">
+      <h2>نسيان تسجيل الحضور/الانصراف</h2>
+      <p style="font-size:12px;color:#777">أول مرة في فترة المرتب مجانًا، من المرة التانية بيتخصم ربع يوم إضافي كل مرة (تراكميًا، صفر سقف).</p>
+      <div class="filters">
+        <div><label>كود الموظف</label><input type="text" id="forgotCheckinCode"></div>
+        <div><label>التاريخ</label><input type="date" id="forgotCheckinDate"></div>
+        <div><button onclick="submitForgotCheckin_()">تسجيل</button></div>
+      </div>
+      <div id="forgotCheckinStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>خصومات إضافية / جزاءات</h2>
+      <div class="filters">
+        <div><label>كود الموظف</label><input type="text" id="extraPenaltyCode"></div>
+        <div><label>التاريخ</label><input type="date" id="extraPenaltyDate"></div>
+        <div><label>السبب/النوع</label><input type="text" id="extraPenaltyReason"></div>
+        <div><label>عدد الأيام المخصومة</label><input type="number" step="0.25" id="extraPenaltyDays"></div>
+        <div><button onclick="submitExtraPenalty_()">تسجيل</button></div>
+      </div>
+      <div id="extraPenaltyStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+
+    <!-- ⚠️ بند 11 — استثناءات إلزام الانصراف (مؤقتة، صفر تعديل على
+         قواعد المواعيد/الاستثناءات الفردية الموجودة) -->
+    <div class="card">
+      <h2>استثناءات إلزام الانصراف (مؤقتة)</h2>
+      <p style="font-size:12px;color:#777">بيأثر بس على خصم "عدم بصمة انصراف" — صفر تأثير على التأخير/الغياب/الأذونات/الجزاءات أو تسجيل نسيان التسجيل اليدوي.</p>
+      <div id="checkoutExceptionsArea"></div>
+      <div class="filters" style="margin-top:10px">
+        <div><label>النطاق</label>
+          <select id="checkoutExScopeType" onchange="onCheckoutExScopeChange_()">
+            <option value="All">كل الموظفين</option>
+            <option value="Department">قسم معيّن</option>
+            <option value="Employee">موظف معيّن</option>
+          </select>
+        </div>
+        <div id="checkoutExScopeValueWrap" style="display:none"><label>القيمة (اسم قسم أو كود موظف)</label><input type="text" id="checkoutExScopeValue"></div>
+        <div><label>من تاريخ</label><input type="date" id="checkoutExFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="checkoutExTo"></div>
+        <div><button onclick="addCheckoutException_()">إضافة</button></div>
+      </div>
+      <div id="checkoutExStatus" style="font-size:13px;margin-top:6px;"></div>
     </div>
   </div>
 
@@ -820,7 +867,7 @@
       <div class="card">
         <h2>الموظفون الناقص لهم مستندات</h2>
         <div class="filters">
-          <div style="flex:1"><input type="text" id="missingSearchInput" oninput="renderMissingReport()" placeholder="بحث بالاسم أو الكود..."></div>
+          <div style="flex:1"><input type="text" id="missingSearchInput" oninput="resetPaginationPage_('missing'); renderMissingReport()" placeholder="بحث بالاسم أو الكود..."></div>
           <div><button class="secondary" onclick="loadMissingReport()">🔄 تحديث</button></div>
         </div>
         <div id="missingReportArea"></div>
@@ -963,6 +1010,94 @@
     </div>
   </div>
 
+  <!-- ⚠️ Phase 4 — Payroll (Live Calculation بس، صفر Snapshot) -->
+  <div id="view-payroll" class="view" style="display:none">
+    <div class="card">
+      <h2>الرواتب (Payroll)</h2>
+      <div class="filters">
+        <div><label>كود الموظف</label><input type="text" id="payrollEmployeeCode"></div>
+        <div><label>من تاريخ</label><input type="date" id="payrollFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="payrollTo"></div>
+        <div><button onclick="calculatePayroll_()">احسب</button></div>
+      </div>
+      <div id="payrollStatus" style="font-size:13px;margin:8px 0;"></div>
+      <div id="payrollArea"></div>
+    </div>
+  </div>
+
+  <!-- ⚠️ Phase 5 — خصم واسترداد الصيف. Flow مستقل تمامًا عن Payroll
+       العادي فوق، صفر لمسة له. -->
+  <div id="view-summerDeduction" class="view" style="display:none">
+    <div class="card">
+      <h2>تصنيف أقسام خصم الصيف</h2>
+      <div id="summerDeptsArea"></div>
+      <div class="filters" style="margin-top:10px">
+        <div><label>اسم القسم</label><input type="text" id="summerDeptName"></div>
+        <div><label>القاعدة</label>
+          <select id="summerDeptRule">
+            <option value="Rule 1">Rule 1 — ¼ يوليو + ¼ أغسطس</option>
+            <option value="Rule 2">Rule 2 — ¼ يوليو بس</option>
+          </select>
+        </div>
+        <div><button onclick="setSummerDept_()">حفظ</button></div>
+      </div>
+      <div id="summerDeptStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>حساب خصم الصيف</h2>
+      <div class="filters">
+        <div><label>السنة</label><input type="number" id="summerCalcYear" placeholder="2026"></div>
+        <div><button onclick="calculateSummerDeduction_()">احسب لكل الموظفين</button></div>
+      </div>
+      <div id="summerCalcStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>سجل خصم الصيف والاسترداد</h2>
+      <div class="filters">
+        <div><label>كود الموظف</label><input type="text" id="summerLogEmployeeCode"></div>
+        <div><label>السنة</label><input type="number" id="summerLogYear" placeholder="2026"></div>
+        <div><button onclick="loadSummerDeductionLog_()">عرض السجل</button></div>
+        <div><button class="secondary" onclick="refundSummerDeduction_()">تنفيذ رد أكتوبر</button></div>
+      </div>
+      <div id="summerLogStatus" style="font-size:13px;margin-top:6px;"></div>
+      <div id="summerLogArea"></div>
+    </div>
+  </div>
+
+  <!-- ⚠️ WhatsApp Click-to-Chat — صفر API/BSP/Credentials/تكلفة.
+       Frontend بحت لفتح wa.me، صفر إرسال تلقائي من GHIS. -->
+  <div id="view-whatsapp" class="view" style="display:none">
+    <div class="card">
+      <h2>رسائل واتساب</h2>
+      <p style="font-size:12px;color:#777">GHIS مابيبعتش أي رسالة تلقائيًا — بس بيجهّز الرسالة ويفتح واتساب، وإنت اللي بتدوس إرسال بنفسك جوّه واتساب.</p>
+      <div class="filters">
+        <div><label>نوع الرسالة</label>
+          <select id="waMessageType">
+            <option value="payroll">صافي المرتب</option>
+            <option value="attendance">التأخير والغياب والخصومات (حتى الآن)</option>
+          </select>
+        </div>
+        <div><label>من تاريخ</label><input type="date" id="waFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="waTo"></div>
+      </div>
+      <div class="filters" style="margin-top:10px">
+        <div><input type="text" id="waSearchInput" oninput="resetPaginationPage_('wa'); renderWaEmployeesList_()" placeholder="بحث بالاسم أو الكود..."></div>
+        <div><button class="secondary" onclick="waSelectAll_()">تحديد الكل (النتائج الحالية)</button></div>
+        <div><button class="secondary" onclick="waDeselectAll_()">إلغاء التحديد</button></div>
+      </div>
+      <div id="waEmployeesArea"></div>
+      <button style="margin-top:10px" onclick="waPreviewMessages_()">معاينة الرسائل</button>
+      <div id="waStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+
+    <div class="card" id="waPreviewCard" style="display:none">
+      <h2>معاينة الرسائل</h2>
+      <div id="waPreviewArea"></div>
+    </div>
+  </div>
+
   <!-- ============== 5) قسم المستخدمين والصلاحيات (أدمن بس) ============== -->
   <div id="view-users" class="view" style="display:none">
     <div class="card">
@@ -1040,19 +1175,33 @@
     // التنقل بين الأقسام
     // ============================================================
     function switchView(name) {
-      ['reports', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService'].forEach(v => {
+      ['reports', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
         const btn = document.getElementById('tabBtn-' + v);
         if (btn) btn.classList.toggle('active', v === name);
       });
       sessionStorage.setItem('ghis_last_view', name);
-      if (name === 'employees') { if (employeesCache.length === 0) loadEmployeesList(); loadEmployeeCodeSetting_(); }
+      if (name === 'employees') {
+        // ⚠️ Bug Fix — لو employeesCache أصلًا ممتلئة (من Lazy Loading
+        // تبويب "التقارير")، كان الجدول بيفضل فاضي تمامًا لإن
+        // renderEmployeesList()/loadSyncStatuses_() بتتنادى بس من
+        // جوه loadEmployeesList() نفسها. دلوقتي: لو الكاش موجودة،
+        // نعرض ونجيب حالة المزامنة بدون Fetch تاني.
+        if (employeesCache.length === 0) {
+          loadEmployeesList();
+        } else {
+          loadSyncStatuses_().then(renderEmployeesList);
+        }
+        loadEmployeeCodeSetting_();
+      }
       if (name === 'rules') { if (!rulesLoaded_) { loadRulesViews(); rulesLoaded_ = true; } }
       if (name === 'documents') { if (!documentsViewLoaded_) { loadDocumentsView(); documentsViewLoaded_ = true; } }
       if (name === 'users') { if (!usersViewLoaded_) { loadUsersAndRolesView(); usersViewLoaded_ = true; } }
       if (name === 'backup') { if (!backupViewLoaded_) { loadBackupsList(); loadBackupConfig(); backupViewLoaded_ = true; } }
       if (name === 'reports') { if (!reportsViewLoaded_) { loadEmployees_(); reportsViewLoaded_ = true; } }
       if (name === 'reportCenter') { renderReportCenter_(); }
+      if (name === 'summerDeduction') { loadSummerDeptsView_(); }
+      if (name === 'whatsapp') { waSelectedCodes_ = new Set(); renderWaEmployeesList_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
     }
@@ -1540,6 +1689,9 @@
       html += metricCard_(s.absenceDeductionTotal, 'خصم الغياب (يوم)', s.absenceDeductionTotal > 0);
       html += metricCard_((s.permissionsCount ?? 0) + ' مرة', 'عدد الأذونات');
       html += metricCard_(s.permissionDeduction ?? 0, 'خصم الأذونات (يوم)', (s.permissionDeduction ?? 0) > 0);
+      html += metricCard_((s.forgotCheckinsCount ?? 0) + ' مرة', 'عدد مرات نسيان التسجيل');
+      html += metricCard_(s.forgotCheckinDeduction ?? 0, 'خصم نسيان التسجيل (يوم)', (s.forgotCheckinDeduction ?? 0) > 0);
+      html += metricCard_(s.extraPenaltyDays ?? 0, 'خصومات إضافية/جزاءات (يوم)', (s.extraPenaltyDays ?? 0) > 0);
       html += metricCard_(s.totalDeduction, 'إجمالي الخصم (يوم)', s.totalDeduction > 0);
       html += '</div>';
       html += '</div>';
@@ -2664,21 +2816,105 @@
         const json = await callApi_({ action: 'employees' });
         employeesCache = json.employees;
         document.getElementById('empStatus').textContent = employeesCache.length + ' موظف.';
+        await loadSyncStatuses_(); // ⬅️ Zero N+1 — نداء واحد بس لكل الموظفين
         renderEmployeesList();
       } catch (err) {
         document.getElementById('empStatus').textContent = '❌ ' + err.message;
       }
     }
 
+    // ⚠️ Attendance Sync Status — يُملأ Live من syncStatus قبل الرسم،
+    // صفر Storage إضافي، صفر نداء منفصل لكل موظف.
+    let syncStatusCache_ = {};
+
+    async function loadSyncStatuses_() {
+      try {
+        const json = await callApi_({ action: 'syncStatus' });
+        syncStatusCache_ = json.statuses;
+      } catch (err) { /* صفر إيقاف للشاشة لو فشل — Status هيظهر Pending للكل بس */ }
+    }
+
+    function syncStatusCellHtml_(code) {
+      const status = syncStatusCache_[code]; // undefined = صفر أي محاولة خالص
+      if (status === 'Synced') return '<span style="color:#1a7f37">✅ متزامن</span>';
+      const label = status === 'Sync Failed'
+        ? '<span style="color:#c0392b">⚠️ فشلت المزامنة</span>'
+        : '<span style="color:#777">⏳ لم تتم المزامنة بعد</span>';
+      return label + ' <button class="secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation(); retrySync_(\'' + code + '\')">إعادة المحاولة</button>';
+    }
+
+    async function retrySync_(code) {
+      try {
+        await callApiPost_({ action: 'employeeSyncRetry', code });
+        await loadSyncStatuses_();
+        renderEmployeesList();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ============================================================
+    // ⚠️ UI Pagination — Client-side بس، صفر تعديل Code.gs/Backend.
+    // Helper موحّد يُستخدَم في الثلاثة Views المستهدَفة. البيانات
+    // كلها موجودة بالفعل Client-side (employeesCache/missingReportCache/
+    // نتيجة byType) — بس بنعرض شريحة الصفحة الحالية في الـDOM بدل
+    // الكل دفعة واحدة.
+    // ============================================================
+    const paginationState_ = {}; // { key: { page, pageSize } }
+
+    function getPaginationState_(key) {
+      if (!paginationState_[key]) paginationState_[key] = { page: 1, pageSize: 25 };
+      return paginationState_[key];
+    }
+
+    function resetPaginationPage_(key) {
+      getPaginationState_(key).page = 1;
+    }
+
+    function getPaginatedSlice_(rows, key) {
+      const st = getPaginationState_(key);
+      const totalPages = Math.max(1, Math.ceil(rows.length / st.pageSize));
+      if (st.page > totalPages) st.page = totalPages; // صفر تخطي لو Search قلّلت النتائج
+      const start = (st.page - 1) * st.pageSize;
+      return { slice: rows.slice(start, start + st.pageSize), totalPages, currentPage: st.page };
+    }
+
+    function renderPaginationControls_(key, totalRows, renderFn) {
+      const st = getPaginationState_(key);
+      const totalPages = Math.max(1, Math.ceil(totalRows / st.pageSize));
+      let html = '<div class="filters" style="margin-top:10px;align-items:center">';
+      html += '<div><label>عدد الصفوف</label><select onchange="onPageSizeChange_(\'' + key + '\', this.value, \'' + renderFn + '\')">';
+      [25, 50, 100].forEach(sz => { html += '<option value="' + sz + '"' + (st.pageSize === sz ? ' selected' : '') + '>' + sz + '</option>'; });
+      html += '</select></div>';
+      html += '<div><button class="secondary" ' + (st.page <= 1 ? 'disabled' : '') + ' onclick="goToPage_(\'' + key + '\', ' + (st.page - 1) + ', \'' + renderFn + '\')">السابق</button></div>';
+      html += '<div style="align-self:center">صفحة ' + st.page + ' من ' + totalPages + ' (' + totalRows + ' سجل)</div>';
+      html += '<div><button class="secondary" ' + (st.page >= totalPages ? 'disabled' : '') + ' onclick="goToPage_(\'' + key + '\', ' + (st.page + 1) + ', \'' + renderFn + '\')">التالي</button></div>';
+      html += '</div>';
+      return html;
+    }
+
+    function onPageSizeChange_(key, newSize, renderFn) {
+      const st = getPaginationState_(key);
+      st.pageSize = Number(newSize);
+      st.page = 1; // ⬅️ تغيير حجم الصفحة بيرجّع لأول صفحة
+      window[renderFn]();
+    }
+
+    function goToPage_(key, page, renderFn) {
+      getPaginationState_(key).page = page;
+      window[renderFn]();
+    }
+
     function renderEmployeesList() {
       const q = (document.getElementById('empSearchInput').value || '').trim().toLowerCase();
-      const rows = employeesCache.filter(e =>
+      const filteredRows = employeesCache.filter(e =>
         !q || e.nameAr.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.nameEn||'').toLowerCase().includes(q)
       );
+      // ⚠️ Search/Filter الأول على كل البيانات، وبعدين تقسيم النتيجة
+      // لصفحات — بس الصفحة الحالية هي اللي بترتسم في الـDOM
+      const { slice: rows } = getPaginatedSlice_(filteredRows, 'employees');
 
       let html = buildExportButtonsHtml_('exportEmployeesList_');
       html += '<div class="table-wrap"><table><thead><tr>';
-      ['الكود', 'الاسم', 'القسم', 'الحالة', 'معفى من البصمة', 'المسمى الوظيفي'].forEach(h => html += '<th>' + h + '</th>');
+      ['الكود', 'الاسم', 'القسم', 'الحالة', 'معفى من البصمة', 'المسمى الوظيفي', 'حالة مزامنة البصمة'].forEach(h => html += '<th>' + h + '</th>');
       html += '</tr></thead><tbody>';
       rows.forEach(e => {
         html += '<tr class="clickable-row-emp" onclick="openEmployeeProfile(\'' + e.code + '\')">';
@@ -2688,9 +2924,11 @@
         html += '<td>' + escapeHtml_(e.status) + '</td>';
         html += '<td>' + (e.exempt ? 'نعم' : 'لا') + '</td>';
         html += '<td>' + escapeHtml_(e.jobTitle || '-') + '</td>';
+        html += '<td>' + syncStatusCellHtml_(e.code) + '</td>';
         html += '</tr>';
       });
       html += '</tbody></table></div>';
+      html += renderPaginationControls_('employees', filteredRows.length, 'renderEmployeesList');
       document.getElementById('employeesListArea').innerHTML = html;
     }
 
@@ -2811,6 +3049,19 @@
         <option value="لا" ${emp && !emp.receivedDocumentsAfterEnd ? 'selected' : ''}>لا</option>
         <option value="نعم" ${emp && emp.receivedDocumentsAfterEnd ? 'selected' : ''}>نعم</option></select></div>`;
       html += '</div>';
+      // ⚠️ Reference Photo — Private Drive بس، Employee Code هو
+      // الـLink الوحيد، صفر Base64 مخزَّن في أي شيت خالص.
+      if (isEdit) {
+        html += '<div style="margin-top:10px">';
+        html += '<label>الصورة المرجعية للتحقق من الهوية</label><br>';
+        html += emp.referencePhotoFileId
+          ? '<span style="font-size:13px;color:#1a7f37">✅ صورة مرجعية مسجَّلة</span> <button class="secondary" onclick="deleteEmployeeReferencePhoto_(\'' + code + '\')">حذف الصورة</button>'
+          : '<span style="font-size:13px;color:#777">⏳ صفر صورة مرجعية مسجَّلة</span>';
+        html += '<br><input type="file" accept="image/*" id="empForm_referencePhoto" style="margin-top:6px">';
+        html += '<button class="secondary" onclick="uploadEmployeeReferencePhoto_(\'' + code + '\')" style="margin-top:6px">رفع/استبدال الصورة</button>';
+        html += '<div id="empPhotoStatus" style="font-size:13px;margin-top:6px;"></div>';
+        html += '</div>';
+      }
       html += '<div><label>سبب التعديل (اختياري، بيتسجل في السجل التاريخي)</label><input type="text" id="empForm_reason"></div>';
       html += '<div class="form-actions">';
       html += '<button onclick="submitEmployeeForm(' + (isEdit ? "'" + code + "'" : 'null') + ')">حفظ</button>';
@@ -2863,6 +3114,41 @@
       }
     }
 
+    // ⚠️ Reference Photo — يتحول لـBase64 Client-side بس عشان يترفع،
+    // صفر تخزين مؤقت إضافي، صفر نداء API خارجي.
+    function fileToBase64_(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function uploadEmployeeReferencePhoto_(code) {
+      const input = document.getElementById('empForm_referencePhoto');
+      const statusEl = document.getElementById('empPhotoStatus');
+      if (!input.files || !input.files[0]) { statusEl.textContent = '❌ اختر صورة الأول.'; return; }
+      statusEl.textContent = 'جاري الرفع...';
+      try {
+        const photoBase64 = await fileToBase64_(input.files[0]);
+        await callApiPost_({ action: 'employeePhotoUpload', code, photoBase64 });
+        statusEl.textContent = '✅ اترفعت.';
+        await loadEmployeesList();
+        openEmployeeProfile(code);
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function deleteEmployeeReferencePhoto_(code) {
+      const statusEl = document.getElementById('empPhotoStatus') || document.getElementById('empFormStatus');
+      try {
+        await callApiPost_({ action: 'employeePhotoDelete', code });
+        if (statusEl) statusEl.textContent = '✅ اتحذفت.';
+        await loadEmployeesList();
+        openEmployeeProfile(code);
+      } catch (err) { if (statusEl) statusEl.textContent = '❌ ' + err.message; }
+    }
+
     // ============================================================
     // قسم: القواعد (مواعيد / خصم / أقسام معفاة)
     // ============================================================
@@ -2870,6 +3156,7 @@
       loadScheduleRulesView();
       loadDeductionRulesView();
       loadExemptDeptsView();
+      loadCheckoutExceptionsView_(); // ⬅️ بند 11 — إضافة بس
     }
 
     async function loadScheduleRulesView() {
@@ -3017,6 +3304,78 @@
         await callApiPost_({ action: 'exemptDepartmentRemove', dept });
         loadExemptDeptsView();
       } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ⚠️ Phase 3 — نفس نمط submitScheduleRule/submitDeductionRule بالحرف
+    async function submitForgotCheckin_() {
+      const code = document.getElementById('forgotCheckinCode').value.trim();
+      const date = document.getElementById('forgotCheckinDate').value;
+      const statusEl = document.getElementById('forgotCheckinStatus');
+      if (!code || !date) { statusEl.textContent = '❌ حدد الكود والتاريخ.'; return; }
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({ action: 'forgotCheckinAdd', code, date });
+        statusEl.textContent = '✅ اتسجّلت.';
+        document.getElementById('forgotCheckinCode').value = '';
+        document.getElementById('forgotCheckinDate').value = '';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function submitExtraPenalty_() {
+      const code = document.getElementById('extraPenaltyCode').value.trim();
+      const date = document.getElementById('extraPenaltyDate').value;
+      const reason = document.getElementById('extraPenaltyReason').value.trim();
+      const days = document.getElementById('extraPenaltyDays').value;
+      const statusEl = document.getElementById('extraPenaltyStatus');
+      if (!code || !date || !days) { statusEl.textContent = '❌ حدد الكود والتاريخ وعدد الأيام.'; return; }
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({ action: 'extraPenaltyAdd', code, date, reason, days });
+        statusEl.textContent = '✅ اتسجّلت.';
+        document.getElementById('extraPenaltyCode').value = '';
+        document.getElementById('extraPenaltyDate').value = '';
+        document.getElementById('extraPenaltyReason').value = '';
+        document.getElementById('extraPenaltyDays').value = '';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    // ⚠️ بند 11 — استثناءات إلزام الانصراف
+    function onCheckoutExScopeChange_() {
+      const scopeType = document.getElementById('checkoutExScopeType').value;
+      document.getElementById('checkoutExScopeValueWrap').style.display = scopeType === 'All' ? 'none' : '';
+    }
+
+    async function loadCheckoutExceptionsView_() {
+      const area = document.getElementById('checkoutExceptionsArea');
+      try {
+        const json = await callApi_({ action: 'checkoutExceptions' });
+        let html = '<div class="table-wrap"><table><thead><tr><th>النطاق</th><th>القيمة</th><th>من</th><th>لحد</th></tr></thead><tbody>';
+        json.exceptions.forEach(ex => {
+          const scopeLabel = ex.scopeType === 'All' ? 'كل الموظفين' : (ex.scopeType === 'Department' ? 'قسم' : 'موظف');
+          html += '<tr><td>' + escapeHtml_(scopeLabel) + '</td><td>' + escapeHtml_(ex.scopeValue || '-') + '</td><td>' + ex.from + '</td><td>' + ex.to + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        area.innerHTML = html;
+      } catch (err) { area.textContent = '❌ ' + err.message; }
+    }
+
+    async function addCheckoutException_() {
+      const scopeType = document.getElementById('checkoutExScopeType').value;
+      const scopeValue = document.getElementById('checkoutExScopeValue').value.trim();
+      const from = document.getElementById('checkoutExFrom').value;
+      const to = document.getElementById('checkoutExTo').value;
+      const statusEl = document.getElementById('checkoutExStatus');
+      if (!from || !to) { statusEl.textContent = '❌ حدد الفترة.'; return; }
+      if (scopeType !== 'All' && !scopeValue) { statusEl.textContent = '❌ حدد قيمة النطاق.'; return; }
+      statusEl.textContent = 'جاري الحفظ...';
+      try {
+        await callApiPost_({ action: 'checkoutExceptionAdd', scopeType, scopeValue, from, to });
+        statusEl.textContent = '✅ اتحفظ.';
+        document.getElementById('checkoutExScopeValue').value = '';
+        document.getElementById('checkoutExFrom').value = '';
+        document.getElementById('checkoutExTo').value = '';
+        loadCheckoutExceptionsView_();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
     }
 
     // ============================================================
@@ -3360,7 +3719,8 @@
     }
     function renderMissingReport() {
       const q = (document.getElementById('missingSearchInput').value || '').trim().toLowerCase();
-      const rows = missingReportCache.filter(r => !q || r.nameAr.toLowerCase().includes(q) || r.code.toLowerCase().includes(q));
+      const filteredRows = missingReportCache.filter(r => !q || r.nameAr.toLowerCase().includes(q) || r.code.toLowerCase().includes(q));
+      const { slice: rows } = getPaginatedSlice_(filteredRows, 'missing');
       let html = buildExportButtonsHtml_('exportMissingDocumentsReport_');
       html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>عدد الناقص</th><th>الأنواع الناقصة</th></tr></thead><tbody>';
       rows.forEach(r => {
@@ -3369,6 +3729,7 @@
           '<td style="text-align:right">' + escapeHtml_(r.missingTypes.join('، ')) + '</td></tr>';
       });
       html += '</tbody></table></div>';
+      if (filteredRows.length > 0) html += renderPaginationControls_('missing', filteredRows.length, 'renderMissingReport');
       document.getElementById('missingReportArea').innerHTML = html || '<p style="font-size:13px;color:#777">مفيش موظفين ناقصهم مستندات 🎉</p>';
     }
 
@@ -3432,19 +3793,29 @@
       const el = document.getElementById('byTypeReportArea');
       if (!type) return;
       el.textContent = 'جاري التحميل...';
+      resetPaginationPage_('byType'); // ⬅️ تغيير النوع = فلتر جديد، نرجع لصفحة 1
       try {
         const json = await callApi_({ action: 'documentsByType', type });
-        const icon = s => s === 'ساري' ? '✅' : s === 'قريب الانتهاء' ? '🟡' : s === 'منتهي' ? '🔴' : '❌';
-        let html = buildExportButtonsHtml_('exportByTypeReport_');
-        html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>الرقم</th><th>الانتهاء</th></tr></thead><tbody>';
-        json.rows.forEach(r => {
-          html += '<tr><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
-            '<td>' + icon(r.status) + ' ' + escapeHtml_(r.status) + '</td><td>' + escapeHtml_(r.documentNumber || '-') + '</td>' +
-            '<td>' + (r.expiryDate || '-') + '</td></tr>';
-        });
-        html += '</tbody></table></div>';
-        el.innerHTML = html;
+        byTypeReportCache_ = json.rows; // ⬅️ Cache عشان الـPagination تقدر تعيد الرسم من غير Fetch تاني
+        renderByTypeReport_();
       } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    let byTypeReportCache_ = [];
+    function renderByTypeReport_() {
+      const el = document.getElementById('byTypeReportArea');
+      const icon = s => s === 'ساري' ? '✅' : s === 'قريب الانتهاء' ? '🟡' : s === 'منتهي' ? '🔴' : '❌';
+      const { slice: rows } = getPaginatedSlice_(byTypeReportCache_, 'byType');
+      let html = buildExportButtonsHtml_('exportByTypeReport_');
+      html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>الرقم</th><th>الانتهاء</th></tr></thead><tbody>';
+      rows.forEach(r => {
+        html += '<tr><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
+          '<td>' + icon(r.status) + ' ' + escapeHtml_(r.status) + '</td><td>' + escapeHtml_(r.documentNumber || '-') + '</td>' +
+          '<td>' + (r.expiryDate || '-') + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      if (byTypeReportCache_.length > 0) html += renderPaginationControls_('byType', byTypeReportCache_.length, 'renderByTypeReport_');
+      el.innerHTML = html;
     }
 
     async function exportByTypeReport_(format) {
@@ -3553,6 +3924,211 @@
         if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
+
+    // ⚠️ Phase 4 — Payroll (Live Calculation بس). كل بند خصم/استحقاق
+    // ظاهر منفصل، صفر رقم مخفي. صفر Snapshot، صفر تخزين لأي نتيجة.
+    async function calculatePayroll_() {
+      const code = document.getElementById('payrollEmployeeCode').value.trim();
+      const from = document.getElementById('payrollFrom').value;
+      const to = document.getElementById('payrollTo').value;
+      const statusEl = document.getElementById('payrollStatus');
+      const area = document.getElementById('payrollArea');
+      if (!code || !from || !to) { statusEl.textContent = '❌ حدد الموظف والفترة.'; return; }
+      statusEl.textContent = 'جاري الحساب...';
+      area.innerHTML = '';
+      try {
+        const json = await callApi_({ action: 'payrollCalculate', employee: code, from, to });
+        const p = json.payroll;
+        const d = p.attendanceDeductionDetails;
+        statusEl.textContent = '';
+        area.innerHTML =
+          '<div class="table-wrap"><table><tbody>' +
+          '<tr><td>الراتب الأساسي</td><td>' + p.basicSalary + '</td></tr>' +
+          '<tr><td>قيمة اليوم (الراتب ÷ 30)</td><td>' + p.dailyValue + '</td></tr>' +
+          '<tr><th colspan="2" style="text-align:right">تفاصيل خصومات الحضور (بالأيام)</th></tr>' +
+          '<tr><td>خصم التأخير</td><td>' + d.lateDeductionTotal + '</td></tr>' +
+          '<tr><td>خصم الغياب</td><td>' + d.absenceDeductionTotal + '</td></tr>' +
+          '<tr><td>خصم عدم بصمة الانصراف</td><td>' + d.missingCheckoutDeductionTotal + '</td></tr>' +
+          '<tr><td>خصم الأذونات</td><td>' + d.permissionDeduction + '</td></tr>' +
+          '<tr><td>خصم نسيان تسجيل الحضور/الانصراف</td><td>' + d.forgotCheckinDeduction + '</td></tr>' +
+          '<tr><td>خصومات إضافية/جزاءات</td><td>' + d.extraPenaltyDays + '</td></tr>' +
+          '<tr><td><b>إجمالي أيام الخصم</b></td><td><b>' + d.totalDeduction + '</b></td></tr>' +
+          '<tr><td><b>مبلغ خصم الحضور (يوم × قيمة اليوم)</b></td><td><b>' + p.attendanceDeductionAmount + '</b></td></tr>' +
+          '<tr><th colspan="2" style="text-align:right">حركات نقدية (الفترة المحددة)</th></tr>' +
+          '<tr><td>إضافات (Earnings)</td><td>' + p.earnings + '</td></tr>' +
+          '<tr><td>خصومات نقدية (سلف/غرامات)</td><td>' + p.cashDeductions + '</td></tr>' +
+          '<tr><td style="font-size:15px"><b>صافي الراتب (Net Salary)</b></td><td style="font-size:15px"><b>' + p.netSalary + '</b></td></tr>' +
+          '</tbody></table></div>' +
+          '<p style="font-size:12px;color:#777;margin-top:10px">خصم/رد الصيف مستبعد صراحة من صافي الراتب أعلاه — يُدار من شاشة منفصلة.</p>';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    // ⚠️ Phase 5 — خصم واسترداد الصيف. Flow مستقل تمامًا عن Payroll
+    // فوق، صفر تأثير عليه.
+    async function loadSummerDeptsView_() {
+      const area = document.getElementById('summerDeptsArea');
+      try {
+        const json = await callApi_({ action: 'summerDeductionDepartments' });
+        let html = '<div class="table-wrap"><table><thead><tr><th>القسم</th><th>القاعدة</th><th>نشط؟</th></tr></thead><tbody>';
+        json.departments.forEach(d => {
+          html += '<tr><td>' + escapeHtml_(d.dept) + '</td><td>' + escapeHtml_(d.rule) + '</td><td>' + (d.active ? 'نعم' : 'لا') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        area.innerHTML = html;
+      } catch (err) { area.textContent = '❌ ' + err.message; }
+    }
+
+    async function setSummerDept_() {
+      const dept = document.getElementById('summerDeptName').value.trim();
+      const rule = document.getElementById('summerDeptRule').value;
+      const statusEl = document.getElementById('summerDeptStatus');
+      if (!dept) { statusEl.textContent = '❌ حدد اسم القسم.'; return; }
+      try {
+        await callApiPost_({ action: 'summerDeductionDepartmentSet', dept, rule });
+        statusEl.textContent = '✅ اتحفظ.';
+        document.getElementById('summerDeptName').value = '';
+        loadSummerDeptsView_();
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function calculateSummerDeduction_() {
+      const year = document.getElementById('summerCalcYear').value;
+      const statusEl = document.getElementById('summerCalcStatus');
+      if (!year) { statusEl.textContent = '❌ حدد السنة.'; return; }
+      statusEl.textContent = 'جاري الحساب...';
+      try {
+        const json = await callApiPost_({ action: 'summerDeductionCalculate', year });
+        const r = json.result;
+        statusEl.textContent = '✅ اتحسب لـ' + r.calculated.length + ' حالة، اتخطّى ' + r.skippedAlreadyLogged.length + ' (محسوبة بالفعل)، ' + r.skippedUnclassified.length + ' موظف بقسم مش مصنَّف.';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function loadSummerDeductionLog_() {
+      const code = document.getElementById('summerLogEmployeeCode').value.trim();
+      const year = document.getElementById('summerLogYear').value;
+      const statusEl = document.getElementById('summerLogStatus');
+      const area = document.getElementById('summerLogArea');
+      statusEl.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'summerDeductionLog', employee: code, year });
+        statusEl.textContent = '';
+        let html = '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الشهر</th><th>السنة</th><th>المبلغ</th><th>حالة الرد</th><th>تاريخ الرد</th></tr></thead><tbody>';
+        json.rows.forEach(r => {
+          html += '<tr><td>' + escapeHtml_(r.code) + '</td><td>' + escapeHtml_(r.month) + '</td><td>' + r.year + '</td><td>' + r.amount + '</td><td>' + escapeHtml_(r.refundStatus) + '</td><td>' + (r.refundDate || '-') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        area.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش سجلات.</p>';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    async function refundSummerDeduction_() {
+      const code = document.getElementById('summerLogEmployeeCode').value.trim();
+      const year = document.getElementById('summerLogYear').value;
+      const statusEl = document.getElementById('summerLogStatus');
+      if (!code || !year) { statusEl.textContent = '❌ حدد الموظف والسنة الأول.'; return; }
+      try {
+        const json = await callApiPost_({ action: 'summerDeductionRefund', employee: code, year });
+        const successMsg = '✅ اترد مبلغ ' + json.result.refundedAmount + ' (' + json.result.rowsRefunded + ' سجل).';
+        await loadSummerDeductionLog_(); // ⬅️ ننتظرها الأول عشان مش تمسح رسالة النجاح
+        statusEl.textContent = successMsg;
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    // ============================================================
+    // ⚠️ WhatsApp Click-to-Chat — صفر API/BSP/Credentials/تكلفة.
+    // GHIS بيبني الرسالة بس (Backend)، وفتح wa.me بيحصل هنا
+    // Client-side بالكامل. صفر Send تلقائي، صفر Log لحالة الإرسال.
+    // ============================================================
+    let waSelectedCodes_ = new Set();
+
+    function normalizeEgyptianPhoneForWhatsApp_(rawPhone) {
+      let digits = String(rawPhone || '').replace(/\D/g, '');
+      if (!digits) return null;
+      if (digits.startsWith('20') && digits.length === 12) return digits;
+      if (digits.startsWith('0')) digits = digits.substring(1);
+      if (digits.length !== 10) return null;
+      if (!/^1[0125]/.test(digits)) return null;
+      return '20' + digits;
+    }
+
+    function renderWaEmployeesList_() {
+      const q = (document.getElementById('waSearchInput').value || '').trim().toLowerCase();
+      const filteredRows = employeesCache.filter(e =>
+        !q || e.nameAr.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.nameEn||'').toLowerCase().includes(q)
+      );
+      const { slice: rows } = getPaginatedSlice_(filteredRows, 'wa');
+
+      let html = '<div class="table-wrap"><table><thead><tr><th></th><th>الكود</th><th>الاسم</th><th>القسم</th></tr></thead><tbody>';
+      rows.forEach(e => {
+        const checked = waSelectedCodes_.has(e.code) ? 'checked' : '';
+        html += '<tr><td><input type="checkbox" ' + checked + ' onchange="waToggleEmployee_(\'' + e.code + '\', this.checked)"></td>' +
+          '<td>' + escapeHtml_(e.code) + '</td><td style="text-align:right">' + escapeHtml_(e.nameAr) + '</td><td>' + escapeHtml_(e.dept) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      html += renderPaginationControls_('wa', filteredRows.length, 'renderWaEmployeesList_');
+      document.getElementById('waEmployeesArea').innerHTML = html;
+    }
+
+    function waToggleEmployee_(code, checked) {
+      if (checked) waSelectedCodes_.add(code); else waSelectedCodes_.delete(code);
+    }
+
+    function waSelectAll_() {
+      // ⬅️ النتائج الحالية بس (بعد الـSearch)، مش كل الموظفين مهما كان الفلتر
+      const q = (document.getElementById('waSearchInput').value || '').trim().toLowerCase();
+      employeesCache.filter(e => !q || e.nameAr.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.nameEn||'').toLowerCase().includes(q))
+        .forEach(e => waSelectedCodes_.add(e.code));
+      renderWaEmployeesList_();
+    }
+
+    function waDeselectAll_() {
+      waSelectedCodes_.clear();
+      renderWaEmployeesList_();
+    }
+
+    async function waPreviewMessages_() {
+      const messageType = document.getElementById('waMessageType').value;
+      const from = document.getElementById('waFrom').value;
+      const to = document.getElementById('waTo').value;
+      const statusEl = document.getElementById('waStatus');
+      const codes = [...waSelectedCodes_];
+      if (codes.length === 0) { statusEl.textContent = '❌ اختر موظف واحد على الأقل.'; return; }
+      if (!from || !to) { statusEl.textContent = '❌ حدد الفترة.'; return; }
+      statusEl.textContent = 'جاري تجهيز الرسائل...';
+      try {
+        const json = await callApi_({ action: 'whatsappPreview', messageType, from, to, employeeCodes: codes });
+        statusEl.textContent = '';
+        let html = '';
+        json.messages.forEach(m => {
+          const phoneNorm = normalizeEgyptianPhoneForWhatsApp_(m.phone);
+          const phoneStatus = phoneNorm
+            ? '📞 ' + escapeHtml_(m.phone)
+            : (m.phone ? '<span style="color:#c0392b">⚠️ رقم غير صالح</span>' : '<span style="color:#c0392b">⚠️ لا يوجد رقم هاتف</span>');
+          html += '<div class="card" style="margin-bottom:10px">';
+          html += '<b>' + escapeHtml_(m.nameAr || m.code) + '</b> — ' + phoneStatus;
+          html += '<pre style="white-space:pre-wrap;font-family:inherit;background:#f7f7f7;padding:10px;border-radius:6px;margin:8px 0">' + escapeHtml_(m.messageText) + '</pre>';
+          if (phoneNorm) {
+            html += '<button onclick="waOpenChat_(\'' + phoneNorm + '\', this)" data-msg="' + encodeURIComponent(m.messageText) + '">📱 فتح WhatsApp</button>';
+            html += ' <span class="wa-status" style="font-size:12px;color:#777">جاهز للإرسال</span>';
+          } else {
+            html += '<button disabled>📱 فتح WhatsApp</button>';
+          }
+          html += '</div>';
+        });
+        document.getElementById('waPreviewArea').innerHTML = html;
+        document.getElementById('waPreviewCard').style.display = '';
+      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+    }
+
+    function waOpenChat_(phoneNormalized, btn) {
+      const message = decodeURIComponent(btn.getAttribute('data-msg'));
+      const url = 'https://wa.me/' + phoneNormalized + '?text=' + encodeURIComponent(message);
+      window.open(url, '_blank');
+      // ⬅️ صفر تأكيد إرسال حقيقي — بس تحديث بصري إن الرابط اتفتح
+      const statusSpan = btn.nextElementSibling;
+      if (statusSpan) statusSpan.textContent = 'تم فتح WhatsApp';
+    }
+
 
     // ============================================================
     // قسم: النسخ الاحتياطي
