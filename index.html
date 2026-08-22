@@ -591,6 +591,17 @@
     .mc-wrap { max-height: none; overflow: visible; }
     .mc-table thead th, .mc-table td.mc-sticky, .mc-table th.mc-sticky { position: static; }
   }
+  /* === WhatsApp: شريط التتابع وحالات الصفوف (namespace .wa-) === */
+  .wa-seq-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:8px; }
+  .wa-progress { font-size:var(--text-sm); font-weight:700; color:var(--color-primary); font-variant-numeric:tabular-nums; }
+  .wa-delay { font-size:var(--text-xs); color:var(--color-text-muted); display:inline-flex; align-items:center; gap:5px; }
+  .wa-delay input { width:56px; padding:3px 6px; }
+  .wa-disclaimer { font-size:var(--text-xs); color:var(--color-text-muted); background:var(--color-warning-bg); border-right:3px solid var(--color-warning); padding:8px 10px; border-radius:var(--radius-sm); line-height:1.6; margin:0 0 12px; }
+  .wa-state { font-size:var(--text-xs); font-weight:700; padding:2px 8px; border-radius:10px; }
+  .wa-state-READY { background:var(--color-primary-50); color:var(--color-text-muted); }
+  .wa-state-OPENED { background:var(--color-info-bg); color:var(--color-info); }
+  .wa-state-NOPHONE { background:var(--color-danger-bg); color:var(--color-danger); }
+  .wa-retry-btn { padding:3px 10px; font-size:var(--text-xs); }
 </style>
 </head>
 <body>
@@ -1142,6 +1153,7 @@
           <select id="waMessageType">
             <option value="payroll">صافي المرتب</option>
             <option value="attendance">التأخير والغياب والخصومات (حتى الآن)</option>
+            <option value="attendanceBrief">ملخص الخصومات والتأخيرات (مختصر)</option>
           </select>
         </div>
         <div><label>من تاريخ</label><input type="date" id="waFrom"></div>
@@ -1159,6 +1171,24 @@
 
     <div class="card" id="waPreviewCard" style="display:none">
       <h2>معاينة الرسائل</h2>
+      <!-- ⚠️ شريط الإرسال المتتابع — رسالة واحدة في المرة، وكل فتح
+           ناتج عن نقرة مباشرة من المستخدم (مفيش أي فتح تلقائي لعدة
+           نوافذ). الحالة OPENED معناها اتفتح واتساب بالرسالة جاهزة
+           بس — النظام مش بيقدر يتأكد إن الرسالة اتبعتت أو اتسلّمت. -->
+      <div class="wa-seq-bar">
+        <button id="waSendSelectedBtn" onclick="waStartSequence_()">▶ إرسال المحددين</button>
+        <button id="waNextBtn" class="secondary" onclick="waOpenCurrentThenAdvance_()" style="display:none">التالي ▶</button>
+        <button id="waStopBtn" class="secondary" onclick="waStopSequence_()" style="display:none">إيقاف</button>
+        <span id="waProgress" class="wa-progress"></span>
+        <label class="wa-delay">فاصل اختياري:
+          <input type="number" id="waDelaySec" value="1" min="0" max="60" step="1"> ثانية
+        </label>
+      </div>
+      <p class="wa-disclaimer">
+        <b>OPENED</b> معناها إن واتساب اتفتح بالرسالة جاهزة في خانة الكتابة — الإرسال نفسه بيتم بإيدك جوه واتساب.
+        النظام <b>مش بيقدر</b> يتأكد إن الرسالة اتبعتت أو وصلت، ومفيش أي ادعاء بغير كده.
+        الفاصل الزمني تنظيمي بس، <b>مش ضمان</b> ضد أي قيود من واتساب.
+      </p>
       <div id="waPreviewArea"></div>
     </div>
   </div>
@@ -4343,14 +4373,16 @@
           const phoneStatus = phoneNorm
             ? '📞 ' + escapeHtml_(m.phone)
             : (m.phone ? '<span style="color:#c0392b">⚠️ رقم غير صالح</span>' : '<span style="color:#c0392b">⚠️ لا يوجد رقم هاتف</span>');
-          html += '<div class="card" style="margin-bottom:10px">';
+          html += '<div class="card wa-msg-card" style="margin-bottom:10px">';
           html += '<b>' + escapeHtml_(m.nameAr || m.code) + '</b> — ' + phoneStatus;
           html += '<pre style="white-space:pre-wrap;font-family:inherit;background:#f7f7f7;padding:10px;border-radius:6px;margin:8px 0">' + escapeHtml_(m.messageText) + '</pre>';
           if (phoneNorm) {
-            html += '<button onclick="waOpenChat_(\'' + phoneNorm + '\', this)" data-msg="' + encodeURIComponent(m.messageText) + '">📱 فتح WhatsApp</button>';
-            html += ' <span class="wa-status" style="font-size:12px;color:#777">جاهز للإرسال</span>';
+            html += '<button class="wa-open-btn" onclick="waOpenOne_(this)" data-phone="' + phoneNorm + '" data-msg="' + encodeURIComponent(m.messageText) + '">📱 فتح WhatsApp</button>';
+            html += ' <button class="secondary wa-retry-btn" onclick="waRetryOne_(this)">RETRY</button>';
+            html += ' <span class="wa-state wa-state-READY">READY</span>';
           } else {
-            html += '<button disabled>📱 فتح WhatsApp</button>';
+            html += '<button class="wa-open-btn" disabled>📱 فتح WhatsApp</button>';
+            html += ' <span class="wa-state wa-state-NOPHONE">بدون رقم</span>';
           }
           html += '</div>';
         });
@@ -4368,6 +4400,125 @@
       if (statusSpan) statusSpan.textContent = 'تم فتح WhatsApp';
     }
 
+
+    // فتح فردي من زرار الصف — نفس نمط waOpenChat_ بالحرف، بس
+    // بيحدّث حالة الصف لـOPENED. waOpenChat_ الأصلية فوق مالمستهاش.
+    function waOpenOne_(btn) {
+      const phone = btn.getAttribute('data-phone');
+      const message = decodeURIComponent(btn.getAttribute('data-msg'));
+      window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
+      waSetRowState_(btn.closest('.wa-msg-card'), 'OPENED');
+    }
+
+    // ============================================================
+    // ⚠️ الإرسال المتتابع المحافظ — إضافة خالصة، صفر لمس لـ
+    // waOpenChat_ فوق أو لأي منطق موجود.
+    //
+    // مبدأ التصميم: رسالة واحدة بس في المرة، وكل window.open ناتج
+    // عن نقرة مباشرة من المستخدم — مفيش أي حلقة بتفتح تابات
+    // تلقائيًا (عشان متتحجبش كـPopups، ومن غير أي محاولة للتحايل
+    // على قيود المتصفح أو واتساب).
+    //
+    // الحالات: READY → OPENED → (RETRY يدوي لنفس الموظف بس).
+    // مفيش أي حالة معناها "اتبعت" أو "اتسلّم" — النظام مش بيعرفها.
+    // ============================================================
+    let waSeqQueue_ = [];
+    let waSeqIndex_ = 0;
+    let waSeqActive_ = false;
+
+    function waSetRowState_(card, state) {
+      const el = card.querySelector('.wa-state');
+      if (!el) return;
+      el.textContent = state;
+      el.className = 'wa-state wa-state-' + state;
+    }
+
+    function waUpdateProgress_() {
+      const el = document.getElementById('waProgress');
+      if (!el) return;
+      el.textContent = waSeqActive_ ? (waSeqIndex_ + ' / ' + waSeqQueue_.length) : '';
+    }
+
+    function waStartSequence_() {
+      // بس الصفوف اللي ليها رقم صالح (زرار الفتح مش معطّل)
+      waSeqQueue_ = [...document.querySelectorAll('#waPreviewArea .wa-msg-card')]
+        .filter(c => c.querySelector('.wa-open-btn:not([disabled])'));
+      if (waSeqQueue_.length === 0) {
+        document.getElementById('waProgress').textContent = 'مفيش رسائل جاهزة للفتح.';
+        return;
+      }
+      waSeqIndex_ = 0;
+      waSeqActive_ = true;
+      document.getElementById('waSendSelectedBtn').style.display = 'none';
+      document.getElementById('waNextBtn').style.display = '';
+      document.getElementById('waStopBtn').style.display = '';
+      waUpdateProgress_();
+      waOpenCurrentThenAdvance_();
+    }
+
+    function waOpenCurrentThenAdvance_() {
+      if (!waSeqActive_ || waSeqIndex_ >= waSeqQueue_.length) { waStopSequence_(); return; }
+      const card = waSeqQueue_[waSeqIndex_];
+      const btn = card.querySelector('.wa-open-btn');
+
+      // نفس نمط الفتح الموجود بالحرف — window.open من جوه نقرة مباشرة
+      const phone = btn.getAttribute('data-phone');
+      const message = decodeURIComponent(btn.getAttribute('data-msg'));
+      window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
+      waSetRowState_(card, 'OPENED');
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      waSeqIndex_++;
+      waUpdateProgress_();
+
+      // الفاصل بيعطّل زرار "التالي" مؤقتًا بس — مفيش فتح تلقائي بعده
+      const delay = Math.max(0, Number(document.getElementById('waDelaySec').value) || 0) * 1000;
+      const nextBtn = document.getElementById('waNextBtn');
+      if (waSeqIndex_ >= waSeqQueue_.length) {
+        nextBtn.style.display = 'none';
+        document.getElementById('waProgress').textContent =
+          'خلص الطابور: ' + waSeqQueue_.length + ' رسالة اتفتحت.';
+        waSeqActive_ = false;
+        document.getElementById('waSendSelectedBtn').style.display = '';
+        document.getElementById('waStopBtn').style.display = 'none';
+        return;
+      }
+      if (delay > 0) {
+        nextBtn.disabled = true;
+        const original = nextBtn.textContent;
+        let left = Math.ceil(delay / 1000);
+        nextBtn.textContent = 'استنى ' + left + '...';
+        const tick = setInterval(() => {
+          left--;
+          if (left > 0) { nextBtn.textContent = 'استنى ' + left + '...'; return; }
+          clearInterval(tick);
+          nextBtn.disabled = false;
+          nextBtn.textContent = original;
+        }, 1000);
+      }
+    }
+
+    function waStopSequence_() {
+      waSeqActive_ = false;
+      waSeqQueue_ = [];
+      waSeqIndex_ = 0;
+      document.getElementById('waSendSelectedBtn').style.display = '';
+      document.getElementById('waNextBtn').style.display = 'none';
+      document.getElementById('waStopBtn').style.display = 'none';
+      const nextBtn = document.getElementById('waNextBtn');
+      nextBtn.disabled = false;
+      document.getElementById('waProgress').textContent = '';
+    }
+
+    // RETRY يدوي — بيعيد فتح رسالة الموظف ده بس، صفر علاقة بالطابور
+    function waRetryOne_(btn) {
+      const card = btn.closest('.wa-msg-card');
+      const openBtn = card.querySelector('.wa-open-btn');
+      const phone = openBtn.getAttribute('data-phone');
+      const message = decodeURIComponent(openBtn.getAttribute('data-msg'));
+      window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
+      waSetRowState_(card, 'OPENED');
+    }
 
     // ============================================================
     // قسم: النسخ الاحتياطي
