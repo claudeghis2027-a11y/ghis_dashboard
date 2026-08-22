@@ -4378,7 +4378,12 @@
       if (!from || !to) { statusEl.textContent = '❌ حدد الفترة.'; return; }
       statusEl.textContent = 'جاري تجهيز الرسائل...';
       try {
-        const json = await callApi_({ action: 'whatsappPreview', messageType, from, to, employeeCodes: codes });
+        // ⚠️ لازم POST مش GET: callApi_ بتستخدم URLSearchParams، واللي
+        // بتنادي String() على كل قيمة — فمصفوفة employeeCodes كانت
+        // بتتسطّح لسترينج ("2" أو "1,2,3")، وAray.isArray في Code.gs
+        // بترجع false فيتحول لـ[] ويرفض الطلب. callApiPost_ بتبعت
+        // JSON body فالمصفوفة بتوصل مصفوفة حقيقية. صفر تغيير في السيرفر.
+        const json = await callApiPost_({ action: 'whatsappPreview', messageType, from, to, employeeCodes: codes });
         statusEl.textContent = '';
         let html = '';
         json.messages.forEach(m => {
