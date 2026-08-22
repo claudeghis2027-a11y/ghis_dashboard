@@ -1300,7 +1300,17 @@
       if (name === 'monthlyClosing') { if (!mcViewLoaded_) { loadMonthlyClosingMonths_(); mcViewLoaded_ = true; } }
       if (name === 'reportCenter') { renderReportCenter_(); }
       if (name === 'summerDeduction') { loadSummerDeptsView_(); }
-      if (name === 'whatsapp') { waSelectedCodes_ = new Set(); renderWaEmployeesList_(); }
+      // ⚠️ Bug Fix — الشاشة دي كانت بترسم من employeesCache على طول من
+      // غير أي ضمان إنها متملّية. لو اتفتحت قبل "التقارير" (مثلاً عن
+      // طريق Navigation Persistence اللي بيرجّع آخر View عند الدخول)،
+      // الكاش بتكون فاضية فالجدول يطلع "0 سجل" ومفيش أي checkbox.
+      // دلوقتي: بنحمّل بس لو الكاش فاضية — صفر Fetch زيادة لو موجودة
+      // أصلاً. نفس نمط تبويب "بيانات الموظفين" بالحرف.
+      if (name === 'whatsapp') {
+        waSelectedCodes_ = new Set();
+        if (employeesCache.length === 0) { loadEmployees_().then(renderWaEmployeesList_); }
+        else { renderWaEmployeesList_(); }
+      }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
     }
