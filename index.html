@@ -677,6 +677,9 @@
         <button class="sidebar-link" id="tabBtn-whatsapp" onclick="switchView('whatsapp')">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.6a8.4 8.4 0 0 1-12.3 7.45L3.5 20.5l1.5-4.6A8.4 8.4 0 1 1 20.5 11.6Z"/><path d="M8.9 9.1c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.5l.7 1.6c.1.3 0 .5-.1.7l-.4.5c-.1.2-.2.3 0 .6a6 6 0 0 0 2.6 2.2c.3.1.5.1.7-.1l.5-.6c.2-.2.4-.2.6-.1l1.6.8c.2.1.4.2.4.4v.5c0 .8-.7 1.5-1.5 1.5a7.6 7.6 0 0 1-6.9-6.9c0-.5.1-.9.3-1.3Z"/></svg></span> رسائل واتساب
         </button>
+        <button class="sidebar-link" id="tabBtn-pendingProfile" onclick="switchView('pendingProfile')">
+          <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l2 2 4-4"/><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M8 2.5v3M16 2.5v3"/></svg></span> طلبات استكمال البيانات
+        </button>
         <button class="sidebar-link" id="tabBtn-employees" onclick="switchView('employees')">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="3"/><circle cx="16" cy="9.5" r="2.4"/><path d="M2.8 19.5c0-3 2.6-5.2 5.7-5.2s5.7 2.2 5.7 5.2M14.8 19.5c0-2.3 1.6-4.2 3.9-4.9"/></svg></span> بيانات الموظفين
         </button>
@@ -773,6 +776,17 @@
       <div id="mcStatus"></div>
     </div>
     <div id="mcResultArea"></div>
+  </div>
+
+  <!-- ============== طلبات استكمال البيانات ============== -->
+  <div id="view-pendingProfile" class="view" style="display:none">
+    <div class="card">
+      <h2>طلبات استكمال البيانات</h2>
+      <p class="mc-note">مراجعة الطلبات المعلّقة. الاعتماد بيكتب البيانات في ملف الموظف والصورة تبقى مرجعية رسمية. الرفض مبيغيّرش أي بيانات.</p>
+      <button onclick="loadPendingProfileRequests_()">🔄 تحديث</button>
+      <div id="ppStatus"></div>
+    </div>
+    <div id="ppArea"></div>
   </div>
 
   <!-- ============== 2) قسم بيانات الموظفين ============== -->
@@ -1284,7 +1298,7 @@
     // التنقل بين الأقسام
     // ============================================================
     function switchView(name) {
-      ['reports', 'monthlyClosing', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp'].forEach(v => {
+      ['reports', 'monthlyClosing', 'pendingProfile', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
         const btn = document.getElementById('tabBtn-' + v);
         if (btn) btn.classList.toggle('active', v === name);
@@ -1308,6 +1322,7 @@
       if (name === 'users') { if (!usersViewLoaded_) { loadUsersAndRolesView(); usersViewLoaded_ = true; } }
       if (name === 'backup') { if (!backupViewLoaded_) { loadBackupsList(); loadBackupConfig(); backupViewLoaded_ = true; } }
       if (name === 'reports') { if (!reportsViewLoaded_) { loadEmployees_(); reportsViewLoaded_ = true; } }
+      if (name === 'pendingProfile') { loadPendingProfileRequests_(); }
       if (name === 'monthlyClosing') { if (!mcViewLoaded_) { loadMonthlyClosingMonths_(); mcViewLoaded_ = true; } }
       if (name === 'reportCenter') { renderReportCenter_(); }
       if (name === 'summerDeduction') { loadSummerDeptsView_(); }
@@ -1542,7 +1557,7 @@
       document.getElementById('tabBtn-users').style.display = usersTabAllowed ? '' : 'none';
 
       // إخفاء باقي التبويبات حسب الصلاحية (الأدمن يشوف الكل)
-      const tabSectionMap = { reports: 'reports', monthlyClosing: 'reports', whatsapp: 'whatsapp_send', employees: 'employees', rules: 'rules', documents: 'documents', backup: 'backup' };
+      const tabSectionMap = { reports: 'reports', monthlyClosing: 'reports', whatsapp: 'whatsapp_send', pendingProfile: 'employees', employees: 'employees', rules: 'rules', documents: 'documents', backup: 'backup' };
       Object.keys(tabSectionMap).forEach(tab => {
         const allowed = currentSession.isAdmin || currentSession.sections.includes(tabSectionMap[tab]);
         const btn = document.getElementById('tabBtn-' + tab);
@@ -2121,6 +2136,69 @@
           fileName: 'اقفال_شهري_' + data.fromDate,
         };
         if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ============================================================
+    // ⚠️ طلبات استكمال البيانات — مراجعة الإدارة
+    // ============================================================
+    async function loadPendingProfileRequests_() {
+      const area = document.getElementById('ppArea');
+      const st = document.getElementById('ppStatus');
+      st.textContent = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'pendingProfileRequests' });
+        st.textContent = '';
+        renderPendingProfileRequests_(json.requests || []);
+      } catch (err) { st.textContent = '❌ ' + err.message; }
+    }
+
+    function renderPendingProfileRequests_(rows) {
+      if (!rows.length) {
+        document.getElementById('ppArea').innerHTML = '<div class="card"><p>مفيش طلبات معلّقة.</p></div>';
+        return;
+      }
+      let html = '';
+      rows.forEach(r => {
+        html += '<div class="card" style="margin-bottom:10px">';
+        html += '<h3>' + escapeHtml_(r.nameAr || r.code) + ' (كود ' + escapeHtml_(r.code) + ')</h3>';
+        html += '<p class="mc-note">تاريخ التقديم: ' + escapeHtml_(r.submittedAt || '-') + '</p>';
+        html += '<div class="table-wrap"><table><thead><tr><th>الحقل</th><th>القيمة المطلوبة</th></tr></thead><tbody>';
+        Object.keys(r.fields || {}).forEach(k => {
+          html += '<tr><td>' + escapeHtml_(k) + '</td><td>' + escapeHtml_(r.fields[k]) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        if (r.hasPhoto) {
+          html += '<p><b>📷 صورة مرجعية معلّقة</b> — مش داخلة التحقق بالوجه قبل الاعتماد.</p>';
+          html += '<img class="ref-photo-thumb" id="ppPhoto_' + escapeHtml_(r.id) + '" alt="الصورة المعلّقة">';
+        }
+        html += '<div class="form-actions">';
+        html += '<button onclick="approveProfileRequest_(\'' + r.code + '\',\'' + r.id + '\')">✅ اعتماد</button>';
+        html += '<button class="secondary" onclick="rejectProfileRequest_(\'' + r.code + '\',\'' + r.id + '\')">❌ رفض</button>';
+        html += '</div></div>';
+      });
+      document.getElementById('ppArea').innerHTML = html;
+    }
+
+    async function approveProfileRequest_(code, requestId) {
+      if (!confirm('اعتماد الطلب؟ البيانات هتتكتب في ملف الموظف والصورة هتبقى مرجعية رسمية.')) return;
+      try {
+        await callApi_({ action: 'approveProfileRequest', code, requestId });
+        alert('✅ تم الاعتماد.');
+        loadPendingProfileRequests_();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    const PP_REJECT_PHOTO_ = 'تم رفض الصورة الشخصية. يرجى رفع صورة واضحة وحديثة لك، بحيث يكون الوجه ظاهرًا بالكامل ومباشرة أمام الكاميرا.';
+    const PP_REJECT_DATA_  = 'تم رفض الطلب. يرجى مراجعة البيانات وإعادة تقديمها بعد تصحيحها.';
+
+    async function rejectProfileRequest_(code, requestId) {
+      const reason = prompt('سبب الرفض (قابل للتعديل):', PP_REJECT_DATA_);
+      if (reason === null) return;
+      try {
+        await callApi_({ action: 'rejectProfileRequest', code, requestId, reason });
+        alert('تم الرفض.');
+        loadPendingProfileRequests_();
       } catch (err) { alert('❌ ' + err.message); }
     }
 
