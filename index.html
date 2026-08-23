@@ -602,6 +602,17 @@
   .wa-state-OPENED { background:var(--color-info-bg); color:var(--color-info); }
   .wa-state-NOPHONE { background:var(--color-danger-bg); color:var(--color-danger); }
   .wa-retry-btn { padding:3px 10px; font-size:var(--text-xs); }
+  /* === الصورة المرجعية في ملف الموظف (namespace .ref-photo-) === */
+  .ref-photo-box { display:flex; gap:14px; align-items:center; margin:14px 0; padding:12px;
+    background:var(--color-primary-50); border:1px solid var(--color-border); border-radius:var(--radius-lg); }
+  .ref-photo-box.empty { display:block; background:var(--color-warning-bg);
+    border-color:var(--color-warning); color:var(--color-warning); font-size:var(--text-base); line-height:1.7; }
+  .ref-photo-thumb { width:96px; height:96px; object-fit:cover; border-radius:var(--radius);
+    border:2px solid var(--color-surface); box-shadow:var(--elevation-2); background:#e9edf4; flex-shrink:0; }
+  .ref-photo-thumb.error { display:flex; align-items:center; justify-content:center;
+    font-size:var(--text-xs); color:var(--color-danger); text-align:center; padding:6px; }
+  .ref-photo-meta { display:flex; flex-direction:column; gap:5px; align-items:flex-start; }
+  .ref-photo-meta span { font-size:var(--text-xs); color:var(--color-text-muted); }
 </style>
 </head>
 <body>
@@ -3240,6 +3251,20 @@
         html += '<div class="profile-field"><b>' + label + ':</b> ' + escapeHtml_(val) + '</div>';
       });
       html += '</div>';
+      // ⚠️ الصورة المرجعية — عرض بس. الغرض: التأكد إن الصورة المستخدمة
+      // في Face Verification فعلاً بتاعة الموظف (منع تلاعب). الصورة
+      // بتتجاب من نفس ملف Drive الأصلي (عمود 13) وقت الطلب بس.
+      if (emp.referencePhotoFileId) {
+        html += '<div class="ref-photo-box">' +
+          '<img id="refPhotoThumb_' + escapeHtml_(code) + '" class="ref-photo-thumb" alt="الصورة المرجعية">' +
+          '<div class="ref-photo-meta">' +
+          '<b>الصورة المرجعية (Face Verification)</b>' +
+          '<span>دي الصورة اللي بيتقارن بيها وش الموظف وقت تسجيل الحضور.</span>' +
+          '<button class="secondary" onclick="viewReferencePhoto_(\'' + code + '\')">🔍 عرض بالحجم الكامل</button>' +
+          '</div></div>';
+      } else {
+        html += '<div class="ref-photo-box empty">⚠️ <b>مفيش صورة مرجعية لهذا الموظف</b> — التحقق بالوجه متعطّل، وتسجيل الحضور بيتم من غير مطابقة.</div>';
+      }
       html += '<div class="form-actions">';
       html += '<button onclick="openEmployeeForm(\'' + code + '\')">✏️ تعديل</button>';
       html += '<button class="secondary" onclick="loadEmployeeHistoryView(\'' + code + '\')">📜 سجل التعديلات</button>';
@@ -3249,6 +3274,39 @@
       html += '</div>';
 
       document.getElementById('employeeDetailArea').innerHTML = html;
+      // بعد الرسم — تحميل الصورة غير متزامن عشان ميعطلش عرض الملف
+      if (emp.referencePhotoFileId) loadReferencePhotoThumb_(code);
+    }
+
+    // ⚠️ الصورة المرجعية — تحميل وعرض بس. نفس نمط openDocumentFile
+    // بالحرف: Base64 بيتجاب وقت الطلب، بيتحول Blob مؤقت في ذاكرة
+    // المتصفح، وبيتفرّغ بـrevokeObjectURL. صفر تخزين دائم، صفر نسخة.
+    // الـfileId مش بيتبعت من هنا خالص — السيرفر بيستخرجه من الشيت.
+    async function loadReferencePhotoThumb_(code) {
+      const img = document.getElementById('refPhotoThumb_' + code);
+      if (!img) return;
+      try {
+        const json = await callApi_({ action: 'employeePhotoView', code });
+        img.src = 'data:' + json.file.mimeType + ';base64,' + json.file.base64;
+      } catch (err) {
+        img.replaceWith(Object.assign(document.createElement('div'), {
+          className: 'ref-photo-thumb error',
+          textContent: '⚠️ تعذّر تحميل الصورة',
+        }));
+      }
+    }
+
+    async function viewReferencePhoto_(code) {
+      try {
+        const json = await callApi_({ action: 'employeePhotoView', code });
+        const byteChars = atob(json.file.base64);
+        const byteNumbers = new Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([new Uint8Array(byteNumbers)], { type: json.file.mimeType });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000); // تفريغ الذاكرة بعد الفتح
+      } catch (err) { alert('❌ ' + err.message); }
     }
 
     async function loadEmployeeHistoryView(code) {
