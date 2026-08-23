@@ -3449,6 +3449,7 @@
       html += '<div class="form-actions">';
       html += '<button onclick="openEmployeeForm(\'' + code + '\')">✏️ تعديل</button>';
       html += '<button class="secondary" onclick="loadEmployeeHistoryView(\'' + code + '\')">📜 سجل التعديلات</button>';
+      html += '<button class="secondary" onclick="resetEmployeePassword_(\'' + code + '\')">🔑 إعادة تعيين كلمة المرور</button>';
       html += '<button class="secondary" onclick="document.getElementById(\'employeeDetailArea\').innerHTML=\'\'">إغلاق</button>';
       html += '</div>';
       html += '<div id="employeeHistoryPanel"></div>';
@@ -3487,6 +3488,17 @@
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
         setTimeout(() => URL.revokeObjectURL(url), 60000); // تفريغ الذاكرة بعد الفتح
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ⛔ Reset لكلمة مرور موظف البصمة للافتراضية. المنطق كله سيرفر-سايد
+    // (adminResetEmployeePassword) تحت صلاحية employees. الواجهة تأكيد وعرض بس.
+    async function resetEmployeePassword_(code) {
+      if (!confirm('إعادة تعيين كلمة مرور الموظف للافتراضية؟\n\n'
+        + 'كل جلساته الحالية هتنتهي فورًا، وهيتطلب منه تغييرها عند أول دخول.')) return;
+      try {
+        await callApi_({ action: 'adminResetEmployeePassword', code });
+        alert('✅ تم. الموظف يدخل بكلمة المرور الافتراضية وهيتطلب منه تغييرها.');
       } catch (err) { alert('❌ ' + err.message); }
     }
 
