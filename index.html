@@ -2230,7 +2230,9 @@
         try {
           const b64 = await new Promise((res, rej) => { const r = new FileReader();
             r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-          await callApi_({ action: 'adminReplacePhoto', code, photoBase64: b64 });
+          // ⛔ POST مش GET: الصورة Base64 بتتجاوز حد الـURL (~16 KB)
+          // بمراحل، فالطلب كان بيتقطع قبل ما يوصل السيرفر.
+          await callApiPost_({ action: 'adminReplacePhoto', code, photoBase64: b64 });
           alert('✅ تم رفع الصورة البديلة وتفعيلها.');
           loadPhotoReview_();
         } catch (err) { alert('❌ ' + err.message); }
