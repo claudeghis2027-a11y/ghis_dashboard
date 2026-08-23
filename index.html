@@ -1322,7 +1322,7 @@
       if (name === 'users') { if (!usersViewLoaded_) { loadUsersAndRolesView(); usersViewLoaded_ = true; } }
       if (name === 'backup') { if (!backupViewLoaded_) { loadBackupsList(); loadBackupConfig(); backupViewLoaded_ = true; } }
       if (name === 'reports') { if (!reportsViewLoaded_) { loadEmployees_(); reportsViewLoaded_ = true; } }
-      if (name === 'pendingProfile') { loadPendingProfileRequests_(); }
+      if (name === 'pendingProfile') { loadPendingProfileRequests_(); loadPhotoReview_(); }
       if (name === 'monthlyClosing') { if (!mcViewLoaded_) { loadMonthlyClosingMonths_(); mcViewLoaded_ = true; } }
       if (name === 'reportCenter') { renderReportCenter_(); }
       if (name === 'summerDeduction') { loadSummerDeptsView_(); }
@@ -2142,6 +2142,102 @@
     // ============================================================
     // ⚠️ طلبات استكمال البيانات — مراجعة الإدارة
     // ============================================================
+    // ============================================================
+    // ⚠️ مراجعة الصور المعلّقة + فك قفل مطابقة الوجه
+    // ⛔ Reject لا يلمس الصورة الفعّالة ولا يوقف الحضور.
+    // ============================================================
+    async function loadPhotoReview_() {
+      const st = document.getElementById('ppStatus');
+      st.textContent = 'جاري التحميل...';
+      try {
+        const [photos, faces] = await Promise.all([
+          callApi_({ action: 'photoReviewList' }),
+          callApi_({ action: 'faceReviewList' }),
+        ]);
+        st.textContent = '';
+        renderPhotoReview_(photos.items || [], faces.items || []);
+      } catch (err) { st.textContent = '❌ ' + err.message; }
+    }
+
+    function renderPhotoReview_(photos, faces) {
+      let html = '';
+      if (faces.length) {
+        html += '<div class="card"><h3>حسابات موقوفة — فشل مطابقة الوجه</h3>';
+        html += '<p class="mc-note">3 محاولات no_match متتالية. الحضور موقوف لحد فك القفل.</p>';
+        html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>عدد الفشل</th><th>منذ</th><th></th></tr></thead><tbody>';
+        faces.forEach(f => {
+          html += '<tr><td>' + escapeHtml_(f.code) + '</td><td>' + f.failures + '</td><td>'
+               + escapeHtml_(f.since) + '</td><td><button onclick="clearFaceReview_(\'' + f.code + '\')">🔓 فك القفل</button></td></tr>';
+        });
+        html += '</tbody></table></div></div>';
+      }
+      if (!photos.length) {
+        html += '<div class="card"><p>مفيش صور معلّقة للمراجعة.</p></div>';
+      } else {
+        photos.forEach(p => {
+          html += '<div class="card" style="margin-bottom:10px">';
+          html += '<h3>' + escapeHtml_(p.nameAr || p.code) + ' (كود ' + escapeHtml_(p.code) + ')</h3>';
+          html += '<p class="mc-note">الصورة دي معلّقة للمراجعة. لو الموظف عنده صورة فعّالة، هي اللي شغالة دلوقتي وحضوره مفتوح؛ ولو مفيش، حضوره موقوف لحد الاعتماد.'
+               + (p.submissionUsed ? ' <b>الموظف استهلك فرصة الرفع — الصورة البديلة من الإدارة فقط.</b>' : '') + '</p>';
+          html += '<img class="ref-photo-thumb" id="prPhoto_' + escapeHtml_(p.code) + '" alt="الصورة المعلّقة">';
+          html += '<div class="form-actions">';
+          html += '<button onclick="approveNewPhoto_(\'' + p.code + '\')">✅ اعتماد</button>';
+          html += '<button class="secondary" onclick="rejectNewPhoto_(\'' + p.code + '\')">❌ رفض</button>';
+          html += '</div></div>';
+        });
+      }
+      document.getElementById('ppArea').innerHTML = html;
+      photos.forEach(p => loadPendingPhoto_(p.code));
+    }
+
+    async function loadPendingPhoto_(code) {
+      const img = document.getElementById('prPhoto_' + code);
+      if (!img) return;
+      try {
+        const j = await callApi_({ action: 'pendingPhotoView', code });
+        img.src = 'data:' + j.file.mimeType + ';base64,' + j.file.base64;
+      } catch (err) { img.alt = 'تعذّر تحميل الصورة'; }
+    }
+
+    async function approveNewPhoto_(code) {
+      if (!confirm('اعتماد الصورة الجديدة؟ هتحل محل الصورة الحالية وتبقى المرجعية.')) return;
+      try { await callApi_({ action: 'approveNewPhoto', code }); alert('✅ تم الاعتماد.'); loadPhotoReview_(); }
+      catch (err) { alert('❌ ' + err.message); }
+    }
+
+    const PR_REJECT_MSG_ = 'تم رفض الصورة الشخصية، برجاء رفع صورة جديدة.';
+    async function rejectNewPhoto_(code) {
+      const reason = prompt('سبب الرفض (قابل للتعديل):', PR_REJECT_MSG_);
+      if (reason === null) return;
+      try { await callApi_({ action: 'rejectNewPhoto', code, reason }); alert('تم الرفض. الصورة القديمة لسه فعّالة.'); loadPhotoReview_(); }
+      catch (err) { alert('❌ ' + err.message); }
+    }
+
+    async function clearFaceReview_(code) {
+      if (!confirm('فك قفل مطابقة الوجه وتصفير العداد؟')) return;
+      try { await callApi_({ action: 'clearFaceReview', code }); alert('✅ تم فك القفل.'); loadPhotoReview_(); }
+      catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ⛔ مسار الإدارة — منفصل عن مسار الموظف. بيكتب العمود 13 مباشرة
+    // وما بيصفّرش فرصة الموظف (العمود 16).
+    function adminReplacePhoto_(code) {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*';
+      input.onchange = async () => {
+        const f = input.files[0];
+        if (!f) return;
+        try {
+          const b64 = await new Promise((res, rej) => { const r = new FileReader();
+            r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+          await callApi_({ action: 'adminReplacePhoto', code, photoBase64: b64 });
+          alert('✅ تم رفع الصورة البديلة وتفعيلها.');
+          loadPhotoReview_();
+        } catch (err) { alert('❌ ' + err.message); }
+      };
+      input.click();
+    }
+
     async function loadPendingProfileRequests_() {
       const area = document.getElementById('ppArea');
       const st = document.getElementById('ppStatus');
