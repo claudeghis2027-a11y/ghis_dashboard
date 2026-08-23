@@ -2127,6 +2127,7 @@
     function renderDailyTable(days) {
       let html = '<div class="table-wrap"><table><thead><tr>';
       ['التاريخ', 'اليوم', 'الحالة', 'وقت الدخول', 'وقت الانصراف',
+       'نقطة الحضور', 'مسافة الحضور (م)', 'نقطة الانصراف', 'مسافة الانصراف (م)',
        'دقائق التأخير', 'دقائق الانصراف المبكر', 'نوع الإجازة', 'الخصم', 'ملاحظات']
         .forEach(h => html += '<th>' + h + '</th>');
       html += '</tr></thead><tbody>';
@@ -2145,6 +2146,10 @@
         html += '<td>' + escapeHtml_(d.status) + '</td>';
         html += '<td>' + escapeHtml_(d.checkInActual) + '</td>';
         html += '<td>' + escapeHtml_(d.checkOutActual) + '</td>';
+        html += '<td>' + escapeHtml_(d.checkInLocation || '-') + '</td>';
+        html += '<td>' + (d.checkInDistance == null ? '-' : d.checkInDistance) + '</td>';
+        html += '<td>' + escapeHtml_(d.checkOutLocation || '-') + '</td>';
+        html += '<td>' + (d.checkOutDistance == null ? '-' : d.checkOutDistance) + '</td>';
         html += '<td>' + d.lateMinutes + '</td>';
         html += '<td>' + d.earlyLeaveMinutes + '</td>';
         html += '<td>' + escapeHtml_(d.holidayReason || '-') + '</td>';
