@@ -203,6 +203,20 @@
     border-color: var(--color-info); box-shadow: var(--focus-ring); outline: none;
   }
   input:disabled, select:disabled { background: #f0f1f3; color: #999; cursor: not-allowed; }
+  /* ⬅️ Phase 2 (الإشعارات) — input[type=time] و textarea مكانوش مستخدمين
+     في النظام قبل كده خالص، فالقواعد اللي فوق مابتغطّيهمش. قواعد
+     إضافية بس بنفس القيم بالحرف — ⛔ صفر تعديل على أي قاعدة قائمة. */
+  input[type=time], textarea {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--color-border); border-radius: var(--radius); font-size: var(--text-md);
+    font-family: var(--font-family); background: var(--color-surface); color: var(--color-text);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  textarea { resize: vertical; line-height: 1.6; }
+  input[type=time]:focus, textarea:focus {
+    border-color: var(--color-info); box-shadow: var(--focus-ring); outline: none;
+  }
+  .notif-chk { display: flex; align-items: center; gap: 6px; font-size: var(--text-base); color: var(--color-text); margin-bottom: 0; }
+  .notif-chk input { width: auto; margin: 0; }
   .form-actions { display: flex; gap: 8px; margin-top: 10px; }
   .form-actions button { width: auto; padding: 9px 16px; }
   .chip {
@@ -697,6 +711,9 @@
         </button>
         <button class="sidebar-link" id="tabBtn-users" onclick="switchView('users')">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v5.4c0 4.6 3 7.9 7 9.1 4-1.2 7-4.5 7-9.1V6l-7-2.5Z"/><circle cx="12" cy="10.5" r="2.2"/><path d="M9.2 15.5c0-1.7 1.3-2.6 2.8-2.6s2.8.9 2.8 2.6"/></svg></span> المستخدمين والصلاحيات
+        </button>
+        <button class="sidebar-link" id="tabBtn-notifications" onclick="switchView('notifications')">
+          <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15.5V10a6 6 0 1 0-12 0v5.5L4.5 18h15L18 15.5Z"/><path d="M10 20.5h4"/></svg></span> التنبيهات والإشعارات
         </button>
       </nav>
       <div class="sidebar-foot">
@@ -1260,6 +1277,84 @@
     </div>
   </div>
 
+  <!-- ============== قسم التنبيهات والإشعارات (Phase 2 — واجهة بس)
+       الصلاحية: notifications_manage (مستقلة تمامًا، مش employees).
+       ⛔ صفر Action جديد — كله من Phase 1 الموجود والمختبَر:
+          notificationList / notificationCreate / notificationUpdate /
+          notificationCancel
+       ⛔ صفر Modal · صفر Framework · صفر Data Model جديد. نفس
+          .card/.filters/.form-grid/.form-actions/.table-wrap/.badge
+          الموجودين أصلاً. ============== -->
+  <div id="view-notifications" class="view" style="display:none">
+    <div class="card">
+      <h2 id="notifFormTitle">إنشاء إشعار</h2>
+      <p style="font-size:12px;color:#777">
+        الإشعار بيتحدّد استهدافه وقت الإنشاء، وبيظهر للموظف في تاريخ ووقت الإظهار المحددين.
+        الـBackend هو المرجع النهائي للتحقق — أي رسالة خطأ بتظهر تحت زي ما هي من السيرفر.
+      </p>
+
+      <div class="form-grid">
+        <div>
+          <label>الشهر / الفترة</label>
+          <select id="notifPeriod"><option value="">— اختار شهر —</option></select>
+        </div>
+        <div>
+          <label>عنوان الإشعار</label>
+          <input type="text" id="notifTitle" placeholder="مثال: إشعار خصومات شهر يناير">
+        </div>
+      </div>
+
+      <label>عناصر المحتوى</label>
+      <div class="form-grid" style="margin-top:4px">
+        <label class="notif-chk"><input type="checkbox" class="notif-content" value="message" onchange="onNotifMessageToggle_()"> رسالة نصية</label>
+        <label class="notif-chk"><input type="checkbox" class="notif-content" value="documents"> المستندات</label>
+        <label class="notif-chk"><input type="checkbox" class="notif-content" value="profile"> البيانات الشخصية</label>
+        <label class="notif-chk"><input type="checkbox" class="notif-content" value="absence"> الغياب</label>
+        <label class="notif-chk"><input type="checkbox" class="notif-content" value="late"> التأخيرات</label>
+        <label class="notif-chk"><input type="checkbox" class="notif-content" value="deductions"> الخصومات</label>
+        <label class="notif-chk"><input type="checkbox" class="notif-content" value="monthlyClosing"> إقفال الشهر</label>
+      </div>
+
+      <div id="notifMessageWrap" style="display:none;margin-top:12px">
+        <label>نص الرسالة</label>
+        <textarea id="notifMessage" rows="4" placeholder="اكتب نص الرسالة اللي هيشوفها الموظف..."></textarea>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <label>نطاق الإشعار</label>
+          <select id="notifScope" onchange="onNotifScopeChange_()">
+            <option value="All">All — كل الموظفين</option>
+            <option value="Department">Department — قسم</option>
+            <option value="Employee">Employee — موظف</option>
+          </select>
+        </div>
+        <div id="notifScopeValueWrap" style="display:none">
+          <label id="notifScopeValueLabel">القسم</label>
+          <select id="notifScopeValue"><option value="">— اختار —</option></select>
+        </div>
+      </div>
+      <div id="notifScopeHint" style="font-size:12px;margin-top:-6px;margin-bottom:6px;color:var(--color-danger)"></div>
+
+      <div class="form-grid">
+        <div><label>تاريخ الإظهار</label><input type="date" id="notifShowDate"></div>
+        <div><label>وقت الإظهار</label><input type="time" id="notifShowTime"></div>
+      </div>
+
+      <div class="form-actions">
+        <button id="notifSaveBtn" onclick="saveNotification_()">حفظ</button>
+        <button class="secondary" onclick="resetNotificationForm_()">إلغاء</button>
+      </div>
+      <div id="notifFormStatus" style="font-size:13px;margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>قائمة الإشعارات</h2>
+      <div id="notifListStatus" style="font-size:13px;margin-bottom:8px;"></div>
+      <div id="notifListArea"></div>
+    </div>
+  </div>
+
   <!-- ============== 5) قسم المستخدمين والصلاحيات (أدمن بس) ============== -->
   <div id="view-users" class="view" style="display:none">
     <div class="card">
@@ -1337,7 +1432,7 @@
     // التنقل بين الأقسام
     // ============================================================
     function switchView(name) {
-      ['reports', 'monthlyClosing', 'pendingProfile', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp'].forEach(v => {
+      ['reports', 'monthlyClosing', 'pendingProfile', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp', 'notifications'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
         const btn = document.getElementById('tabBtn-' + v);
         if (btn) btn.classList.toggle('active', v === name);
@@ -1376,6 +1471,10 @@
         if (employeesCache.length === 0) { loadEmployees_().then(renderWaEmployeesList_); }
         else { renderWaEmployeesList_(); }
       }
+      // ⬅️ Phase 2 — الإشعارات: إعادة تحميل القائمة كل فتح للقسم (نفس
+      // نمط pendingProfile بالحرف، مش flag ثابت) — لإن الحالة بتتغير
+      // من الإدارة نفسها. الشهور بتتحمّل مرة واحدة جوه الدالة بـflag.
+      if (name === 'notifications') { loadNotificationsView_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
     }
@@ -1596,7 +1695,10 @@
       document.getElementById('tabBtn-users').style.display = usersTabAllowed ? '' : 'none';
 
       // إخفاء باقي التبويبات حسب الصلاحية (الأدمن يشوف الكل)
-      const tabSectionMap = { reports: 'reports', monthlyClosing: 'reports', whatsapp: 'whatsapp_send', pendingProfile: 'employees', employees: 'employees', rules: 'rules', documents: 'documents', backup: 'backup' };
+      // ⬅️ Phase 2 — notifications: صلاحية مستقلة تمامًا (notifications_manage)،
+      // نفس اللي في ACTION_SECTION_MAP_ بالحرف. الـmap دي بتغذّي إخفاء
+      // الزر وallowedViews (Navigation Persistence) الاتنين — فسطر واحد كفاية.
+      const tabSectionMap = { reports: 'reports', monthlyClosing: 'reports', whatsapp: 'whatsapp_send', pendingProfile: 'employees', employees: 'employees', rules: 'rules', documents: 'documents', backup: 'backup', notifications: 'notifications_manage' };
       Object.keys(tabSectionMap).forEach(tab => {
         const allowed = currentSession.isAdmin || currentSession.sections.includes(tabSectionMap[tab]);
         const btn = document.getElementById('tabBtn-' + tab);
@@ -5309,6 +5411,319 @@
         await callApiPost_({ action: 'adminResetPassword', username, newPassword });
         alert('✅ اتغيّرت كلمة المرور.');
       } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ============================================================
+    // قسم: التنبيهات والإشعارات (Phase 2 — واجهة إدارية بس)
+    //
+    // ⛔ صفر Action جديد — الأربعة كلهم من Phase 1 زي ما هم:
+    //    notificationList (GET) · notificationCreate / notificationUpdate /
+    //    notificationCancel (POST، زي كل عمليات الكتابة في النظام).
+    // ⛔ صفر قراءة Spreadsheet جديدة — الأقسام مشتقّة من employeesCache
+    //    نفسها اللي بيستخدمها قسم "رسائل واتساب" و"بيانات الموظفين".
+    // ⛔ صفر Validation مختلف عن validateNotifCfg_ في Code.gs — اللي
+    //    هنا هو نفس الشروط بالحرف عشان تجربة أحسن بس، والـBackend
+    //    يفضل الحارس الحقيقي والنهائي دايمًا.
+    // ⛔ الحالات (Scheduled/Released/Cancelled) والنطاقات
+    //    (All/Department/Employee) بتتبعت وبتتعرض بأسمائها الإنجليزية
+    //    زي ما الـBackend بيكتبها بالظبط — صفر ترجمة في القيمة نفسها.
+    // ============================================================
+    const NOTIF_CONTENT_LABELS_ = {
+      message: 'رسالة نصية', documents: 'المستندات', profile: 'البيانات الشخصية',
+      absence: 'الغياب', late: 'التأخيرات', deductions: 'الخصومات', monthlyClosing: 'إقفال الشهر'
+    };
+    const NOTIF_SCOPE_LABELS_ = { All: 'كل الموظفين', Department: 'قسم', Employee: 'موظف' };
+    const NOTIF_STATUS_BADGE_ = { Scheduled: 'badge-warning', Released: 'badge-success', Cancelled: 'badge-muted' };
+
+    let notifMonthsLoaded_ = false;   // الشهور بتتحمّل مرة واحدة بس
+    let notifScopeListsOk_ = false;   // هل قدرنا نجيب قائمة الموظفين/الأقسام؟
+    let notifEditingId_ = null;       // null = وضع الإنشاء · id = وضع التعديل
+    let notifItemsCache_ = [];        // آخر نتيجة notificationList (للتعديل بدون Fetch تاني)
+
+    // نفس منطق checkPermission_ في Code.gs بالحرف — صفر نظام صلاحيات
+    // جديد أو مستقل، ومفيش أي التفاف: الـBackend بيرفض بنفسه كمان.
+    function notifCanManage_() {
+      return !!currentSession && (currentSession.isAdmin || currentSession.sections.includes('notifications_manage'));
+    }
+
+    function setNotifFormStatus_(msg, isErr) {
+      const el = document.getElementById('notifFormStatus');
+      el.textContent = msg || '';
+      el.style.color = isErr ? 'var(--color-danger)' : '';
+    }
+
+    function setNotifListStatus_(msg, isErr) {
+      const el = document.getElementById('notifListStatus');
+      el.textContent = msg || '';
+      el.style.color = isErr ? 'var(--color-danger)' : '';
+    }
+
+    async function loadNotificationsView_() {
+      if (!notifCanManage_()) {
+        setNotifListStatus_('❌ مالكش صلاحية إدارة التنبيهات والإشعارات.', true);
+        return;
+      }
+      // 1) الشهور — نفس مصدر MONTHS الموجود (action=months)، بنفس نمط
+      //    loadMonthlyClosingMonths_ بالحرف. لو فشل (صلاحية reports مش
+      //    موجودة) بنسيب القائمة فاضية — الفترة اختيارية في الـBackend.
+      if (!notifMonthsLoaded_) {
+        try {
+          const json = await callApi_({ action: 'months' });
+          const sel = document.getElementById('notifPeriod');
+          json.months.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name; opt.textContent = m.name;
+            sel.appendChild(opt);
+          });
+          notifMonthsLoaded_ = true;
+        } catch (err) { /* بدون صلاحية reports — الحقل يفضل بـ"اختار شهر" بس */ }
+      }
+      // 2) الموظفين/الأقسام — نفس نمط الكاش بتاع whatsapp: مافيش Fetch
+      //    لو الكاش متملّية أصلاً. لو المستخدم مالوش صلاحية employees،
+      //    بنعلّم notifScopeListsOk_ = false ونمنع الحفظ بنطاق محدد
+      //    (⛔ مفيش تحويل لإدخال نصي حر — ده بيكسر الاستهداف).
+      if (employeesCache.length === 0) {
+        try { await loadEmployees_(); } catch (err) { /* مالوش صلاحية employees */ }
+      }
+      notifScopeListsOk_ = employeesCache.length > 0;
+      onNotifScopeChange_();
+      await reloadNotificationsList_();
+    }
+
+    async function reloadNotificationsList_() {
+      setNotifListStatus_('جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'notificationList' });
+        const items = json.items || [];
+        renderNotificationsList_(items);
+        setNotifListStatus_(items.length + ' إشعار.');
+      } catch (err) {
+        notifItemsCache_ = [];
+        document.getElementById('notifListArea').innerHTML = '';
+        setNotifListStatus_('❌ ' + err.message, true);
+      }
+    }
+
+    // Render بس — صفر Fetch (نفس فلسفة renderEmployeesList/renderWaEmployeesList_)
+    function renderNotificationsList_(items) {
+      notifItemsCache_ = items;
+      const area = document.getElementById('notifListArea');
+      if (!items.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">مفيش إشعارات لسه.</p>';
+        return;
+      }
+      let html = '<div class="table-wrap"><table><thead><tr>' +
+        '<th>العنوان</th><th>الشهر / الفترة</th><th>النطاق</th><th>عناصر المحتوى</th>' +
+        '<th>تاريخ ووقت الإظهار</th><th>الحالة</th><th></th><th></th>' +
+        '</tr></thead><tbody>';
+      items.forEach(n => {
+        const scopeTxt = (NOTIF_SCOPE_LABELS_[n.scope] || n.scope) + (n.scopeValue ? ' — ' + n.scopeValue : '');
+        const contentsTxt = String(n.contents || '').split(',').map(x => x.trim()).filter(x => x)
+          .map(k => NOTIF_CONTENT_LABELS_[k] || k).join('، ');
+        // ⚠️ Cancelled بس هو اللي الـBackend بيمنع تعديله (updateNotification_).
+        // Released مش ممنوع سيرفر-سايد، فمابنمنعوش هنا — صفر Validation
+        // في الواجهة يختلف عن الـBackend.
+        const isCancelled = String(n.status).trim() === 'Cancelled';
+        const badgeCls = NOTIF_STATUS_BADGE_[String(n.status).trim()] || 'badge-muted';
+        const safeId = escapeHtml_(String(n.id));
+        html += '<tr>' +
+          '<td>' + escapeHtml_(n.title) + '</td>' +
+          '<td>' + escapeHtml_(n.period || '-') + '</td>' +
+          '<td>' + escapeHtml_(scopeTxt) + '</td>' +
+          '<td>' + escapeHtml_(contentsTxt || '-') + '</td>' +
+          '<td>' + escapeHtml_((n.showDate || '-') + (n.showTime ? ' ' + n.showTime : '')) + '</td>' +
+          '<td><span class="badge ' + badgeCls + '">' + escapeHtml_(n.status) + '</span></td>' +
+          '<td>' + (isCancelled ? '' : '<button class="link-btn" onclick="editNotificationUI_(\'' + safeId + '\')">تعديل</button>') + '</td>' +
+          '<td>' + (isCancelled ? '' : '<button class="link-btn" onclick="cancelNotificationUI_(\'' + safeId + '\')">إلغاء</button>') + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+      area.innerHTML = html;
+    }
+
+    function collectNotifContents_() {
+      return Array.from(document.querySelectorAll('.notif-content'))
+        .filter(cb => cb.checked).map(cb => cb.value);
+    }
+
+    // "رسالة نصية" مفعّلة → textarea يظهر. مش مفعّلة → يختفي، ومابنبعتش
+    // النص أصلاً وقت الحفظ (⛔ مابنمسحش القيمة من الواجهة عشان لو رجع
+    // فعّلها تاني في نفس الجلسة مايخسرش اللي كتبه).
+    function onNotifMessageToggle_() {
+      const cb = document.querySelector('.notif-content[value="message"]');
+      document.getElementById('notifMessageWrap').style.display = (cb && cb.checked) ? '' : 'none';
+    }
+
+    function onNotifScopeChange_() {
+      const scope = document.getElementById('notifScope').value;
+      const wrap = document.getElementById('notifScopeValueWrap');
+      const label = document.getElementById('notifScopeValueLabel');
+      const sel = document.getElementById('notifScopeValue');
+      const hint = document.getElementById('notifScopeHint');
+      if (scope === 'All') {
+        wrap.style.display = 'none';
+        hint.textContent = '';
+        return;
+      }
+      wrap.style.display = '';
+      label.textContent = (scope === 'Department') ? 'القسم' : 'الموظف';
+      sel.innerHTML = '<option value="">— اختار —</option>';
+      if (!notifScopeListsOk_) {
+        // ⛔ مفيش تحويل لإدخال نصي حر — أي اسم مكتوب بالغلط معناه
+        // استهداف غلط. بنمنع الحفظ ونقول السبب بوضوح.
+        sel.disabled = true;
+        hint.textContent = 'قائمة ' + (scope === 'Department' ? 'الأقسام' : 'الموظفين') +
+          ' مش متاحة — حسابك مالوش صلاحية قراءة بيانات الموظفين (employees). ' +
+          'تقدر تستخدم نطاق All عادي، أو تطلب الصلاحية من الأدمن. الحفظ بنطاق غير محدد ممنوع.';
+        return;
+      }
+      sel.disabled = false;
+      hint.textContent = '';
+      if (scope === 'Department') {
+        Array.from(new Set(employeesCache.map(e => String(e.dept || '').trim()).filter(d => d)))
+          .sort().forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d; opt.textContent = d;
+            sel.appendChild(opt);
+          });
+      } else {
+        employeesCache.forEach(e => {
+          const opt = document.createElement('option');
+          opt.value = e.code;
+          opt.textContent = e.nameAr + ' (' + e.code + ')' + (e.dept ? ' — ' + e.dept : '');
+          sel.appendChild(opt);
+        });
+      }
+    }
+
+    function resetNotificationForm_() {
+      notifEditingId_ = null;
+      document.getElementById('notifFormTitle').textContent = 'إنشاء إشعار';
+      document.getElementById('notifSaveBtn').textContent = 'حفظ';
+      document.getElementById('notifPeriod').value = '';
+      document.getElementById('notifTitle').value = '';
+      document.querySelectorAll('.notif-content').forEach(cb => { cb.checked = false; });
+      document.getElementById('notifMessage').value = '';
+      onNotifMessageToggle_();
+      document.getElementById('notifScope').value = 'All';
+      onNotifScopeChange_();
+      document.getElementById('notifShowDate').value = '';
+      document.getElementById('notifShowTime').value = '';
+      setNotifFormStatus_('');
+    }
+
+    function editNotificationUI_(id) {
+      if (!notifCanManage_()) { setNotifFormStatus_('❌ مالكش صلاحية إدارة الإشعارات.', true); return; }
+      const n = notifItemsCache_.find(x => String(x.id) === String(id));
+      if (!n) return;
+      if (String(n.status).trim() === 'Cancelled') {
+        setNotifFormStatus_('الإشعار ملغي — مينفعش يتعدّل.', true);
+        return;
+      }
+      notifEditingId_ = String(n.id);
+      document.getElementById('notifFormTitle').textContent = 'تعديل إشعار';
+      document.getElementById('notifSaveBtn').textContent = 'حفظ التعديل';
+
+      // لو الفترة المحفوظة مش موجودة في قائمة الشهور الحالية (أو القائمة
+      // مالهاش صلاحية)، بنضيفها كخيار عشان التعديل مايضيّعهاش.
+      const per = document.getElementById('notifPeriod');
+      if (n.period && !Array.from(per.options).some(o => o.value === n.period)) {
+        const opt = document.createElement('option');
+        opt.value = n.period; opt.textContent = n.period;
+        per.appendChild(opt);
+      }
+      per.value = n.period || '';
+      document.getElementById('notifTitle').value = n.title || '';
+
+      const keys = String(n.contents || '').split(',').map(x => x.trim()).filter(x => x);
+      document.querySelectorAll('.notif-content').forEach(cb => { cb.checked = keys.indexOf(cb.value) !== -1; });
+      document.getElementById('notifMessage').value = n.message || '';
+      onNotifMessageToggle_();
+
+      document.getElementById('notifScope').value = n.scope || 'All';
+      onNotifScopeChange_();
+      if (n.scope !== 'All') {
+        const sv = document.getElementById('notifScopeValue');
+        // القيمة المحفوظة نفسها — مش إدخال حر من الإدارة. بتتضاف بس لو
+        // القائمة مش متاحة أو القيمة اتغيّرت من الشيت، عشان التعديل
+        // مايبعتش نطاق فاضي فيتحوّل الاستهداف بالغلط.
+        if (n.scopeValue && !Array.from(sv.options).some(o => o.value === n.scopeValue)) {
+          const opt = document.createElement('option');
+          opt.value = n.scopeValue; opt.textContent = n.scopeValue;
+          sv.appendChild(opt);
+        }
+        sv.value = n.scopeValue || '';
+      }
+      document.getElementById('notifShowDate').value = n.showDate || '';
+      document.getElementById('notifShowTime').value = n.showTime || '';
+
+      setNotifFormStatus_('وضع التعديل — "' + (n.title || '') + '". دوس "إلغاء" عشان ترجع لوضع الإنشاء.');
+      document.querySelector('.app-content-inner').scrollTop = 0;
+    }
+
+    async function saveNotification_() {
+      if (!notifCanManage_()) { setNotifFormStatus_('❌ مالكش صلاحية إدارة الإشعارات.', true); return; }
+      const period = document.getElementById('notifPeriod').value;
+      const title = document.getElementById('notifTitle').value.trim();
+      const contents = collectNotifContents_();
+      const hasMessage = contents.indexOf('message') !== -1;
+      const message = hasMessage ? document.getElementById('notifMessage').value : '';
+      const scope = document.getElementById('notifScope').value;
+      const scopeValue = (scope === 'All') ? '' : document.getElementById('notifScopeValue').value;
+      const showDate = document.getElementById('notifShowDate').value;
+      const showTime = document.getElementById('notifShowTime').value;
+
+      // نفس شروط validateNotifCfg_ بالحرف — ولا شرط زيادة ولا ناقص.
+      if (!title) { setNotifFormStatus_('عنوان الإشعار مطلوب.', true); return; }
+      if (!contents.length) { setNotifFormStatus_('لازم تختار عنصر محتوى واحد على الأقل.', true); return; }
+      if (hasMessage && !message.trim()) { setNotifFormStatus_('اخترت "رسالة نصية" — لازم تكتب نص الرسالة.', true); return; }
+      if (scope !== 'All' && !scopeValue) {
+        setNotifFormStatus_(notifScopeListsOk_
+          ? 'لازم تحدد ' + (scope === 'Department' ? 'القسم' : 'الموظف') + ' من القائمة.'
+          : 'مينفعش تحفظ بنطاق ' + scope + ' — قائمة الاختيار مش متاحة لحسابك. استخدم All أو اطلب صلاحية employees.', true);
+        return;
+      }
+      if (!showDate || !showTime) { setNotifFormStatus_('تاريخ ووقت الإظهار مطلوبين.', true); return; }
+
+      const payload = {
+        action: notifEditingId_ ? 'notificationUpdate' : 'notificationCreate',
+        period: period, title: title, message: message,
+        contents: contents.join(','),
+        showDate: showDate, showTime: showTime,
+        scope: scope, scopeValue: scopeValue
+      };
+      if (notifEditingId_) payload.id = notifEditingId_;
+
+      const btn = document.getElementById('notifSaveBtn');
+      btn.disabled = true;
+      setNotifFormStatus_('جاري الحفظ...');
+      try {
+        await callApiPost_(payload);
+        const wasEdit = !!notifEditingId_;
+        resetNotificationForm_();
+        setNotifFormStatus_(wasEdit ? '✅ اتعدّل الإشعار.' : '✅ اتحفظ الإشعار.');
+        await reloadNotificationsList_();
+      } catch (err) {
+        setNotifFormStatus_('❌ ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function cancelNotificationUI_(id) {
+      if (!notifCanManage_()) { setNotifListStatus_('❌ مالكش صلاحية إدارة الإشعارات.', true); return; }
+      const n = notifItemsCache_.find(x => String(x.id) === String(id));
+      if (!confirm('متأكد إنك عايز تلغي الإشعار "' + (n ? n.title : id) + '"؟\n\n' +
+        'السجل هيفضل موجود في القائمة بحالة Cancelled (مش هيتمسح)، ' +
+        'والإشعار هيختفي عن كل الموظفين المستهدفين.')) return;
+      setNotifListStatus_('جاري الإلغاء...');
+      try {
+        await callApiPost_({ action: 'notificationCancel', id: String(id) });
+        if (notifEditingId_ === String(id)) resetNotificationForm_();
+        await reloadNotificationsList_();
+      } catch (err) {
+        setNotifListStatus_('❌ ' + err.message, true);
+      }
     }
 
     // ============================================================
