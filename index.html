@@ -1339,6 +1339,14 @@
       <div class="form-grid">
         <div><label>تاريخ الإظهار</label><input type="date" id="notifShowDate"></div>
         <div><label>وقت الإظهار</label><input type="time" id="notifShowTime"></div>
+        <div><label>مدة الظهور (دقائق)</label>
+          <input type="number" id="notifDuration" min="0" max="43200" step="1" placeholder="سيبها فاضية = بدون انتهاء">
+        </div>
+      </div>
+      <div style="font-size:12px;color:#777;margin-top:-6px;margin-bottom:6px">
+        مدة الظهور اختيارية. فاضية أو 0 = الإشعار يفضل ظاهر للموظف من غير انتهاء.
+        لو حطيت 30 مثلاً، الإشعار يظهر من وقت الإظهار ولمدة 30 دقيقة بس، وبعدها يختفي عن الموظف
+        ويفضل موجود في سجل الإدارة هنا. الأقصى 43200 دقيقة (30 يوم).
       </div>
 
       <div class="form-actions">
@@ -5514,7 +5522,7 @@
       }
       let html = '<div class="table-wrap"><table><thead><tr>' +
         '<th>العنوان</th><th>الشهر / الفترة</th><th>النطاق</th><th>عناصر المحتوى</th>' +
-        '<th>تاريخ ووقت الإظهار</th><th>الحالة</th><th></th><th></th>' +
+        '<th>تاريخ ووقت الإظهار</th><th>مدة الظهور</th><th>الحالة</th><th></th><th></th>' +
         '</tr></thead><tbody>';
       items.forEach(n => {
         const scopeTxt = (NOTIF_SCOPE_LABELS_[n.scope] || n.scope) + (n.scopeValue ? ' — ' + n.scopeValue : '');
@@ -5532,6 +5540,7 @@
           '<td>' + escapeHtml_(scopeTxt) + '</td>' +
           '<td>' + escapeHtml_(contentsTxt || '-') + '</td>' +
           '<td>' + escapeHtml_((n.showDate || '-') + (n.showTime ? ' ' + n.showTime : '')) + '</td>' +
+          '<td>' + escapeHtml_(Number(n.durationMinutes) > 0 ? (n.durationMinutes + ' دقيقة') : 'بدون انتهاء') + '</td>' +
           '<td><span class="badge ' + badgeCls + '">' + escapeHtml_(n.status) + '</span></td>' +
           '<td>' + (isCancelled ? '' : '<button class="link-btn" onclick="editNotificationUI_(\'' + safeId + '\')">تعديل</button>') + '</td>' +
           '<td>' + (isCancelled ? '' : '<button class="link-btn" onclick="cancelNotificationUI_(\'' + safeId + '\')">إلغاء</button>') + '</td>' +
@@ -5609,6 +5618,7 @@
       onNotifScopeChange_();
       document.getElementById('notifShowDate').value = '';
       document.getElementById('notifShowTime').value = '';
+      document.getElementById('notifDuration').value = '';
       setNotifFormStatus_('');
     }
 
@@ -5656,6 +5666,7 @@
       }
       document.getElementById('notifShowDate').value = n.showDate || '';
       document.getElementById('notifShowTime').value = n.showTime || '';
+      document.getElementById('notifDuration').value = Number(n.durationMinutes) > 0 ? n.durationMinutes : '';
 
       setNotifFormStatus_('وضع التعديل — "' + (n.title || '') + '". دوس "إلغاء" عشان ترجع لوضع الإنشاء.');
       document.querySelector('.app-content-inner').scrollTop = 0;
@@ -5672,6 +5683,7 @@
       const scopeValue = (scope === 'All') ? '' : document.getElementById('notifScopeValue').value;
       const showDate = document.getElementById('notifShowDate').value;
       const showTime = document.getElementById('notifShowTime').value;
+      const durationMinutes = document.getElementById('notifDuration').value.trim();
 
       // نفس شروط validateNotifCfg_ بالحرف — ولا شرط زيادة ولا ناقص.
       if (!title) { setNotifFormStatus_('عنوان الإشعار مطلوب.', true); return; }
@@ -5684,12 +5696,22 @@
         return;
       }
       if (!showDate || !showTime) { setNotifFormStatus_('تاريخ ووقت الإظهار مطلوبين.', true); return; }
+      // نفس شروط validateNotifCfg_ بالحرف — فاضي أو 0 = بدون انتهاء.
+      if (durationMinutes !== '') {
+        if (!/^\d+$/.test(durationMinutes)) {
+          setNotifFormStatus_('مدة الظهور لازم تكون رقم صحيح موجب بالدقائق (أو تسيبها فاضية = بدون انتهاء).', true); return;
+        }
+        if (Number(durationMinutes) > 43200) {
+          setNotifFormStatus_('أقصى مدة للظهور 43200 دقيقة (30 يوم).', true); return;
+        }
+      }
 
       const payload = {
         action: notifEditingId_ ? 'notificationUpdate' : 'notificationCreate',
         period: period, title: title, message: message,
         contents: contents.join(','),
         showDate: showDate, showTime: showTime,
+        durationMinutes: durationMinutes,
         scope: scope, scopeValue: scopeValue
       };
       if (notifEditingId_) payload.id = notifEditingId_;
