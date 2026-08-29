@@ -917,45 +917,6 @@
       </div>
       <div id="checkoutExStatus" style="font-size:13px;margin-top:6px;"></div>
     </div>
-
-    <!-- ============== Phase 2 — إتاحة بيانات الموظفين ==============
-         بطاقة تحكم إداري في نافذة إظهار بيانات الموظفين. نفس مكونات
-         الـDesign System الموجودة (card/h2/filters/label/select/button)
-         — صفر CSS جديد وصفر class جديد.
-         ⛔ الواجهة مش Security Boundary: الإخفاء بـisAdmin للـUX بس،
-            والتحقق الحقيقي سيرفر-سايد في empDataWindowGet/Set. ============== -->
-    <div class="card" id="empDataWindowCard" style="display:none">
-      <h2>إتاحة بيانات الموظفين</h2>
-      <p style="font-size:12px;color:#777">بتحدد إمتى الموظفين يقدروا يشوفوا بياناتهم من التطبيق. القرار سيرفر-سايد بالكامل، والموظف مابيشوفش أي توقيت.</p>
-      <div id="empDwStatusArea" style="font-size:13px;margin-bottom:8px;"></div>
-      <div class="filters" style="margin-top:10px">
-        <div><label>الحالة</label>
-          <select id="empDwEnabled">
-            <option value="false">معطّلة</option>
-            <option value="true">مفعّلة</option>
-          </select>
-        </div>
-        <div><label>النوع</label>
-          <select id="empDwMode" onchange="onEmpDwModeChange_()">
-            <option value="يومي">يومي</option>
-            <option value="مرة واحدة">مرة واحدة</option>
-          </select>
-        </div>
-        <div id="empDwStartWrap"><label>وقت البداية</label><input type="time" id="empDwStart"></div>
-        <div><label>المدة (دقائق)</label><input type="number" id="empDwDuration" min="5" max="1440" step="1"></div>
-        <div><button onclick="saveEmpDataWindow_()">حفظ</button></div>
-        <div id="empDwNowWrap" style="display:none"><button onclick="startEmpDataWindowNow_()">ابدأ الآن</button></div>
-      </div>
-      <div class="filters" style="margin-top:6px">
-        <div style="font-size:12px;color:#777;align-self:center">اختصارات المدة:</div>
-        <div><button onclick="setEmpDwDuration_(30)">30 د</button></div>
-        <div><button onclick="setEmpDwDuration_(60)">1 س</button></div>
-        <div><button onclick="setEmpDwDuration_(120)">2 س</button></div>
-        <div><button onclick="setEmpDwDuration_(180)">3 س</button></div>
-        <div><button onclick="setEmpDwDuration_(240)">4 س</button></div>
-      </div>
-      <div id="empDwSaveStatus" style="font-size:13px;margin-top:6px;"></div>
-    </div>
   </div>
 
   <!-- ============== قسم المستندات ============== -->
@@ -3839,7 +3800,6 @@
       loadDeductionRulesView();
       loadExemptDeptsView();
       loadCheckoutExceptionsView_(); // ⬅️ بند 11 — إضافة بس
-      loadEmpDataWindowView_();      // ⬅️ Phase 2 — إضافة بس
     }
 
     async function loadScheduleRulesView() {
@@ -3987,103 +3947,6 @@
         await callApiPost_({ action: 'exemptDepartmentRemove', dept });
         loadExemptDeptsView();
       } catch (err) { alert('❌ ' + err.message); }
-    }
-
-    // ============== Phase 2 — إتاحة بيانات الموظفين ==============
-    // ⛔ صفر Backend جديد — بتستخدم empDataWindowGet/empDataWindowSet
-    //    اللي اتعملوا في Phase 1.
-    // ⛔ الواجهة مش Security Boundary — الرفض الحقيقي سيرفر-سايد.
-    // ==============================================================
-
-    // ⬅️ إظهار/إخفاء حقل وقت البداية حسب النوع + زر "ابدأ الآن".
-    function onEmpDwModeChange_() {
-      const mode = document.getElementById('empDwMode').value;
-      const isDaily = (mode === 'يومي');
-      document.getElementById('empDwStartWrap').style.display = isDaily ? '' : 'none';
-      document.getElementById('empDwNowWrap').style.display = isDaily ? 'none' : '';
-    }
-
-    // ⬅️ أزرار الاختصار — بتملأ الحقل الرقمي بس.
-    function setEmpDwDuration_(minutes) {
-      document.getElementById('empDwDuration').value = minutes;
-    }
-
-    // ⬅️ نص الحالة للأدمن. الحساب هنا للعرض بس — القرار الحاسم من
-    //    isOpen اللي جاي من السيرفر.
-    function empDwStatusText_(w, isOpen) {
-      if (!w || !w.enabled) return '🔴 مغلقة — النافذة معطّلة.';
-      const dur = Number(w.durationMinutes) || 0;
-      let endTxt = '';
-      if (w.mode === 'يومي') {
-        const p = String(w.start || '').split(':');
-        const h = Number(p[0]), m = Number(p[1]);
-        if (isFinite(h) && isFinite(m)) {
-          const e = (h * 60 + m + dur) % 1440;
-          const eh = Math.floor(e / 60), em = e % 60;
-          endTxt = (eh < 10 ? '0' : '') + eh + ':' + (em < 10 ? '0' : '') + em;
-        }
-      } else if (w.mode === 'مرة واحدة') {
-        const ms = Date.parse(String(w.start || ''));
-        if (isFinite(ms)) {
-          const d = new Date(ms + dur * 60000);
-          const eh = d.getHours(), em = d.getMinutes();
-          endTxt = (eh < 10 ? '0' : '') + eh + ':' + (em < 10 ? '0' : '') + em;
-        }
-      }
-      if (isOpen) return '🟢 مفتوحة' + (endTxt ? ' حتى ' + escapeHtml_(endTxt) : '');
-      return '🔴 مغلقة' + (endTxt ? ' — النافذة بتفتح وتقفل ' + escapeHtml_(endTxt) : '');
-    }
-
-    // ⬅️ تحميل الإعداد وعرضه. البطاقة مخفية لغير الأدمن (UX بس).
-    async function loadEmpDataWindowView_() {
-      const card = document.getElementById('empDataWindowCard');
-      if (!card) return;
-      if (!currentSession || !currentSession.isAdmin) { card.style.display = 'none'; return; }
-      card.style.display = '';
-      const el = document.getElementById('empDwStatusArea');
-      el.textContent = 'جاري التحميل...';
-      try {
-        const json = await callApi_({ action: 'empDataWindowGet' });
-        const w = json.window || {};
-        document.getElementById('empDwEnabled').value = w.enabled ? 'true' : 'false';
-        document.getElementById('empDwMode').value = (w.mode === 'مرة واحدة') ? 'مرة واحدة' : 'يومي';
-        document.getElementById('empDwStart').value =
-          (w.mode === 'يومي' && /^\d{2}:\d{2}$/.test(String(w.start || ''))) ? w.start : '';
-        document.getElementById('empDwDuration').value = Number(w.durationMinutes) || '';
-        onEmpDwModeChange_();
-        el.innerHTML = empDwStatusText_(w, json.isOpen === true);
-      } catch (err) {
-        el.textContent = '❌ ' + err.message;
-      }
-    }
-
-    // ⬅️ الحفظ. mode="مرة واحدة" بيتبعت بـstart فاضية — السيرفر هو اللي
-    //    بيولّد الطابع الزمني. ⛔ الواجهة مابتبعتش timestamp إطلاقًا.
-    async function saveEmpDataWindow_() {
-      const st = document.getElementById('empDwSaveStatus');
-      const mode = document.getElementById('empDwMode').value;
-      const payload = {
-        action: 'empDataWindowSet',
-        enabled: document.getElementById('empDwEnabled').value === 'true',
-        mode: mode,
-        start: (mode === 'يومي') ? document.getElementById('empDwStart').value : '',
-        durationMinutes: document.getElementById('empDwDuration').value
-      };
-      st.textContent = 'جاري الحفظ...';
-      try {
-        await callApiPost_(payload);
-        st.textContent = '✅ تم الحفظ.';
-        loadEmpDataWindowView_();
-      } catch (err) { st.textContent = '❌ ' + err.message; }
-    }
-
-    // ⬅️ "ابدأ الآن" — بيثبّت النوع على "مرة واحدة" ويفعّل النافذة،
-    //    وبيسيب start فاضية عشان السيرفر يولّدها.
-    async function startEmpDataWindowNow_() {
-      document.getElementById('empDwMode').value = 'مرة واحدة';
-      document.getElementById('empDwEnabled').value = 'true';
-      onEmpDwModeChange_();
-      await saveEmpDataWindow_();
     }
 
     // ⚠️ Phase 3 — نفس نمط submitScheduleRule/submitDeductionRule بالحرف
