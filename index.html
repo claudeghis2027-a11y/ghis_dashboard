@@ -1511,8 +1511,10 @@
       // ⬅️ P2: تحميل مكتبة الإكسل مسبقًا للأقسام اللي فيها تصدير — بدون
       //    await فمابيعطّلش أي حاجة، وأول ضغط على "Excel" بيلاقيها جاهزة.
       //    ⛔ loadScriptOnce_ بتمنع التكرار، وفشلها صامت هنا.
-      if (name === 'monthlyClosing' || name === 'reports' || name === 'reportCenter') {
+      if (name === 'monthlyClosing' || name === 'reports' || name === 'reportCenter'
+          || name === 'documents' || name === 'employees') {
         try { loadScriptOnce_(SHEETJS_URL_).catch(() => {}); } catch (e) {}
+        try { loadScriptOnce_(HTML2PDF_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
@@ -1648,6 +1650,22 @@
 
     let lastPeriod = { from: "", to: "" };
     let lastReportContext = null; // { employee, from, to } — آخر تقرير موظف فردي اتعرض، مصدر الـExport
+    // ⬅️ Snapshots للتصدير — نفس البيانات المعروضة بالظبط.
+    //    ⛔ صفر حساب جديد · صفر تغيير في أي رقم.
+    let lastReportData_ = null;
+    let expiryReportCache_ = null;
+    let empDocsReportCache_ = null;
+
+    // ⬅️ بوابة صلاحية التصدير — سيرفر-سايد إلزاميًا قبل أي تصدير.
+    //    كل Export له صلاحية منفصلة عن العرض، والنداء ده بيتحقق منها
+    //    من غير ما يقرا شيتات أو يعيد بناء أي تقرير.
+    // ⛔ الفشل بيوقف التصدير — حتى لو الدالة اتنادت من الـConsole.
+    async function assertExportPermit_(target) {
+      const r = await callApi_({ action: 'exportPermitCheck', target: target });
+      if (!r || r.ok !== true) throw new Error('مالكش صلاحية التصدير ده.');
+      return true;
+    }
+
     let currentSession = null; // { token, username, role, sections, isAdmin }
 
     function setStatus(msg, isError) {
@@ -1942,6 +1960,7 @@
         const json = await callApi_({ action: 'report', employee, from, to });
         btn.disabled = false;
         setStatus('');
+        lastReportData_ = json;   // ⬅️ Snapshot للتصدير
         if (json.mode === 'single') {
           renderEmployeeReport(json.report);
         } else {
@@ -1959,6 +1978,7 @@
       try {
         const json = await callApi_({ action: 'report', employee: code, from: lastPeriod.from, to: lastPeriod.to });
         setStatus('');
+        lastReportData_ = json;   // ⬅️ Snapshot للتصدير
         renderEmployeeReport(json.report, true);
       } catch (err) {
         setStatus('❌ ' + err.message, true);
@@ -2082,14 +2102,10 @@
     // (بوابة صلاحية منفصلة عن العرض العادي) — مش بيستخدم البيانات
     // المعروضة أصلاً في المتصفح، عشان الحماية تكون حقيقية Server-Side
     async function exportCurrentEmployeeReport_(format) {
-      if (!lastReportContext) { alert('❌ افتح تقرير موظف الأول.'); return; }
+      if (!lastReportData_ || !lastReportData_.report) { alert('❌ افتح تقرير موظف الأول.'); return; }
       try {
-        const json = await callApi_({
-          action: 'reportExport',
-          employee: lastReportContext.employee,
-          from: lastReportContext.from,
-          to: lastReportContext.to,
-        });
+        await assertExportPermit_('reportExport');
+        const json = lastReportData_;   // ⬅️ Snapshot — صفر إعادة بناء
         const report = json.report;
         const emp = report.employee;
         const s = report.summary;
@@ -2131,12 +2147,10 @@
     // تصدير وضع "كل الموظفين" — بينادي نفس reportExport (بس employee=all)،
     // نفس الحماية الموجودة، صفر منطق جديد
     async function exportAllEmployeesReport_(format) {
-      if (!lastReportContext) { alert('❌ اعرض تقرير الأول.'); return; }
+      if (!lastReportData_ || !lastReportData_.rows) { alert('❌ اعرض تقرير الأول.'); return; }
       try {
-        const json = await callApi_({
-          action: 'reportExport', employee: 'all',
-          from: lastReportContext.from, to: lastReportContext.to,
-        });
+        await assertExportPermit_('reportExport');
+        const json = lastReportData_;   // ⬅️ Snapshot — صفر إعادة بناء
         const headers = ['الكود', 'الاسم', 'أيام العمل', 'حضور', 'غياب', 'إجازات',
           'مرات تأخير', 'دقائق تأخير', 'مرات مبكر', 'دقائق مبكر', 'إجمالي الخصم', 'نسبة الالتزام'];
         const rows = json.rows.map(r => {
@@ -2335,6 +2349,9 @@
     async function exportMonthlyClosing_(format) {
       if (!mcLastData_) { alert('❌ اعرض التقرير الأول.'); return; }
       try {
+        // ⬅️ بوابة الصلاحية سيرفر-سايد (attendance_export) — كانت اتشالت
+        //    مع نداء monthlyClosingExport، ودي بترجّعها بدون إعادة حساب.
+        await assertExportPermit_('monthlyClosingExport');
         const data = mcLastData_;
         const headers = ['الكود', 'الاسم', 'القسم']
           .concat(data.dayColumns.map(c => c.dayNumber + ' (' + (c.dateLabel || '') + ') ' + c.weekdayName))
@@ -3615,10 +3632,11 @@
     }
 
     async function exportEmployeesList_(format) {
+      if (!employeesCache || employeesCache.length === 0) { alert('❌ اعرض قائمة الموظفين الأول.'); return; }
       try {
-        const json = await callApi_({ action: 'employeesExport' });
+        await assertExportPermit_('employeesExport');
         const headers = ['الكود', 'الاسم', 'القسم', 'الحالة', 'معفى من البصمة', 'المسمى الوظيفي'];
-        const rows = json.employees.map(e => [e.code, e.nameAr, e.dept || '-', e.status, e.exempt ? 'نعم' : 'لا', e.jobTitle || '-']);
+        const rows = employeesCache.map(e => [e.code, e.nameAr, e.dept || '-', e.status, e.exempt ? 'نعم' : 'لا', e.jobTitle || '-']);
         const config = {
           title: 'بيانات الموظفين', headers, rows,
           fileName: 'بيانات_الموظفين_' + new Date().toISOString().slice(0, 10),
@@ -4318,6 +4336,7 @@
       statusEl.textContent = 'جاري التحميل...';
       try {
         const json = await callApi_({ action: 'employeeDocuments', employee: code });
+        empDocsReportCache_ = { code: code, documents: json.documents };   // ⬅️ Snapshot للتصدير
         statusEl.textContent = '';
         renderDocumentsList(json.documents);
       } catch (err) {
@@ -4363,9 +4382,10 @@
       const emp = employeesCache.find(e => e.code === code);
       if (!code) { alert('❌ اختار موظف الأول.'); return; }
       try {
-        const json = await callApi_({ action: 'employeeDocumentsExport', employee: code });
+        if (!empDocsReportCache_ || empDocsReportCache_.code !== code) { alert('❌ اعرض مستندات الموظف الأول.'); return; }
+        await assertExportPermit_('employeeDocumentsExport');
         const headers = ['نوع المستند', 'الحالة', 'رقم المستند', 'أصل/صورة', 'تاريخ الإصدار', 'تاريخ الانتهاء'];
-        const rows = json.documents.map(d => [d.type, d.status, d.documentNumber || '-', d.copyType || '-', d.issueDate || '-', d.expiryDate || '-']);
+        const rows = empDocsReportCache_.documents.map(d => [d.type, d.status, d.documentNumber || '-', d.copyType || '-', d.issueDate || '-', d.expiryDate || '-']);
         const config = {
           title: 'مستندات الموظف — ' + (emp ? emp.nameAr : code), headers, rows,
           employee: { code, nameAr: emp ? emp.nameAr : code },
@@ -4481,10 +4501,11 @@
     }
 
     async function exportMissingDocumentsReport_(format) {
+      if (!missingReportCache) { alert('❌ اعرض التقرير الأول.'); return; }
       try {
-        const json = await callApi_({ action: 'missingDocumentsReportExport' });
+        await assertExportPermit_('missingDocumentsReportExport');
         const headers = ['الكود', 'الاسم', 'الحالة', 'عدد الناقص', 'الأنواع الناقصة'];
-        const rows = json.rows.map(r => [r.code, r.nameAr, r.status, r.missingCount, r.missingTypes.join('، ')]);
+        const rows = missingReportCache.map(r => [r.code, r.nameAr, r.status, r.missingCount, r.missingTypes.join('، ')]);
         const config = {
           title: 'تقرير الموظفين الناقص لهم مستندات', headers, rows,
           fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
@@ -4499,6 +4520,7 @@
       el.textContent = 'جاري التحميل...';
       try {
         const json = await callApi_({ action: 'nearExpiryDocumentsReport' });
+        expiryReportCache_ = json.rows;   // ⬅️ Snapshot للتصدير
         let html = buildExportButtonsHtml_('exportExpiryReport_');
         html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>النوع</th><th>الرقم</th><th>الانتهاء</th><th>الأيام المتبقية</th><th>الحالة</th></tr></thead><tbody>';
         json.rows.forEach(r => {
@@ -4512,10 +4534,11 @@
     }
 
     async function exportExpiryReport_(format) {
+      if (!expiryReportCache_) { alert('❌ اعرض التقرير الأول.'); return; }
       try {
-        const json = await callApi_({ action: 'nearExpiryDocumentsReportExport' });
+        await assertExportPermit_('nearExpiryDocumentsReportExport');
         const headers = ['الكود', 'الاسم', 'النوع', 'الرقم', 'الانتهاء', 'الأيام المتبقية', 'الحالة'];
-        const rows = json.rows.map(r => [r.code, r.nameAr, r.type, r.documentNumber || '-', r.expiryDate || '-', r.daysLeft ?? '-', r.status]);
+        const rows = expiryReportCache_.map(r => [r.code, r.nameAr, r.type, r.documentNumber || '-', r.expiryDate || '-', r.daysLeft ?? '-', r.status]);
         const config = {
           title: 'تقرير المستندات قربت تنتهي', headers, rows,
           fileName: 'مستندات_قربت_تنتهي_' + new Date().toISOString().slice(0, 10),
@@ -4568,9 +4591,10 @@
     async function exportByTypeReport_(format) {
       const type = document.getElementById('byTypeSelect').value;
       try {
-        const json = await callApi_({ action: 'documentsByTypeExport', type });
+        if (!byTypeReportCache_) { alert('❌ اعرض التقرير الأول.'); return; }
+        await assertExportPermit_('documentsByTypeExport');
         const headers = ['الكود', 'الاسم', 'الحالة', 'الرقم', 'الانتهاء'];
-        const rows = json.rows.map(r => [r.code, r.nameAr, r.status, r.documentNumber || '-', r.expiryDate || '-']);
+        const rows = byTypeReportCache_.map(r => [r.code, r.nameAr, r.status, r.documentNumber || '-', r.expiryDate || '-']);
         const config = {
           title: 'تقرير المستندات حسب النوع — ' + type, headers, rows,
           filters: { 'نوع المستند': type },
