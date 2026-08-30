@@ -1516,6 +1516,9 @@
       // نمط pendingProfile بالحرف، مش flag ثابت) — لإن الحالة بتتغير
       // من الإدارة نفسها. الشهور بتتحمّل مرة واحدة جوه الدالة بـflag.
       if (name === 'notifications') { loadNotificationsView_(); }
+      // ⬅️ تاريخ النهاية = اليوم لأي تقرير مالوش افتراضي — عند كل فتح،
+      //    وبيتخطّى أي حقل المستخدم مالياه بالفعل.
+      try { applyDefaultEndDates_(); } catch (e) {}
       // ⬅️ P2: تحميل مكتبة الإكسل مسبقًا للأقسام اللي فيها تصدير — بدون
       //    await فمابيعطّلش أي حاجة، وأول ضغط على "Excel" بيلاقيها جاهزة.
       //    ⛔ loadScriptOnce_ بتمنع التكرار، وفشلها صامت هنا.
@@ -1942,6 +1945,21 @@
       const json = await callApi_({ action: 'employees' });
       employeesCache = json.employees;
       renderEmployeeDropdown_();
+    }
+
+    // ⬅️ تاريخ النهاية الافتراضي لأي تقرير = تاريخ اليوم الفعلي وقت الفتح
+    //    (new Date() — مش تاريخ ثابت في الكود).
+    // ⛔ بيتحط **فقط لو الحقل فاضي** ⇒ أي تاريخ اختاره المستخدم مايتلغيش.
+    // ⛔ تواريخ البداية مالهاش أي تغيير — كل تقرير بمنطقه الحالي.
+    // ⛔ الشاشات اللي ليها منطق افتراضي قائم (التقارير · الإقفال ·
+    //    الإعفاءات) مش في القائمة دي إطلاقًا.
+    const REPORT_END_DATE_IDS_ = ['newHiresTo', 'endOfServiceTo', 'payrollTo', 'waTo'];
+    function applyDefaultEndDates_() {
+      const today = toInputDate_(new Date());
+      REPORT_END_DATE_IDS_.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value) el.value = today;
+      });
     }
 
     function defaultDates_() {
