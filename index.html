@@ -1508,6 +1508,12 @@
       // نمط pendingProfile بالحرف، مش flag ثابت) — لإن الحالة بتتغير
       // من الإدارة نفسها. الشهور بتتحمّل مرة واحدة جوه الدالة بـflag.
       if (name === 'notifications') { loadNotificationsView_(); }
+      // ⬅️ P2: تحميل مكتبة الإكسل مسبقًا للأقسام اللي فيها تصدير — بدون
+      //    await فمابيعطّلش أي حاجة، وأول ضغط على "Excel" بيلاقيها جاهزة.
+      //    ⛔ loadScriptOnce_ بتمنع التكرار، وفشلها صامت هنا.
+      if (name === 'monthlyClosing' || name === 'reports' || name === 'reportCenter') {
+        try { loadScriptOnce_(SHEETJS_URL_).catch(() => {}); } catch (e) {}
+      }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
@@ -2228,6 +2234,11 @@
       ['خصومات إضافية / جزاءات (يوم)', 'extraPenaltyDays'],
       ['إجمالي الخصم (يوم)', 'totalDeduction'],
       ['خصم نسيان الكارت (يوم)', 'forgotCheckinDeduction'],
+      // ⬅️ D3: الانصراف المبكر بيدخل في إجمالي الخصم، فلازم يبان.
+      ['دقائق الانصراف المبكر', 'earlyMinutesTotal'],
+      ['خصم الانصراف المبكر (يوم)', 'earlyDeductionTotal'],
+      // ⬅️ إجمالي الخصم قبل الإعفاء — للمقارنة والمراجعة.
+      ['إجمالي الخصم قبل الإعفاء (يوم)', 'totalDeductionOriginal'],
       // ⬅️ أعمدة التأخير الأربعة متتالية في آخر الجدول بالترتيب المنطقي:
       //    الأصلي → الإعفاء → الصافي → الخصم باليوم (محسوب من الصافي).
       // ⛔ صفر تغيير في أي مفتاح أو حساب — إعادة ترتيب بحتة، والـth
@@ -2235,6 +2246,8 @@
       ['إجمالي دقائق التأخير', 'lateMinutesTotal'],
       ['إعفاءات التأخير بالدقائق', 'lateWaiverMinutes'],
       ['صافي دقائق التأخير', 'lateMinutesFinal'],
+      // ⬅️ الأصلي جنب النهائي — ممنوع يظهر Final من غير Original.
+      ['خصم التأخير قبل الإعفاء (يوم)', 'lateDeductionOriginal'],
       ['إجمالي التأخيرات باليوم', 'lateDeductionTotal'],
     ];
 
@@ -2313,14 +2326,16 @@
     // بيطلب نفس التقرير من جديد من السيرفر عن طريق monthlyClosingExport
     // (نفس بوابة attendance_export الموجودة) — بنفس أسلوب
     // exportCurrentEmployeeReport_/exportAllEmployeesReport_ بالحرف.
+    // ⬅️ P1: Excel = Snapshot من التقرير الظاهر بالظبط.
+    //    قبل كده كان بينادي monthlyClosingExport فيعيد بناء التقرير كامل
+    //    على السيرفر (buildContext_ + شيت البصمة + حساب كل موظف) رغم إن
+    //    نفس البيانات معروضة ومخزّنة في mcLastData_.
+    // ⛔ صفر محرك حساب جديد · صفر إعادة بناء · صفر تغيير في أي رقم —
+    //    نفس الكائن اللي renderMonthlyClosing_ رسم منه بالحرف.
     async function exportMonthlyClosing_(format) {
-      if (!mcLastContext_) { alert('❌ اعرض التقرير الأول.'); return; }
+      if (!mcLastData_) { alert('❌ اعرض التقرير الأول.'); return; }
       try {
-        const json = await callApi_({
-          action: 'monthlyClosingExport',
-          from: mcLastContext_.from, to: mcLastContext_.to,
-        });
-        const data = json.closing;
+        const data = mcLastData_;
         const headers = ['الكود', 'الاسم', 'القسم']
           .concat(data.dayColumns.map(c => c.dayNumber + ' (' + (c.dateLabel || '') + ') ' + c.weekdayName))
           .concat(MC_TOTAL_COLS_.map(([label]) => label));
@@ -5424,7 +5439,12 @@
         const json = await callApi_({ action: 'dayLateInfo', code: code, date: date });
         lwDayInfo_ = json.info || null;
         const i = lwDayInfo_;
-        box.innerHTML = '<b>الحالة:</b> ' + escapeHtml_(i.status || '—')
+        // ⬅️ D4: تحذير صريح لو اليوم مش حاضر أو مفيش تأخير — عشان
+        //    مايتسجّلش إعفاء يتجاهله المحرك بصمت.
+        const bad = (i.status !== 'حاضر') ? ('اليوم ده حالته «' + (i.status || '—') + '» — الإعفاء بيتطبّق على أيام الحضور بس.')
+                  : (!(i.lateMinutesOriginal > 0) ? 'مفيش تأخير مسجَّل في اليوم ده — الإعفاء مش هيغيّر أي خصم.' : '');
+        box.innerHTML = (bad ? '<div style="color:var(--color-danger);font-weight:700;margin-bottom:6px">⚠️ ' + escapeHtml_(bad) + '</div>' : '')
+          + '<b>الحالة:</b> ' + escapeHtml_(i.status || '—')
           + ' · <b>الحضور:</b> ' + escapeHtml_(i.checkIn || '—')
           + '<br><b>التأخير الأصلي:</b> ' + i.lateMinutesOriginal + ' دقيقة'
           + ' · <b>الخصم الأصلي:</b> ' + i.lateDeductionOriginal + ' يوم'
@@ -5465,6 +5485,19 @@
       if (!/^\d+$/.test(payload.minutes) || Number(payload.minutes) <= 0) { setLwFormStatus_('دقائق الإعفاء لازم تكون رقم صحيح موجب.', true); return; }
       if (!payload.reason) { setLwFormStatus_('لازم تكتب سبب الإعفاء.', true); return; }
       if (!payload.approvedBy) { setLwFormStatus_('لازم تحدد جهة الموافقة.', true); return; }
+      // ⬅️ D4: تأكيد صريح قبل حفظ إعفاء المحرك هيتجاهله.
+      if (lwDayInfo_ && lwDayInfo_.date === payload.date) {
+        if (lwDayInfo_.status !== 'حاضر') {
+          if (!confirm('⚠️ اليوم ده حالته «' + (lwDayInfo_.status || '—') + '».\n\n'
+            + 'الإعفاء بيتطبّق على أيام الحضور بس — السجل هيتحفظ لكن مش هيغيّر أي خصم.\n\nتكمّل؟')) return;
+        } else if (!(lwDayInfo_.lateMinutesOriginal > 0)) {
+          if (!confirm('⚠️ مفيش تأخير مسجَّل في اليوم ده.\n\n'
+            + 'السجل هيتحفظ لكن مش هيغيّر أي خصم.\n\nتكمّل؟')) return;
+        }
+      } else {
+        if (!confirm('⚠️ ماعرضتش تأخير اليوم قبل الحفظ.\n\n'
+          + 'يُفضّل تدوس «عرض تأخير اليوم» الأول عشان تتأكد إن فيه تأخير فعلي.\n\nتكمّل؟')) return;
+      }
       const btn = document.getElementById('lwSaveBtn'); btn.disabled = true;
       setLwFormStatus_('جاري الحفظ...');
       try {
