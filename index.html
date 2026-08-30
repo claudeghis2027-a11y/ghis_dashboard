@@ -1523,6 +1523,7 @@
           || name === 'documents' || name === 'employees') {
         try { loadScriptOnce_(SHEETJS_URL_).catch(() => {}); } catch (e) {}
         try { loadScriptOnce_(HTML2PDF_URL_).catch(() => {}); } catch (e) {}
+        if (name === 'monthlyClosing') { try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {} }
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
@@ -2391,17 +2392,17 @@
             .concat(totalCells(r))
         );
         // عرض الأعمدة: الاسم/القسم أوسع · الأيام ضيقة · الإجماليات متوسطة
-        const colWidths = [{ wch: 8 }, { wch: 26 }, { wch: 16 }]
-          .concat(data.dayColumns.map(() => ({ wch: 7 })))
-          .concat(totalLabels.map(() => ({ wch: 14 })));
+        // عرض الأعمدة (بالحروف): الكود/الاسم/القسم واضحين · الأيام ضيقة
+        const colWidths = [9, 30, 18]
+          .concat(data.dayColumns.map(() => 6))
+          .concat(totalLabels.map(() => 15));
         const config = {
           title: 'اقفال شهري', headers, rows,
           period: { type: 'custom', from: data.fromDate, to: data.toDate },
           fileName: 'اقفال_شهري_' + data.fromDate,
-          // RTL + تثبيت صف العناوين وأول 3 أعمدة (D2)
-          sheetOptions: { rtl: true, freeze: 'D2', colWidths: colWidths },
+          colWidths: colWidths,
         };
-        exportReportToExcel_(config);
+        await exportMonthlyClosingToExcel_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -2735,9 +2736,45 @@
     }
     const SHEETJS_URL_ = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
     const HTML2PDF_URL_ = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    // ⬅️ ExcelJS — لتقرير الإقفال وحده. SheetJS Community مابتكتبش
+    //    Freeze Panes (خاصية !freeze اللي جرّبناها مش موجودة أصلاً في
+    //    المكتبة)، وExcelJS بتدعم RTL + تثبيت + عرض الأعمدة رسميًا.
+    // ⛔ Client-Side بالكامل — صفر Server · صفر Drive · صفر Spreadsheet.
+    const EXCELJS_URL_ = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
 
     // تصدير Excel — بيانات Structured حقيقية عبر SheetJS، مش صورة
     // للجدول ولا نص عادي
+    // ⬅️ تصدير الإقفال بـExcelJS — RTL + تثبيت + عرض أعمدة، كلها موثَّقة.
+    //    ⛔ نفس الـheaders/rows الجايين من mcLastData_ بالحرف — صفر تغيير
+    //       في أي قيمة أو ترتيب أو عدد أعمدة.
+    //    ⛔ لو المكتبة فشلت في التحميل، بنرجع لمسار SheetJS العادي عشان
+    //       التصدير مايفشلش أبدًا (البيانات كاملة، بس بدون تثبيت).
+    async function exportMonthlyClosingToExcel_(config) {
+      if (typeof ExcelJS === 'undefined') {
+        try { await loadScriptOnce_(EXCELJS_URL_); }
+        catch (err) { await exportReportToExcel_(config); return; }
+      }
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('الاقفال الشهري', {
+        views: [{ state: 'frozen', xSplit: 3, ySplit: 1, rightToLeft: true }],
+      });
+      ws.addRow(config.headers || []);
+      (config.rows || []).forEach(r => ws.addRow(r));
+      (config.colWidths || []).forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+      const head = ws.getRow(1);
+      head.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      head.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      head.height = 34;
+      head.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF123166' } }; });
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = sanitizeExportFileName_(config.fileName) + '.xlsx';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
     async function exportReportToExcel_(config) {
       if (typeof XLSX === 'undefined') {
         try { await loadScriptOnce_(SHEETJS_URL_); }
@@ -2750,16 +2787,6 @@
         config.totals.forEach(t => wsData.push([t.label, t.value]));
       }
       const ws = XLSX.utils.aoa_to_sheet(wsData);
-      // ⬅️ إعدادات ورقة اختيارية — بتتطبّق بس لو التقرير مرّرها.
-      //    ⛔ باقي التصديرات مابتمرّرش sheetOptions فسلوكها زي ما هو بالحرف.
-      //    ⚠️ !freeze موثَّق ضمن مزايا SheetJS Pro — لو النسخة الـCommunity
-      //       مابتدعمهوش، بتتجاهله بصمت والملف بيطلع سليم وكامل بدون تثبيت.
-      const so = config.sheetOptions;
-      if (so) {
-        if (so.rtl) ws['!views'] = [{ RTL: true }];
-        if (so.freeze) ws['!freeze'] = so.freeze;
-        if (so.colWidths) ws['!cols'] = so.colWidths;
-      }
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'التقرير');
       XLSX.writeFile(wb, sanitizeExportFileName_(config.fileName) + '.xlsx');
