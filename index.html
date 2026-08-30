@@ -5385,7 +5385,7 @@
       }
       let html = '<div class="table-wrap"><table><thead><tr>' +
         '<th>العنوان</th><th>الشهر / الفترة</th><th>النطاق</th><th>عناصر المحتوى</th>' +
-        '<th>تاريخ ووقت الإظهار</th><th>مدة الظهور</th><th>الحالة</th><th></th><th></th>' +
+        '<th>تاريخ ووقت الإظهار</th><th>مدة الظهور</th><th>الحالة</th><th></th><th></th><th></th>' +
         '</tr></thead><tbody>';
       items.forEach(n => {
         const scopeTxt = (NOTIF_SCOPE_LABELS_[n.scope] || n.scope) + (n.scopeValue ? ' — ' + n.scopeValue : '');
@@ -5407,6 +5407,7 @@
           '<td><span class="badge ' + badgeCls + '">' + escapeHtml_(n.status) + '</span></td>' +
           '<td>' + (isCancelled ? '' : '<button class="link-btn" onclick="editNotificationUI_(\'' + safeId + '\')">تعديل</button>') + '</td>' +
           '<td>' + (isCancelled ? '' : '<button class="link-btn" onclick="cancelNotificationUI_(\'' + safeId + '\')">إلغاء</button>') + '</td>' +
+          '<td><button class="link-btn" style="color:var(--color-danger)" onclick="deleteNotificationUI_(\'' + safeId + '\')">حذف نهائي</button></td>' +
           '</tr>';
       });
       html += '</tbody></table></div>';
@@ -5592,6 +5593,24 @@
         setNotifFormStatus_('❌ ' + err.message, true);
       } finally {
         btn.disabled = false;
+      }
+    }
+
+    // ⬅️ حذف نهائي — بيستخدم notificationDelete الجديد بنفس صلاحية
+    //    notifications_manage. ⛔ بيشيل الإشعار من NOTIFICATIONS ومن
+    //    NOTIFICATION_TARGETS، فمايظهرش للموظف تاني ومايتحسبش في الـBadge.
+    async function deleteNotificationUI_(id) {
+      if (!notifCanManage_()) { setNotifListStatus_('❌ مالكش صلاحية إدارة الإشعارات.', true); return; }
+      const n = notifItemsCache_.find(x => String(x.id) === String(id));
+      if (!confirm('⚠️ حذف نهائي — مفيش رجوع.\n\nهيتشال الإشعار "' + (n ? n.title : id) + '" خالص من سجل الإدارة ومن قائمة كل الموظفين المستهدفين.\n\nلو غرضك توقفه بس، استخدم "إلغاء" بدل الحذف.\n\nمتأكد؟')) return;
+      setNotifListStatus_('جاري الحذف...');
+      try {
+        await callApiPost_({ action: 'notificationDelete', id: String(id) });
+        if (notifEditingId_ === String(id)) resetNotificationForm_();
+        await reloadNotificationsList_();
+        setNotifListStatus_('✅ الإشعار اتحذف نهائيًا.');
+      } catch (err) {
+        setNotifListStatus_('❌ ' + err.message, true);
       }
     }
 
