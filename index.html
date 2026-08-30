@@ -1488,7 +1488,15 @@
       if (name === 'documents') { if (!documentsViewLoaded_) { loadDocumentsView(); documentsViewLoaded_ = true; } }
       if (name === 'users') { if (!usersViewLoaded_) { loadUsersAndRolesView(); usersViewLoaded_ = true; } }
       if (name === 'backup') { if (!backupViewLoaded_) { loadBackupsList(); loadBackupConfig(); backupViewLoaded_ = true; } }
-      if (name === 'reports') { if (!reportsViewLoaded_) { loadEmployees_(); reportsViewLoaded_ = true; } }
+      // ⬅️ B3: لو employeesCache متملّية (من قسم الموظفين مثلاً)، بنرسم
+      //    الـdropdown منها بدل نداء 'employees' تاني لنفس البيانات.
+      //    ⛔ نفس المصدر ونفس شكل الكاش — صفر تغيير في أي بيانات.
+      if (name === 'reports') {
+        if (!reportsViewLoaded_) {
+          if (employeesCache.length > 0) renderEmployeeDropdown_(); else loadEmployees_();
+          reportsViewLoaded_ = true;
+        }
+      }
       if (name === 'pendingProfile') { loadPendingProfileRequests_(); loadPhotoReview_(); }
       if (name === 'monthlyClosing') { if (!mcViewLoaded_) { loadMonthlyClosingMonths_(); mcViewLoaded_ = true; } }
       if (name === 'reportCenter') { renderReportCenter_(); }
@@ -4636,14 +4644,20 @@
 
     async function exportNewHiresReport_(format) {
       if (!lastNewHiresRows_) { alert('❌ اعرض التقرير الأول.'); return; }
-      const headers = ['الاسم', 'تاريخ التعيين'];
-      const rows = lastNewHiresRows_.map(r => [r.nameAr, r.hireDate || '-']);
-      const config = {
-        title: 'تقرير الموظفين الجدد', headers, rows,
-        period: { type: 'custom', from: lastNewHiresRange_.from, to: lastNewHiresRange_.to },
-        fileName: 'الموظفين_الجدد_' + lastNewHiresRange_.from + '_' + lastNewHiresRange_.to,
-      };
-      if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+      try {
+        // ⬅️ B2: كان بيصدّر من الـSnapshot بدون أي بوابة صلاحية.
+        //    ⛔ صفر تغيير في ACTION_SECTION_MAP_ أو أي صلاحية — بنستخدم
+        //       نفس صلاحية newHiresReportExport الموجودة بالفعل.
+        await assertExportPermit_('newHiresReportExport');
+        const headers = ['الاسم', 'تاريخ التعيين'];
+        const rows = lastNewHiresRows_.map(r => [r.nameAr, r.hireDate || '-']);
+        const config = {
+          title: 'تقرير الموظفين الجدد', headers, rows,
+          period: { type: 'custom', from: lastNewHiresRange_.from, to: lastNewHiresRange_.to },
+          fileName: 'الموظفين_الجدد_' + lastNewHiresRange_.from + '_' + lastNewHiresRange_.to,
+        };
+        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+      } catch (err) { alert('❌ ' + err.message); }
     }
 
     // ============================================================
@@ -4665,6 +4679,7 @@
       try {
         // ⚠️ View بس — صلاحية end_of_service_reports (منفصلة عن Export)
         const json = await callApi_({ action: 'endOfServiceReport', from, to });
+        lastEndOfServiceRows_ = json.rows;   // ⬅️ B1: Snapshot للتصدير
         lastEndOfServiceRange_ = { from, to };
         statusEl.textContent = '';
         let html = buildExportButtonsHtml_('exportEndOfServiceReport_');
@@ -4679,14 +4694,15 @@
     }
 
     async function exportEndOfServiceReport_(format) {
-      if (!lastEndOfServiceRange_) { alert('❌ اعرض التقرير الأول.'); return; }
+      if (!lastEndOfServiceRows_ || !lastEndOfServiceRange_) { alert('❌ اعرض التقرير الأول.'); return; }
       try {
-        // ⚠️ نداء سيرفر مستقل حقيقي — صلاحية end_of_service_reports_export
-        // منفصلة تمامًا عن صلاحية العرض (endOfServiceReport). لو المستخدم
-        // عنده View بس، checkPermission_ هترفض النداء ده تحديدًا.
-        const json = await callApi_({ action: 'endOfServiceReportExport', from: lastEndOfServiceRange_.from, to: lastEndOfServiceRange_.to });
+        // ⚠️ صلاحية end_of_service_reports_export منفصلة تمامًا عن صلاحية
+        // العرض (end_of_service_reports). البوابة بتتفحص سيرفر-سايد قبل
+        // التصدير — لو المستخدم عنده View بس، checkPermission_ بترفض.
+        // ⛔ صفر إعادة بناء للتقرير — التصدير من الـSnapshot المعروض.
+        await assertExportPermit_('endOfServiceReportExport');
         const headers = ['الاسم', 'تاريخ نهاية الخدمة', 'استلم الورقة؟', 'الملاحظة'];
-        const rows = json.rows.map(r => [r.nameAr, r.endDate || '-', r.receivedDocumentsAfterEnd ? 'نعم' : 'لا', r.note]);
+        const rows = lastEndOfServiceRows_.map(r => [r.nameAr, r.endDate || '-', r.receivedDocumentsAfterEnd ? 'نعم' : 'لا', r.note]);
         const config = {
           title: 'تقرير نهاية الخدمة', headers, rows,
           period: { type: 'custom', from: lastEndOfServiceRange_.from, to: lastEndOfServiceRange_.to },
