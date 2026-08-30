@@ -1287,9 +1287,10 @@
     <div class="card">
       <h2>الإعفاءات المسجَّلة</h2>
       <div class="filters">
-        <div><label>من</label><input type="date" id="lwFrom"></div>
-        <div><label>إلى</label><input type="date" id="lwTo"></div>
-        <div style="align-self:end"><button class="secondary" onclick="reloadLateWaivers_()">عرض</button></div>
+        <div><label>من التاريخ</label><input type="date" id="lwFrom"></div>
+        <div><label>إلى التاريخ</label><input type="date" id="lwTo"></div>
+        <div style="align-self:end"><button class="secondary" onclick="reloadLateWaivers_()">بحث</button></div>
+        <div style="align-self:end"><button class="secondary" onclick="clearLwFilter_()">مسح الفلتر</button></div>
       </div>
       <div id="lwListStatus" style="font-size:13px;margin-bottom:8px"></div>
       <div id="lwListArea"></div>
@@ -5375,6 +5376,8 @@
     async function loadLateWaiversView_() {
       if (!lwCanManage_()) { setLwListStatus_('❌ مالكش صلاحية إعفاءات التأخير.', true); return; }
       if (employeesCache.length === 0) { try { await loadEmployees_(); } catch (e) {} }
+      // أول فتح بس — عشان مانلغيش فلتر الإدارة لو رجعت للقسم
+      if (!document.getElementById('lwFrom').value) setLwDefaultRange_();
       const sel = document.getElementById('lwEmp');
       if (sel && sel.options.length <= 1) {
         employeesCache.forEach(e => {
@@ -5464,6 +5467,21 @@
       document.getElementById('lwFinalBox').style.display = 'none';
       setLwFormStatus_('');
     }
+
+    // ⬅️ الفترة الافتراضية: آخر 30 يوم — عشان الشاشة ماتحمّلش السجل كله
+    //    مع الوقت. ⛔ الفلترة نفسها سيرفر-سايد في listLateWaivers_ زي ما هي.
+    function setLwDefaultRange_() {
+      const to = new Date();
+      const from = new Date(); from.setDate(from.getDate() - 29);
+      const p2 = v => String(v).padStart(2, '0');
+      const fmt = d => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      document.getElementById('lwFrom').value = fmt(from);
+      document.getElementById('lwTo').value = fmt(to);
+    }
+
+    // ⬅️ "مسح الفلتر" = الرجوع للافتراضي (آخر 30 يوم)، مش تفريغ الحقول —
+    //    التفريغ معناه تحميل السجل كله وده عكس الهدف.
+    function clearLwFilter_() { setLwDefaultRange_(); reloadLateWaivers_(); }
 
     async function reloadLateWaivers_() {
       setLwListStatus_('جاري التحميل...');
