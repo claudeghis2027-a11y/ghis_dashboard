@@ -2157,14 +2157,28 @@
     let mcLastContext_ = null;
     let mcLastData_ = null;
 
+    // ⬅️ اسم الإقفال = شهر وسنة تاريخ **نهاية** الفترة (to)، مبني من
+    //    derivedMonth/derivedYear الراجعين من السيرفر — مش من الاسم
+    //    المكتوب يدويًا في شيت الفترات.
+    const MC_MONTH_NAMES_AR_ = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
+      'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const MC_MONTH_NAMES_EN_ = ['January','February','March','April','May','June',
+      'July','August','September','October','November','December'];
+    function mcPeriodLabel_(m) {
+      if (!m.derivedMonth || !m.derivedYear) return m.name || '';
+      const ar = document.documentElement.lang !== 'en';
+      const names = ar ? MC_MONTH_NAMES_AR_ : MC_MONTH_NAMES_EN_;
+      return names[m.derivedMonth - 1] + ' ' + m.derivedYear;
+    }
+
     async function loadMonthlyClosingMonths_() {
       try {
         const json = await callApi_({ action: 'months' });
         const sel = document.getElementById('mcMonthSelect');
         json.months.forEach(m => {
           const opt = document.createElement('option');
-          opt.value = m.from + '|' + m.to;
-          opt.textContent = m.name;
+          opt.value = m.from + '|' + m.to;   // ⛔ الحساب على from|to زي ما هو
+          opt.textContent = mcPeriodLabel_(m);
           sel.appendChild(opt);
         });
         sel.onchange = () => {
@@ -2206,8 +2220,13 @@
     // AI→AS بالترتيب نفسه بالظبط (11 عمود، صفر زيادة).
     const MC_TOTAL_COLS_ = [
       ['إجمالي دقائق التأخير', 'lateMinutesTotal'],
+      // ⬅️ سلسلة الإعفاء. الصافي = max(0, الأصلي − الإعفاء).
+      //    ⛔ صفر عمود خصم جديد — 'خصم التأخير (يوم)' تحت هو الصافي
+      //       بالفعل (lateDeductionTotal = Final اللي Payroll بيستخدمه).
+      ['دقائق الإعفاء', 'lateWaiverMinutes'],
+      ['صافي دقائق التأخير', 'lateMinutesFinal'],
       ['عدد أيام الغياب', 'absentDays'],
-      ['خصم التأخير (يوم)', 'lateDeductionTotal'],
+      ['صافي خصم التأخير (يوم)', 'lateDeductionTotal'],
       ['خصم الغياب (يوم)', 'absenceDeductionTotal'],
       ['أيام بدون بصمة انصراف', 'missingCheckoutDays'],
       ['خصم عدم الانصراف (يوم)', 'missingCheckoutDeductionTotal'],
@@ -2283,6 +2302,9 @@
 
       html += '</tbody></table></div>';
       html += '<p class="mc-note">خانة اليوم بتعرض دقائق التأخير للأيام الحاضرة (0 يعني في الميعاد)، أو حالة اليوم لو مش حضور. مرّر الماوس على أي خانة لتفاصيلها.</p>';
+      html += '<p class="mc-note"><b>صافي دقائق التأخير = إجمالي دقائق التأخير − دقائق الإعفاء</b> (ومش بيقل عن صفر). ' +
+        'الإعفاء طبقة مستقلة — البصمة والتأخير الأصلي محفوظان بدون تعديل. ' +
+        '<b>صافي خصم التأخير</b> هو المحسوب على صافي الدقائق، وهو اللي بيدخل في إجمالي الخصم والمرتبات.</p>';
       html += '</div>';
       document.getElementById('mcResultArea').innerHTML = html;
     }
