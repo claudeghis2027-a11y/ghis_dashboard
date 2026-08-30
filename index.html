@@ -1274,6 +1274,19 @@
         <label class="notif-chk"><input type="checkbox" class="notif-content" value="late"> التأخيرات</label>
         <label class="notif-chk"><input type="checkbox" class="notif-content" value="deductions"> الخصومات</label>
         <label class="notif-chk"><input type="checkbox" class="notif-content" value="monthlyClosing"> إقفال الشهر</label>
+        <label class="notif-chk"><input type="checkbox" class="notif-content" value="absenceReport" onchange="onNotifReportToggle_()"> الغياب والخصومات والتأخيرات</label>
+      </div>
+
+      <!-- ⬅️ فترة التقرير — الإدارة بس هي اللي بتحددها. الموظف بيشوفها
+           Read-only جوّه الإشعار ومافيش عنده أي Date Picker. -->
+      <div id="notifReportWrap" style="display:none;margin-top:12px">
+        <div class="form-grid">
+          <div><label>فترة التقرير — من</label><input type="date" id="notifReportFrom"></div>
+          <div><label>فترة التقرير — إلى</label><input type="date" id="notifReportTo"></div>
+        </div>
+        <div style="font-size:12px;color:#777;margin-top:-6px">
+          الموظف هيشوف بيانات الفترة دي بس، وهي معروضة له للقراءة فقط — مش هيقدر يغيّرها.
+        </div>
       </div>
 
       <div id="notifMessageWrap" style="display:none;margin-top:12px">
@@ -5385,7 +5398,7 @@
       }
       let html = '<div class="table-wrap"><table><thead><tr>' +
         '<th>العنوان</th><th>الشهر / الفترة</th><th>النطاق</th><th>عناصر المحتوى</th>' +
-        '<th>تاريخ ووقت الإظهار</th><th>مدة الظهور</th><th>الحالة</th><th></th><th></th><th></th>' +
+        '<th>تاريخ ووقت الإظهار</th><th>مدة الظهور</th><th>فترة التقرير</th><th>الحالة</th><th></th><th></th><th></th>' +
         '</tr></thead><tbody>';
       items.forEach(n => {
         const scopeTxt = (NOTIF_SCOPE_LABELS_[n.scope] || n.scope) + (n.scopeValue ? ' — ' + n.scopeValue : '');
@@ -5404,6 +5417,7 @@
           '<td>' + escapeHtml_(contentsTxt || '-') + '</td>' +
           '<td>' + escapeHtml_((n.showDate || '-') + (n.showTime ? ' ' + n.showTime : '')) + '</td>' +
           '<td>' + escapeHtml_(Number(n.durationMinutes) > 0 ? (n.durationMinutes + ' دقيقة') : 'بدون انتهاء') + '</td>' +
+          '<td>' + escapeHtml_(n.reportFrom ? (n.reportFrom + ' → ' + n.reportTo) : '—') + '</td>' +
           '<td><span class="badge ' + badgeCls + '">' + escapeHtml_(n.status) + '</span></td>' +
           '<td>' + (isCancelled ? '' : '<button class="link-btn" onclick="editNotificationUI_(\'' + safeId + '\')">تعديل</button>') + '</td>' +
           '<td>' + (isCancelled ? '' : '<button class="link-btn" onclick="cancelNotificationUI_(\'' + safeId + '\')">إلغاء</button>') + '</td>' +
@@ -5422,6 +5436,13 @@
     // "رسالة نصية" مفعّلة → textarea يظهر. مش مفعّلة → يختفي، ومابنبعتش
     // النص أصلاً وقت الحفظ (⛔ مابنمسحش القيمة من الواجهة عشان لو رجع
     // فعّلها تاني في نفس الجلسة مايخسرش اللي كتبه).
+    // ⬅️ إظهار حقلَي الفترة مع بند الغياب والخصومات والتأخيرات فقط
+    function onNotifReportToggle_() {
+      const cb = document.querySelector('.notif-content[value="absenceReport"]');
+      const w = document.getElementById('notifReportWrap');
+      if (w) w.style.display = (cb && cb.checked) ? '' : 'none';
+    }
+
     function onNotifMessageToggle_() {
       const cb = document.querySelector('.notif-content[value="message"]');
       document.getElementById('notifMessageWrap').style.display = (cb && cb.checked) ? '' : 'none';
@@ -5483,6 +5504,9 @@
       document.getElementById('notifShowDate').value = '';
       document.getElementById('notifShowTime').value = '';
       document.getElementById('notifDuration').value = '';
+      document.getElementById('notifReportFrom').value = '';
+      document.getElementById('notifReportTo').value = '';
+      onNotifReportToggle_();
       setNotifFormStatus_('');
     }
 
@@ -5514,6 +5538,9 @@
       document.getElementById('notifMessage').value = n.message || '';
       onNotifMessageToggle_();
 
+      document.getElementById('notifReportFrom').value = n.reportFrom || '';
+      document.getElementById('notifReportTo').value = n.reportTo || '';
+      onNotifReportToggle_();
       document.getElementById('notifScope').value = n.scope || 'All';
       onNotifScopeChange_();
       if (n.scope !== 'All') {
@@ -5548,6 +5575,9 @@
       const showDate = document.getElementById('notifShowDate').value;
       const showTime = document.getElementById('notifShowTime').value;
       const durationMinutes = document.getElementById('notifDuration').value.trim();
+      const wantsReport = contents.indexOf('absenceReport') !== -1;
+      const reportFrom = document.getElementById('notifReportFrom').value;
+      const reportTo = document.getElementById('notifReportTo').value;
 
       // نفس شروط validateNotifCfg_ بالحرف — ولا شرط زيادة ولا ناقص.
       if (!title) { setNotifFormStatus_('عنوان الإشعار مطلوب.', true); return; }
@@ -5560,6 +5590,12 @@
         return;
       }
       if (!showDate || !showTime) { setNotifFormStatus_('تاريخ ووقت الإظهار مطلوبين.', true); return; }
+      if (wantsReport && (!reportFrom || !reportTo)) {
+        setNotifFormStatus_('لازم تحدد فترة التقرير (من/إلى) لبند الغياب والخصومات والتأخيرات.', true); return;
+      }
+      if (wantsReport && reportFrom > reportTo) {
+        setNotifFormStatus_('تاريخ بداية فترة التقرير لازم يكون قبل تاريخ النهاية.', true); return;
+      }
       // نفس شروط validateNotifCfg_ بالحرف — فاضي أو 0 = بدون انتهاء.
       if (durationMinutes !== '') {
         if (!/^\d+$/.test(durationMinutes)) {
@@ -5576,6 +5612,8 @@
         contents: contents.join(','),
         showDate: showDate, showTime: showTime,
         durationMinutes: durationMinutes,
+        reportFrom: wantsReport ? reportFrom : '',
+        reportTo: wantsReport ? reportTo : '',
         scope: scope, scopeValue: scopeValue
       };
       if (notifEditingId_) payload.id = notifEditingId_;
