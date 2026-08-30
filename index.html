@@ -2361,20 +2361,47 @@
         //    مع نداء monthlyClosingExport، ودي بترجّعها بدون إعادة حساب.
         await assertExportPermit_('monthlyClosingExport');
         const data = mcLastData_;
-        const headers = ['الكود', 'الاسم', 'القسم']
+        const FIXED_LABELS = ['الكود', 'الاسم', 'القسم'];
+        const totalLabels = MC_TOTAL_COLS_.map(([label]) => label);
+        const fixedCells = r => [r.employee.code, r.employee.nameAr, r.employee.dept || '-'];
+        const totalCells = r => MC_TOTAL_COLS_.map(([, key]) => r.totals[key] == null ? '-' : r.totals[key]);
+
+        if (format !== 'excel') {
+          // ⬅️ الطباعة = ملخّص إداري: الكود/الاسم/القسم + الإجماليات فقط،
+          //    صفر أعمدة أيام (50 عمود مستحيل يتقروا على أي مقاس ورق).
+          //    ⛔ نفس mcLastData_ · صفر إعادة حساب · صفر callApi_ ·
+          //       نفس MC_TOTAL_COLS_ بنفس الترتيب بالحرف.
+          printReport_({
+            title: 'اقفال شهري — ملخّص الإجماليات',
+            headers: FIXED_LABELS.concat(totalLabels),
+            rows: data.rows.map(r => fixedCells(r).concat(totalCells(r))),
+            period: { type: 'custom', from: data.fromDate, to: data.toDate },
+            fileName: 'اقفال_شهري_ملخص_' + data.fromDate,
+          });
+          return;
+        }
+
+        // ⬅️ Excel = كل التفاصيل كاملة — صفر حذف أو إخفاء لأي يوم أو عمود.
+        const headers = FIXED_LABELS
           .concat(data.dayColumns.map(c => c.dayNumber + ' (' + (c.dateLabel || '') + ') ' + c.weekdayName))
-          .concat(MC_TOTAL_COLS_.map(([label]) => label));
+          .concat(totalLabels);
         const rows = data.rows.map(r =>
-          [r.employee.code, r.employee.nameAr, r.employee.dept || '-']
+          fixedCells(r)
             .concat(r.cells.map(c => c.text))
-            .concat(MC_TOTAL_COLS_.map(([, key]) => r.totals[key] == null ? '-' : r.totals[key]))
+            .concat(totalCells(r))
         );
+        // عرض الأعمدة: الاسم/القسم أوسع · الأيام ضيقة · الإجماليات متوسطة
+        const colWidths = [{ wch: 8 }, { wch: 26 }, { wch: 16 }]
+          .concat(data.dayColumns.map(() => ({ wch: 7 })))
+          .concat(totalLabels.map(() => ({ wch: 14 })));
         const config = {
           title: 'اقفال شهري', headers, rows,
           period: { type: 'custom', from: data.fromDate, to: data.toDate },
           fileName: 'اقفال_شهري_' + data.fromDate,
+          // RTL + تثبيت صف العناوين وأول 3 أعمدة (D2)
+          sheetOptions: { rtl: true, freeze: 'D2', colWidths: colWidths },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        exportReportToExcel_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -2723,6 +2750,16 @@
         config.totals.forEach(t => wsData.push([t.label, t.value]));
       }
       const ws = XLSX.utils.aoa_to_sheet(wsData);
+      // ⬅️ إعدادات ورقة اختيارية — بتتطبّق بس لو التقرير مرّرها.
+      //    ⛔ باقي التصديرات مابتمرّرش sheetOptions فسلوكها زي ما هو بالحرف.
+      //    ⚠️ !freeze موثَّق ضمن مزايا SheetJS Pro — لو النسخة الـCommunity
+      //       مابتدعمهوش، بتتجاهله بصمت والملف بيطلع سليم وكامل بدون تثبيت.
+      const so = config.sheetOptions;
+      if (so) {
+        if (so.rtl) ws['!views'] = [{ RTL: true }];
+        if (so.freeze) ws['!freeze'] = so.freeze;
+        if (so.colWidths) ws['!cols'] = so.colWidths;
+      }
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'التقرير');
       XLSX.writeFile(wb, sanitizeExportFileName_(config.fileName) + '.xlsx');
