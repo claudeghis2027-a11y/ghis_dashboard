@@ -715,6 +715,12 @@
         <button class="sidebar-link" id="tabBtn-lateWaivers" onclick="switchView('lateWaivers')">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/></svg></span> إعفاءات التأخير والخصومات
         </button>
+        <button class="sidebar-link" id="tabBtn-payroll" onclick="switchView('payroll')">
+          <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/></svg></span> الرواتب
+        </button>
+        <button class="sidebar-link" id="tabBtn-payrollTypes" onclick="switchView('payrollTypes')">
+          <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18.5" cy="18" r="2.5"/></svg></span> حركات المرتب وأنواعها
+        </button>
         <button class="sidebar-link" id="tabBtn-notifications" onclick="switchView('notifications')">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15.5V10a6 6 0 1 0-12 0v5.5L4.5 18h15L18 15.5Z"/><path d="M10 20.5h4"/></svg></span> التنبيهات والإشعارات
         </button>
@@ -1297,6 +1303,50 @@
     </div>
   </div>
 
+  <!-- ============== P1 — أنواع حركات المرتب (صلاحية salary) ==============
+       ⛔ طبقة واجهة فوق actions موجودة: salaryTxTypes · salaryTxTypeAdd ·
+          salaryTxTypeToggle. صفر Backend جديد · صفر مساس بأي حساب. -->
+  <div id="view-payrollTypes" class="view" style="display:none">
+    <div class="card">
+      <h2>إضافة نوع حركة مرتب</h2>
+      <p style="font-size:12px;color:#777">
+        <b>التصنيف بيحدد أثر النوع على صافي المرتب</b> — اختياره غلط بيقلب الحساب.
+        <br><b>basic</b>: الراتب الأساسي · <b>earning</b>: إضافة تدخل الصافي ·
+        <b>deduction</b>: خصم نقدي · <b>excluded</b>: مستبعد من الحساب ·
+        <b>summer</b>: خصم/رد الصيف (بيتدار من شاشة منفصلة).
+      </p>
+      <div class="form-grid">
+        <div><label>اسم النوع</label><input type="text" id="ptName" placeholder="مثال: بدل انتقالات"></div>
+        <div><label>إضافة أم خصم؟</label>
+          <select id="ptDirection">
+            <option value="">— اختار —</option>
+            <option value="إضافة">إضافة</option>
+            <option value="خصم">خصم</option>
+          </select></div>
+        <div><label>التصنيف (Category) — إلزامي</label>
+          <select id="ptCategory">
+            <option value="">— اختار —</option>
+            <option value="basic">basic — الراتب الأساسي</option>
+            <option value="earning">earning — إضافة</option>
+            <option value="deduction">deduction — خصم نقدي</option>
+            <option value="excluded">excluded — مستبعد</option>
+            <option value="summer">summer — الصيف</option>
+          </select></div>
+      </div>
+      <div class="form-actions">
+        <button onclick="addPayrollTxType_()">إضافة النوع</button>
+        <button class="secondary" onclick="resetPayrollTxTypeForm_()">إلغاء</button>
+      </div>
+      <div id="ptFormStatus" style="font-size:13px;margin-top:6px"></div>
+    </div>
+
+    <div class="card">
+      <h2>أنواع حركات المرتب</h2>
+      <div id="ptListStatus" style="font-size:13px;margin-bottom:8px"></div>
+      <div id="ptListArea"></div>
+    </div>
+  </div>
+
   <div id="view-notifications" class="view" style="display:none">
     <div class="card">
       <h2 id="notifFormTitle">إنشاء إشعار</h2>
@@ -1465,7 +1515,7 @@
     // التنقل بين الأقسام
     // ============================================================
     function switchView(name) {
-      ['reports', 'monthlyClosing', 'pendingProfile', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp', 'notifications', 'lateWaivers'].forEach(v => {
+      ['reports', 'monthlyClosing', 'pendingProfile', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp', 'notifications', 'lateWaivers', 'payrollTypes'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
         const btn = document.getElementById('tabBtn-' + v);
         if (btn) btn.classList.toggle('active', v === name);
@@ -1530,6 +1580,7 @@
       try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
+      if (name === 'payrollTypes') { if (!payrollTypesLoaded_) { loadPayrollTxTypesView_(); payrollTypesLoaded_ = true; } }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
     }
@@ -1770,7 +1821,9 @@
       // نفس اللي في ACTION_SECTION_MAP_ بالحرف. الـmap دي بتغذّي إخفاء
       // الزر وallowedViews (Navigation Persistence) الاتنين — فسطر واحد كفاية.
       const tabSectionMap = { reports: 'reports', monthlyClosing: 'reports', whatsapp: 'whatsapp_send', pendingProfile: 'employees', employees: 'employees', rules: 'rules', documents: 'documents', backup: 'backup', notifications: 'notifications_manage',
-        lateWaivers: 'attendance_adjust' };
+        lateWaivers: 'attendance_adjust',
+        // ⬅️ P1: الشاشتان تحت صلاحية salary الموجودة — صفر صلاحية جديدة.
+        payroll: 'salary', payrollTypes: 'salary' };
       Object.keys(tabSectionMap).forEach(tab => {
         const allowed = currentSession.isAdmin || currentSession.sections.includes(tabSectionMap[tab]);
         const btn = document.getElementById('tabBtn-' + tab);
@@ -5815,6 +5868,119 @@
         if (lwEditingId_ === String(id)) resetLateWaiverForm_();
         await reloadLateWaivers_();
       } catch (err) { setLwListStatus_('❌ ' + err.message, true); }
+    }
+
+
+    // ============================================================
+    // P1 — أنواع حركات المرتب
+    // ⛔ بتستخدم الـ3 actions الموجودة بس: salaryTxTypes · salaryTxTypeAdd
+    //    · salaryTxTypeToggle. صفر Backend جديد · صفر مساس بأي حساب
+    //    (computePayrollForPeriod_ · classifyTxCategory_ … لم تُمسّ).
+    // ⛔ صلاحية salary الموجودة — صفر صلاحية جديدة، والحماية سيرفر-سايد.
+    // ============================================================
+    let payrollTypesLoaded_ = false;
+    let ptTypesCache_ = [];
+    const PT_CATEGORIES_ = ['basic', 'earning', 'deduction', 'excluded', 'summer'];
+
+    function ptCanManage_() {
+      return !!(currentSession && (currentSession.isAdmin || currentSession.sections.includes('salary')));
+    }
+    function setPtFormStatus_(m, e) {
+      const el = document.getElementById('ptFormStatus');
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+    function setPtListStatus_(m, e) {
+      const el = document.getElementById('ptListStatus');
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+
+    async function loadPayrollTxTypesView_() {
+      if (!ptCanManage_()) { setPtListStatus_('❌ مالكش صلاحية إدارة حركات المرتب.', true); return; }
+      setPtListStatus_('جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'salaryTxTypes' });
+        ptTypesCache_ = json.types || [];
+        renderPayrollTxTypes_();
+        setPtListStatus_(ptTypesCache_.length + ' نوع.');
+      } catch (err) {
+        ptTypesCache_ = [];
+        document.getElementById('ptListArea').innerHTML = '';
+        setPtListStatus_('❌ ' + err.message, true);
+      }
+    }
+
+    function renderPayrollTxTypes_() {
+      const area = document.getElementById('ptListArea');
+      if (!ptTypesCache_.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">مفيش أنواع حركات مسجّلة.</p>';
+        return;
+      }
+      let h = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>اسم النوع</th><th>إضافة/خصم</th><th>التصنيف</th><th>الحالة</th><th></th>'
+        + '</tr></thead><tbody>';
+      ptTypesCache_.forEach(t => {
+        const name = escapeHtml_(String(t.name));
+        // ⚠️ نوع بتصنيف غير معروف بيوقف حساب Payroll كله (classifyTxCategory_
+        //    Fail-Closed) — فبنبرزه صراحة بدل ما يعدّي بصمت.
+        const badCat = PT_CATEGORIES_.indexOf(String(t.category || '').trim()) === -1;
+        h += '<tr>'
+          + '<td>' + name + '</td>'
+          + '<td>' + escapeHtml_(t.direction || '—') + '</td>'
+          + '<td>' + (badCat
+              ? '<span style="color:var(--color-danger);font-weight:700">⚠️ ' + escapeHtml_(t.category || 'غير مصنَّف') + '</span>'
+              : escapeHtml_(t.category)) + '</td>'
+          + '<td>' + (t.active
+              ? '<span style="color:var(--color-success);font-weight:700">نشط</span>'
+              : '<span style="color:#999">متوقف</span>') + '</td>'
+          + '<td><button class="link-btn" onclick="togglePayrollTxType_(\'' + name + '\', ' + (t.active ? 'false' : 'true') + ')">'
+          + (t.active ? 'إيقاف' : 'تفعيل') + '</button></td>'
+          + '</tr>';
+      });
+      h += '</tbody></table></div>';
+      if (ptTypesCache_.some(t => PT_CATEGORIES_.indexOf(String(t.category || '').trim()) === -1)) {
+        h += '<p style="font-size:12px;color:var(--color-danger);margin-top:8px">'
+          + '⚠️ فيه نوع بتصنيف غير صحيح — حساب المرتبات هيتوقف بخطأ لحد ما يتصحّح من شيت «أنواع حركات المرتب».</p>';
+      }
+      area.innerHTML = h;
+    }
+
+    async function addPayrollTxType_() {
+      if (!ptCanManage_()) { setPtFormStatus_('❌ مالكش صلاحية إدارة حركات المرتب.', true); return; }
+      const name = document.getElementById('ptName').value.trim();
+      const direction = document.getElementById('ptDirection').value;
+      const category = document.getElementById('ptCategory').value;
+      if (!name) { setPtFormStatus_('لازم تكتب اسم النوع.', true); return; }
+      if (direction !== 'إضافة' && direction !== 'خصم') { setPtFormStatus_('لازم تختار «إضافة» أو «خصم».', true); return; }
+      // ⬅️ التصنيف إلزامي في الواجهة، والسيرفر بيتحقق منه كمان (Fail-Closed).
+      if (PT_CATEGORIES_.indexOf(category) === -1) { setPtFormStatus_('لازم تختار التصنيف (Category).', true); return; }
+      if (ptTypesCache_.some(t => String(t.name).trim() === name)) {
+        setPtFormStatus_('فيه نوع بنفس الاسم موجود بالفعل.', true); return;
+      }
+      setPtFormStatus_('جاري الحفظ...');
+      try {
+        await callApiPost_({ action: 'salaryTxTypeAdd', name: name, direction: direction, category: category });
+        resetPayrollTxTypeForm_();
+        setPtFormStatus_('✅ اتضاف النوع.');
+        await loadPayrollTxTypesView_();
+      } catch (err) { setPtFormStatus_('❌ ' + err.message, true); }
+    }
+
+    function resetPayrollTxTypeForm_() {
+      document.getElementById('ptName').value = '';
+      document.getElementById('ptDirection').value = '';
+      document.getElementById('ptCategory').value = '';
+      setPtFormStatus_('');
+    }
+
+    async function togglePayrollTxType_(name, active) {
+      if (!ptCanManage_()) { setPtListStatus_('❌ مالكش صلاحية إدارة حركات المرتب.', true); return; }
+      if (!confirm((active ? 'تفعيل' : 'إيقاف') + ' النوع «' + name + '»؟\n\n'
+        + (active ? '' : 'النوع المتوقف مش هيقدر يتسجّل في حركات جديدة.'))) return;
+      setPtListStatus_('جاري التحديث...');
+      try {
+        await callApiPost_({ action: 'salaryTxTypeToggle', name: name, active: active ? 'true' : 'false' });
+        await loadPayrollTxTypesView_();
+      } catch (err) { setPtListStatus_('❌ ' + err.message, true); }
     }
 
     // ============================================================
