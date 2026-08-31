@@ -1526,7 +1526,8 @@
           || name === 'documents' || name === 'employees') {
         try { loadScriptOnce_(SHEETJS_URL_).catch(() => {}); } catch (e) {}
         try { loadScriptOnce_(HTML2PDF_URL_).catch(() => {}); } catch (e) {}
-        if (name === 'monthlyClosing' || name === 'endOfService') { try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {} }
+        // ⬅️ Phase B: كل الأقسام اللي فيها تصدير Excel بقت على ExcelJS.
+      try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
@@ -2162,9 +2163,12 @@
           period: { type: 'custom', from: report.fromDate, to: report.toDate },
           employee: { code: emp.code, nameAr: emp.nameAr },
           fileName: 'تقرير_حضور_' + emp.code + '_' + report.fromDate,
+          // ⬅️ الأعمدة أيام مش هوية ⇒ xSplit 0 (تجميد الرأس بس).
+          excelOptions: { xSplit: 0, ySplit: 1,
+            colWidths: [14, 12, 14, 13, 15, 14, 20, 16, 12, 30] },
         };
 
-        if (format === 'excel') exportReportToExcel_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config);
         else printReport_(config);
       } catch (err) {
         alert('❌ ' + err.message);
@@ -2190,8 +2194,11 @@
           title: 'تقرير حضور — كل الموظفين', headers, rows,
           period: { type: 'custom', from: json.fromDate, to: json.toDate },
           fileName: 'تقرير_حضور_كل_الموظفين_' + json.fromDate,
+          // ⬅️ Phase B: تثبيت الكود + الاسم أثناء التحرك الأفقي (12 عمود).
+          excelOptions: { xSplit: 2, ySplit: 1,
+            colWidths: [9, 30, 12, 10, 10, 10, 12, 13, 12, 13, 14, 14] },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -3773,8 +3780,9 @@
         const config = {
           title: 'بيانات الموظفين', headers, rows,
           fileName: 'بيانات_الموظفين_' + new Date().toISOString().slice(0, 10),
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 20, 14, 16, 24] },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -4523,8 +4531,9 @@
           title: 'مستندات الموظف — ' + (emp ? emp.nameAr : code), headers, rows,
           employee: { code, nameAr: emp ? emp.nameAr : code },
           fileName: 'مستندات_' + code + '_' + new Date().toISOString().slice(0, 10),
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [28, 14, 20, 14, 16, 16] },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -4642,8 +4651,9 @@
         const config = {
           title: 'تقرير الموظفين الناقص لهم مستندات', headers, rows,
           fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 14, 12, 46] },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -4675,8 +4685,9 @@
         const config = {
           title: 'تقرير المستندات قربت تنتهي', headers, rows,
           fileName: 'مستندات_قربت_تنتهي_' + new Date().toISOString().slice(0, 10),
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 24, 20, 14, 14, 14] },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -4732,8 +4743,9 @@
           title: 'تقرير المستندات حسب النوع — ' + type, headers, rows,
           filters: { 'نوع المستند': type },
           fileName: 'تقرير_مستندات_' + type + '_' + new Date().toISOString().slice(0, 10),
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 14, 20, 14] },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -4780,8 +4792,9 @@
           title: 'تقرير الموظفين الجدد', headers, rows,
           period: { type: 'custom', from: lastNewHiresRange_.from, to: lastNewHiresRange_.to },
           fileName: 'الموظفين_الجدد_' + lastNewHiresRange_.from + '_' + lastNewHiresRange_.to,
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [32, 18] },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
