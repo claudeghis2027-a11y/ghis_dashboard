@@ -4646,6 +4646,32 @@
       if (!missingReportCache) { alert('❌ اعرض التقرير الأول.'); return; }
       try {
         await assertExportPermit_('missingDocumentsReportExport');
+        if (format === 'excel') {
+          // ⬅️ Excel فقط: كل مستند ناقص في خلية مستقلة بدل خلية مجمّعة.
+          //    عدد الأعمدة = أكبر عدد مستندات ناقصة بين الموظفين (مش رقم ثابت)،
+          //    والترتيب زي ما هو في missingTypes بالحرف — صفر إعادة ترتيب.
+          // ⛔ صفر تغيير في missingReportCache أو في طريقة تحديد النواقص.
+          const maxDocs = missingReportCache.reduce(
+            (m, r) => Math.max(m, (r.missingTypes || []).length), 0);
+          const docHeaders = [];
+          for (let i = 1; i <= maxDocs; i++) docHeaders.push('المستند الناقص ' + i);
+          const xlHeaders = ['الكود', 'الاسم', 'الحالة', 'عدد الناقص'].concat(docHeaders);
+          const xlRows = missingReportCache.map(r => {
+            const t = r.missingTypes || [];
+            const cells = [r.code, r.nameAr, r.status, r.missingCount];
+            // الخلايا الزايدة بتفضل فاضية للموظف اللي ناقصه أقل
+            for (let i = 0; i < maxDocs; i++) cells.push(t[i] === undefined ? '' : t[i]);
+            return cells;
+          });
+          await exportGenericToExcelJs_({
+            title: 'تقرير الموظفين الناقص لهم مستندات', headers: xlHeaders, rows: xlRows,
+            fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
+            excelOptions: { xSplit: 0, ySplit: 1,
+              colWidths: [9, 30, 14, 12].concat(docHeaders.map(() => 26)) },
+          });
+          return;
+        }
+        // ⛔ الطباعة زي ما هي بالحرف — الأنواع مجمّعة في خلية واحدة.
         const headers = ['الكود', 'الاسم', 'الحالة', 'عدد الناقص', 'الأنواع الناقصة'];
         const rows = missingReportCache.map(r => [r.code, r.nameAr, r.status, r.missingCount, r.missingTypes.join('، ')]);
         const config = {
@@ -4653,7 +4679,7 @@
           fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
           excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 14, 12, 46] },
         };
-        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
+        printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
