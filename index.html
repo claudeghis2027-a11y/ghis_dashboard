@@ -682,6 +682,9 @@
            رأسي دلوقتي بدل Tabbar أفقي. صفر تغيير في الـ Navigation
            Logic أو الـ Information Architecture. ============== -->
       <nav class="sidebar-nav">
+        <button class="sidebar-link" id="tabBtn-settings" onclick="switchView('settings')">
+          <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></span> الإعدادات
+        </button>
         <button class="sidebar-link active" id="tabBtn-reports" onclick="switchView('reports')">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-7"/></svg></span> التقارير
         </button>
@@ -748,6 +751,65 @@
       <div class="app-content-inner">
 
   <!-- ============== 1) قسم التقارير (زي ما كان بالظبط) ============== -->
+  <!-- ============== S1 — الإعدادات / السنوات الدراسية (صلاحية settings) ==============
+       ⛔ Year-Based Context فقط. Continuous Data (الموظفين · المستندات ·
+          المستخدمين · الصلاحيات · حركات المرتب) مالهاش أي ربط بالسنة. -->
+  <div id="view-settings" class="view" style="display:none">
+    <div class="card">
+      <h2>السنة الدراسية</h2>
+      <div id="ayActiveBar" style="font-size:13px;margin-bottom:10px"></div>
+      <p style="font-size:12px;color:#777">
+        السنة الدراسية سياق للبيانات التشغيلية (المرتبات · العلاوات · خصم/رد الربع) فقط.
+        <b>بيانات الموظفين والمستندات والمستخدمين والصلاحيات وحركات المرتب مستمرة عبر السنوات ولا تتأثر باختيار السنة.</b>
+      </p>
+      <div class="form-grid">
+        <div><label>اسم السنة</label><input type="text" id="ayName" placeholder="مثال: 2026–2027"></div>
+        <div><label>من تاريخ</label><input type="date" id="ayFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="ayTo"></div>
+      </div>
+      <div class="form-actions">
+        <button id="aySaveBtn" onclick="saveAcademicYear_()">إضافة السنة</button>
+        <button class="secondary" onclick="resetAcademicYearForm_()">إلغاء</button>
+      </div>
+      <div id="ayFormStatus" style="font-size:13px;margin-top:6px"></div>
+    </div>
+
+    <div class="card">
+      <h2>السنوات المسجَّلة</h2>
+      <div id="ayListStatus" style="font-size:13px;margin-bottom:8px"></div>
+      <div id="ayListArea"></div>
+    </div>
+
+    <!-- ============== S2 — إعدادات المرتبات للسنة ==============
+         ⛔ إعدادات فقط — صفر منطق مالي وصفر تطبيق خصم. -->
+    <div class="card">
+      <h2>إعدادات المرتبات للسنة</h2>
+      <p style="font-size:12px;color:#777">
+        الإعدادات دي بتحدد <b>أي شهر</b> هو شهر العلاوة وشهر خصم الربعين وشهر ردهما،
+        وأي أقسام مشمولة بالخصم. <b>الحفظ هنا مابيطبّقش أي خصم ولا علاوة</b> —
+        التطبيق بيحصل وقت تكوين كشف المرتبات في مرحلة لاحقة.
+      </p>
+      <div class="form-grid">
+        <div><label>السنة الدراسية</label>
+          <select id="pysYear" onchange="loadPayrollYearSettings_()"><option value="">— اختار —</option></select></div>
+      </div>
+      <div id="pysBody" style="display:none">
+        <div class="form-grid">
+          <div><label>شهر العلاوة السنوية</label><select id="pysRaise"></select></div>
+          <div><label>شهر خصم الربعين</label><select id="pysDeduct"></select></div>
+          <div><label>شهر رد الربعين</label><select id="pysRefund"></select></div>
+        </div>
+        <div><label>الأقسام المشمولة بخصم الربعين</label></div>
+        <div id="pysDepts" style="display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 10px"></div>
+        <div id="pysSummary" style="font-size:13px;margin-bottom:8px"></div>
+        <div class="form-actions">
+          <button onclick="savePayrollYearSettings_()">حفظ الإعدادات</button>
+        </div>
+      </div>
+      <div id="pysStatus" style="font-size:13px;margin-top:6px"></div>
+    </div>
+  </div>
+
   <div id="view-reports" class="view">
     <div class="card" id="dashboardCard">
       <h2>اختيار التقرير</h2>
@@ -1569,7 +1631,7 @@
     // التنقل بين الأقسام
     // ============================================================
     function switchView(name) {
-      ['reports', 'monthlyClosing', 'pendingProfile', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp', 'notifications', 'lateWaivers', 'payrollTypes'].forEach(v => {
+      ['settings', 'reports', 'monthlyClosing', 'pendingProfile', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp', 'notifications', 'lateWaivers', 'payrollTypes'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
         const btn = document.getElementById('tabBtn-' + v);
         if (btn) btn.classList.toggle('active', v === name);
@@ -1634,6 +1696,7 @@
       try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
+      if (name === 'settings') { loadAcademicYearsView_(); }
       if (name === 'payrollTypes') { if (!payrollTypesLoaded_) { loadPayrollTxTypesView_(); payrollTypesLoaded_ = true; } }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
@@ -1874,7 +1937,7 @@
       // ⬅️ Phase 2 — notifications: صلاحية مستقلة تمامًا (notifications_manage)،
       // نفس اللي في ACTION_SECTION_MAP_ بالحرف. الـmap دي بتغذّي إخفاء
       // الزر وallowedViews (Navigation Persistence) الاتنين — فسطر واحد كفاية.
-      const tabSectionMap = { reports: 'reports', monthlyClosing: 'reports', whatsapp: 'whatsapp_send', pendingProfile: 'employees', employees: 'employees', rules: 'rules', documents: 'documents', backup: 'backup', notifications: 'notifications_manage',
+      const tabSectionMap = { settings: 'settings', reports: 'reports', monthlyClosing: 'reports', whatsapp: 'whatsapp_send', pendingProfile: 'employees', employees: 'employees', rules: 'rules', documents: 'documents', backup: 'backup', notifications: 'notifications_manage',
         lateWaivers: 'attendance_adjust',
         // ⬅️ P1: الشاشتان تحت صلاحية salary الموجودة — صفر صلاحية جديدة.
         payroll: 'salary', payrollTypes: 'salary' };
@@ -6314,6 +6377,279 @@
       h += '</tbody></table></div>'
         + '<p style="font-size:12px;color:#777;margin-top:8px">التعديل والحذف لسه مش متاحين من الشاشة — بيتعملوا من شيت «حركات المرتب» مباشرةً.</p>';
       area.innerHTML = h;
+    }
+
+
+    // ============================================================
+    // S1 — الإعدادات / السنوات الدراسية
+    // ⛔ Year-Based Context فقط — صفر قراءة أو كتابة لأي Continuous Data.
+    // ⛔ الـGlobal Context مؤجَّل لـS2 عمدًا (أول مستهلك حقيقي)، فمفيش
+    //    حالة سنة محفوظة في المتصفح دلوقتي.
+    // ⛔ صفر مساس بأي محرك حساب أو صلاحية قائمة.
+    // ============================================================
+    let ayCache_ = [];
+    let ayEditingId_ = null;
+
+    function ayCanManage_() {
+      return !!(currentSession && (currentSession.isAdmin || currentSession.sections.includes('settings')));
+    }
+    function setAyFormStatus_(m, e) {
+      const el = document.getElementById('ayFormStatus');
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+    function setAyListStatus_(m, e) {
+      const el = document.getElementById('ayListStatus');
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+
+    async function loadAcademicYearsView_() {
+      if (!ayCanManage_()) { setAyListStatus_('❌ مالكش صلاحية الإعدادات.', true); return; }
+      setAyListStatus_('جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'academicYears' });
+        ayCache_ = json.years || [];
+        renderAcademicYears_();
+        fillPysYears_();   // ⬅️ S2: dropdown السنة في بطاقة الإعدادات
+        setAyListStatus_(ayCache_.length + ' سنة.');
+      } catch (err) {
+        ayCache_ = [];
+        document.getElementById('ayListArea').innerHTML = '';
+        document.getElementById('ayActiveBar').innerHTML = '';
+        setAyListStatus_('❌ ' + err.message, true);
+      }
+    }
+
+    function renderAcademicYears_() {
+      const bar = document.getElementById('ayActiveBar');
+      const act = ayCache_.filter(y => y.active);
+      if (act.length === 1) {
+        bar.innerHTML = '<b>السنة النشطة:</b> ' + escapeHtml_(act[0].name)
+          + ' <span style="color:#777">(' + escapeHtml_(act[0].from) + ' → ' + escapeHtml_(act[0].to) + ')</span>';
+        bar.style.color = '';
+      } else if (act.length === 0) {
+        bar.innerHTML = '⚠️ مفيش سنة دراسية نشطة — فعّل واحدة من الجدول.';
+        bar.style.color = 'var(--color-danger)';
+      } else {
+        bar.innerHTML = '🔴 فيه ' + act.length + ' سنوات نشطة في نفس الوقت — فعّل واحدة بس.';
+        bar.style.color = 'var(--color-danger)';
+      }
+
+      const area = document.getElementById('ayListArea');
+      if (!ayCache_.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">مفيش سنوات دراسية مسجّلة.</p>';
+        return;
+      }
+      let h = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>اسم السنة</th><th>من تاريخ</th><th>لحد تاريخ</th><th>الحالة</th>'
+        + '<th>أنشأها</th><th></th><th></th>'
+        + '</tr></thead><tbody>';
+      ayCache_.forEach(y => {
+        const id = escapeHtml_(String(y.id));
+        h += '<tr>'
+          + '<td>' + escapeHtml_(y.name) + '</td>'
+          + '<td>' + escapeHtml_(y.from) + '</td>'
+          + '<td>' + escapeHtml_(y.to) + '</td>'
+          + '<td>' + (y.active
+              ? '<span style="color:var(--color-success);font-weight:700">نشطة</span>'
+              : '<span style="color:#999">غير نشطة</span>') + '</td>'
+          + '<td>' + escapeHtml_(y.createdBy || '') + '</td>'
+          + '<td><button class="link-btn" onclick="editAcademicYear_(\'' + id + '\')">تعديل</button></td>'
+          + '<td>' + (y.active ? ''
+              : '<button class="link-btn" onclick="activateAcademicYear_(\'' + id + '\')">تفعيل</button>') + '</td>'
+          + '</tr>';
+      });
+      h += '</tbody></table></div>';
+      area.innerHTML = h;
+    }
+
+    async function saveAcademicYear_() {
+      if (!ayCanManage_()) { setAyFormStatus_('❌ مالكش صلاحية الإعدادات.', true); return; }
+      const name = document.getElementById('ayName').value.trim();
+      const from = document.getElementById('ayFrom').value;
+      const to = document.getElementById('ayTo').value;
+      if (!name) { setAyFormStatus_('لازم تكتب اسم السنة.', true); return; }
+      if (!from || !to) { setAyFormStatus_('لازم تحدد تاريخ البداية والنهاية.', true); return; }
+      if (from >= to) { setAyFormStatus_('تاريخ البداية لازم يكون قبل تاريخ النهاية.', true); return; }
+      const btn = document.getElementById('aySaveBtn'); btn.disabled = true;
+      setAyFormStatus_('جاري الحفظ...');
+      try {
+        // ⛔ أنشأها بييجي من الجلسة سيرفر-سايد — الواجهة مابتبعتش user.
+        if (ayEditingId_) {
+          await callApiPost_({ action: 'academicYearUpdate', id: ayEditingId_, name: name, from: from, to: to });
+        } else {
+          await callApiPost_({ action: 'academicYearAdd', name: name, from: from, to: to });
+        }
+        const wasEdit = !!ayEditingId_;
+        resetAcademicYearForm_();
+        setAyFormStatus_(wasEdit ? '✅ اتعدّلت السنة.' : '✅ اتضافت السنة.');
+        await loadAcademicYearsView_();
+      } catch (err) { setAyFormStatus_('❌ ' + err.message, true); }
+      finally { btn.disabled = false; }
+    }
+
+    function editAcademicYear_(id) {
+      const y = ayCache_.find(x => String(x.id) === String(id));
+      if (!y) return;
+      ayEditingId_ = String(y.id);
+      document.getElementById('ayName').value = y.name;
+      document.getElementById('ayFrom').value = y.from;
+      document.getElementById('ayTo').value = y.to;
+      document.getElementById('aySaveBtn').textContent = 'حفظ التعديل';
+      setAyFormStatus_('وضع التعديل — الحالة (نشطة/غير نشطة) مش بتتغيّر من هنا.');
+    }
+
+    function resetAcademicYearForm_() {
+      ayEditingId_ = null;
+      document.getElementById('ayName').value = '';
+      document.getElementById('ayFrom').value = '';
+      document.getElementById('ayTo').value = '';
+      document.getElementById('aySaveBtn').textContent = 'إضافة السنة';
+      setAyFormStatus_('');
+    }
+
+    async function activateAcademicYear_(id) {
+      if (!ayCanManage_()) { setAyListStatus_('❌ مالكش صلاحية الإعدادات.', true); return; }
+      const y = ayCache_.find(x => String(x.id) === String(id));
+      if (!y) return;
+      if (!confirm('تفعيل السنة «' + y.name + '»؟\n\n'
+        + 'أي سنة نشطة تانية هتبقى غير نشطة.\n'
+        + 'التفعيل بيغيّر سياق البيانات التشغيلية بس — بيانات الموظفين والمستندات '
+        + 'والمستخدمين وحركات المرتب مش هتتأثر إطلاقًا.')) return;
+      setAyListStatus_('جاري التفعيل...');
+      try {
+        await callApiPost_({ action: 'academicYearSetActive', id: String(id) });
+        await loadAcademicYearsView_();
+      } catch (err) { setAyListStatus_('❌ ' + err.message, true); }
+    }
+
+
+    // ============================================================
+    // S2 — إعدادات المرتبات للسنة
+    // ⛔ إعدادات فقط — صفر منطق مالي · صفر نسب علاوة · صفر تطبيق خصم.
+    // ⛔ الشهور بتتولّد من نطاق السنة اللي السيرفر بيرجّعه — مصدر واحد
+    //    للحقيقة، فمستحيل تختار شهرًا برّه السنة.
+    // ⛔ الأقسام من بيانات الموظفين الفعلية — صفر شيت جديد.
+    // ⛔ صفر user من العميل — "سجّله" من الجلسة سيرفر-سايد.
+    // ============================================================
+    let pysMonths_ = [];
+    let pysDepts_ = [];
+    let pysCurrent_ = null;
+
+    const PYS_MONTH_AR_ = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
+      'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    function pysMonthLabel_(m) {
+      const p = String(m).split('-');
+      if (p.length !== 2) return m;
+      const i = Number(p[1]) - 1;
+      return (PYS_MONTH_AR_[i] || p[1]) + ' ' + p[0];
+    }
+    function setPysStatus_(m, e) {
+      const el = document.getElementById('pysStatus');
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+
+    // ⬅️ بتتنادى بعد تحميل السنوات — بتملّي dropdown السنة.
+    function fillPysYears_() {
+      const sel = document.getElementById('pysYear');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">— اختار —</option>';
+      (ayCache_ || []).forEach(y => {
+        const o = document.createElement('option');
+        o.value = y.id;
+        o.textContent = y.name + (y.active ? '  (النشطة)' : '');
+        sel.appendChild(o);
+      });
+      sel.value = cur;
+      if (!sel.value) { document.getElementById('pysBody').style.display = 'none'; }
+    }
+
+    function fillPysMonthSelect_(id, value) {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '<option value="">— بدون —</option>';
+      pysMonths_.forEach(m => {
+        const o = document.createElement('option');
+        o.value = m; o.textContent = pysMonthLabel_(m);
+        sel.appendChild(o);
+      });
+      sel.value = value || '';
+    }
+
+    async function loadPayrollYearSettings_() {
+      const yearId = document.getElementById('pysYear').value;
+      const body = document.getElementById('pysBody');
+      if (!yearId) { body.style.display = 'none'; setPysStatus_(''); return; }
+      setPysStatus_('جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'payrollYearSettings', yearId: yearId });
+        pysMonths_ = json.months || [];
+        pysCurrent_ = json.settings || null;
+        if (!pysDepts_.length) {
+          const d = await callApi_({ action: 'employeeDepartments' });
+          pysDepts_ = d.departments || [];
+        }
+        fillPysMonthSelect_('pysRaise', pysCurrent_ ? pysCurrent_.raiseMonth : '');
+        fillPysMonthSelect_('pysDeduct', pysCurrent_ ? pysCurrent_.quarterDeductMonth : '');
+        fillPysMonthSelect_('pysRefund', pysCurrent_ ? pysCurrent_.quarterRefundMonth : '');
+        renderPysDepts_();
+        renderPysSummary_();
+        body.style.display = '';
+        setPysStatus_(pysCurrent_
+          ? 'آخر حفظ: ' + (pysCurrent_.savedAt || '') + ' — ' + (pysCurrent_.savedBy || '')
+          : 'مفيش إعدادات محفوظة للسنة دي لسه.');
+      } catch (err) {
+        body.style.display = 'none';
+        setPysStatus_('❌ ' + err.message, true);
+      }
+    }
+
+    function renderPysDepts_() {
+      const box = document.getElementById('pysDepts');
+      const sel = (pysCurrent_ && pysCurrent_.departments) ? pysCurrent_.departments : [];
+      if (!pysDepts_.length) {
+        box.innerHTML = '<span style="font-size:13px;color:#777">مفيش أقسام في بيانات الموظفين.</span>';
+        return;
+      }
+      box.innerHTML = pysDepts_.map(d =>
+        '<label class="notif-chk"><input type="checkbox" class="pys-dept" value="' + escapeHtml_(d) + '"'
+        + (sel.indexOf(d) !== -1 ? ' checked' : '') + ' onchange="renderPysSummary_()"> ' + escapeHtml_(d) + '</label>'
+      ).join('');
+    }
+
+    function renderPysSummary_() {
+      const d = Array.from(document.querySelectorAll('.pys-dept:checked')).map(c => c.value);
+      const r = document.getElementById('pysRaise').value;
+      const q = document.getElementById('pysDeduct').value;
+      const f = document.getElementById('pysRefund').value;
+      document.getElementById('pysSummary').innerHTML =
+        '<b>العلاوة:</b> ' + (r ? escapeHtml_(pysMonthLabel_(r)) : '—')
+        + ' · <b>خصم الربعين:</b> ' + (q ? escapeHtml_(pysMonthLabel_(q)) : '—')
+        + ' · <b>رد الربعين:</b> ' + (f ? escapeHtml_(pysMonthLabel_(f)) : '—')
+        + ' · <b>الأقسام:</b> ' + (d.length ? d.length + ' قسم' : '—');
+    }
+
+    async function savePayrollYearSettings_() {
+      if (!ayCanManage_()) { setPysStatus_('❌ مالكش صلاحية الإعدادات.', true); return; }
+      const yearId = document.getElementById('pysYear').value;
+      if (!yearId) { setPysStatus_('اختار السنة الأول.', true); return; }
+      const raiseMonth = document.getElementById('pysRaise').value;
+      const quarterDeductMonth = document.getElementById('pysDeduct').value;
+      const quarterRefundMonth = document.getElementById('pysRefund').value;
+      const departments = Array.from(document.querySelectorAll('.pys-dept:checked')).map(c => c.value);
+      // ⚠️ تنبيه منطقي — مش منع: أقسام مختارة بدون شهر خصم مالهاش أثر.
+      if (departments.length && !quarterDeductMonth) {
+        if (!confirm('اخترت أقسامًا لخصم الربعين من غير ما تحدد شهر الخصم.\n\n'
+          + 'الأقسام هتتحفظ لكن مفيش خصم هيتطبّق. تكمّل؟')) return;
+      }
+      setPysStatus_('جاري الحفظ...');
+      try {
+        // ⛔ صفر user — السيرفر بياخده من الجلسة.
+        await callApiPost_({ action: 'payrollYearSettingsSet', yearId: yearId,
+          raiseMonth: raiseMonth, quarterDeductMonth: quarterDeductMonth,
+          quarterRefundMonth: quarterRefundMonth, departments: departments.join(',') });
+        await loadPayrollYearSettings_();
+        setPysStatus_('✅ اتحفظت الإعدادات.');
+      } catch (err) { setPysStatus_('❌ ' + err.message, true); }
     }
 
     // ============================================================
