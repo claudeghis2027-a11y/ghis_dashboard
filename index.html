@@ -1526,7 +1526,7 @@
           || name === 'documents' || name === 'employees') {
         try { loadScriptOnce_(SHEETJS_URL_).catch(() => {}); } catch (e) {}
         try { loadScriptOnce_(HTML2PDF_URL_).catch(() => {}); } catch (e) {}
-        if (name === 'monthlyClosing') { try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {} }
+        if (name === 'monthlyClosing' || name === 'endOfService') { try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {} }
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
@@ -2779,6 +2779,49 @@
       ws.addRow(config.headers || []);
       (config.rows || []).forEach(r => ws.addRow(r));
       (config.colWidths || []).forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+      const head = ws.getRow(1);
+      head.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      head.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      head.height = 34;
+      head.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF123166' } }; });
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = sanitizeExportFileName_(config.fileName) + '.xlsx';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // ⬅️ Phase A (Pilot) — تصدير عام بـExcelJS: RTL + تجميد + عرض أعمدة.
+    //    نفس الـimplementation الناجح في Monthly Closing بالحرف، مع فرق
+    //    واحد ضروري: دعم config.totals اللي مسار SheetJS بيدعمه.
+    // ⛔ نفس headers/rows/القيم/الترتيب — صفر تغيير في أي بيانات.
+    // ⛔ لو ExcelJS فشلت في التحميل بنرجع لمسار SheetJS بالحرف، فالتصدير
+    //    مايفشلش أبدًا (نفس آلية Monthly Closing).
+    async function exportGenericToExcelJs_(config) {
+      if (typeof ExcelJS === 'undefined') {
+        try { await loadScriptOnce_(EXCELJS_URL_); }
+        catch (err) { await exportReportToExcel_(config); return; }
+      }
+      const o = config.excelOptions || {};
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('التقرير', {
+        views: [{
+          state: 'frozen',
+          xSplit: o.xSplit || 0,
+          ySplit: (o.ySplit === undefined ? 1 : o.ySplit),
+          rightToLeft: true,
+        }],
+      });
+      ws.addRow(config.headers || []);
+      (config.rows || []).forEach(r => ws.addRow(r));
+      // ⬅️ نفس منطق SheetJS بالحرف: صف فاضي ثم [label, value] لكل بند.
+      if (config.totals && config.totals.length > 0) {
+        ws.addRow([]);
+        config.totals.forEach(t => ws.addRow([t.label, t.value]));
+      }
+      (o.colWidths || []).forEach((w, i) => { ws.getColumn(i + 1).width = w; });
       const head = ws.getRow(1);
       head.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       head.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
@@ -4789,8 +4832,10 @@
           title: 'تقرير نهاية الخدمة', headers, rows,
           period: { type: 'custom', from: lastEndOfServiceRange_.from, to: lastEndOfServiceRange_.to },
           fileName: 'نهاية_الخدمة_' + lastEndOfServiceRange_.from + '_' + lastEndOfServiceRange_.to,
+          // ⬅️ Pilot: 4 أعمدة ⇒ xSplit 0 (مفيش تجميد أفقي) · تجميد الرأس بس.
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [32, 20, 14, 40] },
         };
-        if (format === 'excel') exportReportToExcel_(config); else printReport_(config);
+        if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
     }
 
