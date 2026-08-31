@@ -796,9 +796,10 @@
       <div id="pysBody" style="display:none">
         <div class="form-grid">
           <div><label>شهر العلاوة السنوية</label><select id="pysRaise"></select></div>
-          <div><label>شهر خصم الربعين</label><select id="pysDeduct"></select></div>
           <div><label>شهر رد الربعين</label><select id="pysRefund"></select></div>
         </div>
+        <div><label>شهور خصم الربعين (ممكن تختار أكتر من شهر)</label></div>
+        <div id="pysDeductMonths" style="display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 10px"></div>
         <div><label>الأقسام المشمولة بخصم الربعين</label></div>
         <div id="pysDepts" style="display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 10px"></div>
         <div id="pysSummary" style="font-size:13px;margin-bottom:8px"></div>
@@ -807,6 +808,27 @@
         </div>
       </div>
       <div id="pysStatus" style="font-size:13px;margin-top:6px"></div>
+    </div>
+
+    <!-- ============== سياسة خصم الربعين: القسم × الشهر ==============
+         ⛔ إعداد سياسة فقط — صفر تنفيذ خصم مالي في المرحلة دي. -->
+    <div class="card" id="qdpCard" style="display:none">
+      <h2>سياسة خصم الربعين (القسم × الشهر)</h2>
+      <p style="font-size:12px;color:#777">
+        كل قسم ليه سياسته المستقلة في كل شهر — قسم ممكن يتخصم منه شهرين،
+        وقسم شهر واحد، وقسم لا يُخصم منه إطلاقًا.
+        <b>الحفظ هنا إعداد فقط ومابيطبّقش أي خصم</b> — التطبيق بيحصل وقت تكوين
+        كشف المرتبات في مرحلة لاحقة.
+        <br>⚠️ <b>السياسة بتتطبّق حسب القسم الحالي للموظف.</b> انتقال الموظف بين
+        الأقسام أثناء السنة <b>مش محسوب تاريخيًا</b> — الحالات الفردية هتتعالج
+        بإعفاء الموظف من كشف المرتبات لاحقًا.
+      </p>
+      <div id="qdpArea"></div>
+      <div id="qdpSummary" style="font-size:13px;margin:8px 0"></div>
+      <div class="form-actions">
+        <button onclick="saveQuarterPolicy_()">حفظ السياسة</button>
+      </div>
+      <div id="qdpStatus" style="font-size:13px;margin-top:6px"></div>
     </div>
   </div>
 
@@ -6564,15 +6586,41 @@
       if (!sel.value) { document.getElementById('pysBody').style.display = 'none'; }
     }
 
-    function fillPysMonthSelect_(id, value) {
+    function fillPysMonthSelect_(id, months, value) {
       const sel = document.getElementById(id);
       sel.innerHTML = '<option value="">— بدون —</option>';
-      pysMonths_.forEach(m => {
+      (months || []).forEach(m => {
         const o = document.createElement('option');
         o.value = m; o.textContent = pysMonthLabel_(m);
         sel.appendChild(o);
       });
       sel.value = value || '';
+    }
+
+    // ⬅️ شهور الرد = شهور السنة + 12 شهرًا بعدها. القيد على النطاق اتشال
+    //    في السيرفر (الصيغة بس)، والقائمة دي بتمنع الأخطاء المطبعية.
+    function pysRefundMonths_() {
+      const out = (pysMonths_ || []).slice();
+      if (!out.length) return out;
+      const last = out[out.length - 1].split('-');
+      const d = new Date(Number(last[0]), Number(last[1]) - 1, 1);
+      for (let i = 0; i < 12; i++) {
+        d.setMonth(d.getMonth() + 1);
+        out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+      }
+      return out;
+    }
+
+    // ⬅️ شهور الخصم Multi — نفس نمط checkboxes الأقسام القائم.
+    function renderPysDeductMonths_() {
+      const box = document.getElementById('pysDeductMonths');
+      const sel = (pysCurrent_ && pysCurrent_.quarterDeductMonths) ? pysCurrent_.quarterDeductMonths : [];
+      if (!pysMonths_.length) { box.innerHTML = ''; return; }
+      box.innerHTML = pysMonths_.map(m =>
+        '<label class="notif-chk"><input type="checkbox" class="pys-dmonth" value="' + escapeHtml_(m) + '"'
+        + (sel.indexOf(m) !== -1 ? ' checked' : '') + ' onchange="renderPysSummary_()"> '
+        + escapeHtml_(pysMonthLabel_(m)) + '</label>'
+      ).join('');
     }
 
     async function loadPayrollYearSettings_() {
@@ -6588,11 +6636,13 @@
           const d = await callApi_({ action: 'employeeDepartments' });
           pysDepts_ = d.departments || [];
         }
-        fillPysMonthSelect_('pysRaise', pysCurrent_ ? pysCurrent_.raiseMonth : '');
-        fillPysMonthSelect_('pysDeduct', pysCurrent_ ? pysCurrent_.quarterDeductMonth : '');
-        fillPysMonthSelect_('pysRefund', pysCurrent_ ? pysCurrent_.quarterRefundMonth : '');
+        fillPysMonthSelect_('pysRaise', pysMonths_, pysCurrent_ ? pysCurrent_.raiseMonth : '');
+        // ⬅️ شهر الرد ممكن يجي بعد نهاية السنة ⇒ القائمة = شهور السنة + 12 شهرًا.
+        fillPysMonthSelect_('pysRefund', pysRefundMonths_(), pysCurrent_ ? pysCurrent_.quarterRefundMonth : '');
+        renderPysDeductMonths_();
         renderPysDepts_();
         renderPysSummary_();
+        await loadQuarterPolicy_();   // ⬅️ سياسة القسم × الشهر
         body.style.display = '';
         setPysStatus_(pysCurrent_
           ? 'آخر حفظ: ' + (pysCurrent_.savedAt || '') + ' — ' + (pysCurrent_.savedBy || '')
@@ -6619,11 +6669,11 @@
     function renderPysSummary_() {
       const d = Array.from(document.querySelectorAll('.pys-dept:checked')).map(c => c.value);
       const r = document.getElementById('pysRaise').value;
-      const q = document.getElementById('pysDeduct').value;
+      const q = Array.from(document.querySelectorAll('.pys-dmonth:checked')).map(c => c.value).sort();
       const f = document.getElementById('pysRefund').value;
       document.getElementById('pysSummary').innerHTML =
         '<b>العلاوة:</b> ' + (r ? escapeHtml_(pysMonthLabel_(r)) : '—')
-        + ' · <b>خصم الربعين:</b> ' + (q ? escapeHtml_(pysMonthLabel_(q)) : '—')
+        + ' · <b>خصم الربعين:</b> ' + (q.length ? escapeHtml_(q.map(pysMonthLabel_).join(' + ')) : '—')
         + ' · <b>رد الربعين:</b> ' + (f ? escapeHtml_(pysMonthLabel_(f)) : '—')
         + ' · <b>الأقسام:</b> ' + (d.length ? d.length + ' قسم' : '—');
     }
@@ -6633,11 +6683,13 @@
       const yearId = document.getElementById('pysYear').value;
       if (!yearId) { setPysStatus_('اختار السنة الأول.', true); return; }
       const raiseMonth = document.getElementById('pysRaise').value;
-      const quarterDeductMonth = document.getElementById('pysDeduct').value;
+      // ⬅️ Multi + إزالة تكرار + ترتيب (السيرفر بيعمل نفس الشيء كمان).
+      const quarterDeductMonths = Array.from(document.querySelectorAll('.pys-dmonth:checked'))
+        .map(c => c.value).filter((v, i, a) => a.indexOf(v) === i).sort();
       const quarterRefundMonth = document.getElementById('pysRefund').value;
       const departments = Array.from(document.querySelectorAll('.pys-dept:checked')).map(c => c.value);
       // ⚠️ تنبيه منطقي — مش منع: أقسام مختارة بدون شهر خصم مالهاش أثر.
-      if (departments.length && !quarterDeductMonth) {
+      if (departments.length && !quarterDeductMonths.length) {
         if (!confirm('اخترت أقسامًا لخصم الربعين من غير ما تحدد شهر الخصم.\n\n'
           + 'الأقسام هتتحفظ لكن مفيش خصم هيتطبّق. تكمّل؟')) return;
       }
@@ -6645,11 +6697,117 @@
       try {
         // ⛔ صفر user — السيرفر بياخده من الجلسة.
         await callApiPost_({ action: 'payrollYearSettingsSet', yearId: yearId,
-          raiseMonth: raiseMonth, quarterDeductMonth: quarterDeductMonth,
+          raiseMonth: raiseMonth, quarterDeductMonths: quarterDeductMonths.join(','),
           quarterRefundMonth: quarterRefundMonth, departments: departments.join(',') });
         await loadPayrollYearSettings_();
         setPysStatus_('✅ اتحفظت الإعدادات.');
       } catch (err) { setPysStatus_('❌ ' + err.message, true); }
+    }
+
+
+    // ============================================================
+    // سياسة خصم الربعين — القسم × الشهر
+    // ⛔ إعداد فقط — صفر تنفيذ خصم · صفر Employee Override هنا.
+    // ⛔ actions موجودة: quarterDeductionPolicy · quarterDeductionPolicySet.
+    // ⛔ صفر user من العميل — "سجّله" من الجلسة سيرفر-سايد.
+    // ⚠️ السياسة حسب القسم الحالي للموظف — الانتقال وسط السنة مش محسوب.
+    // ============================================================
+    let qdpPolicy_ = {};
+    let qdpMonths_ = [];
+    let qdpDepts_ = [];
+
+    function setQdpStatus_(m, e) {
+      const el = document.getElementById('qdpStatus');
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+
+    async function loadQuarterPolicy_() {
+      const yearId = document.getElementById('pysYear').value;
+      const card = document.getElementById('qdpCard');
+      if (!yearId) { card.style.display = 'none'; return; }
+      try {
+        const json = await callApi_({ action: 'quarterDeductionPolicy', yearId: yearId });
+        qdpPolicy_ = json.policy || {};
+        qdpMonths_ = json.months || [];
+        qdpDepts_ = json.departments || [];
+        renderQuarterPolicy_();
+        card.style.display = '';
+        setQdpStatus_('');
+      } catch (err) { card.style.display = 'none'; setQdpStatus_('❌ ' + err.message, true); }
+    }
+
+    function renderQuarterPolicy_() {
+      const area = document.getElementById('qdpArea');
+      if (!qdpDepts_.length || !qdpMonths_.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">محتاج أقسام في بيانات الموظفين وشهور في السنة.</p>';
+        return;
+      }
+      // ⚠️ أقسام لها سياسة محفوظة لكنها مش موجودة في بيانات الموظفين دلوقتي.
+      const known = {}; qdpDepts_.forEach(d => known[d] = 1);
+      const orphans = [];
+      Object.keys(qdpPolicy_).forEach(k => {
+        const d = k.split('|')[0];
+        if (!known[d] && orphans.indexOf(d) === -1) orphans.push(d);
+      });
+
+      let h = '<div class="table-wrap"><table><thead><tr><th>القسم</th>';
+      qdpMonths_.forEach(m => { h += '<th>' + escapeHtml_(pysMonthLabel_(m)) + '</th>'; });
+      h += '<th>الكل</th></tr></thead><tbody>';
+      qdpDepts_.forEach(d => {
+        h += '<tr><td><b>' + escapeHtml_(d) + '</b></td>';
+        qdpMonths_.forEach(m => {
+          const on = qdpPolicy_[d + '|' + m] === true;
+          h += '<td style="text-align:center"><input type="checkbox" class="qdp-cell"'
+            + ' data-dept="' + escapeHtml_(d) + '" data-month="' + escapeHtml_(m) + '"'
+            + (on ? ' checked' : '') + ' onchange="renderQdpSummary_()"></td>';
+        });
+        h += '<td style="text-align:center"><button class="link-btn" onclick="qdpToggleRow_(\'' + escapeHtml_(d) + '\')">عكس الصف</button></td>';
+        h += '</tr>';
+      });
+      h += '</tbody></table></div>';
+      if (orphans.length) {
+        h += '<p style="font-size:12px;color:var(--color-danger);margin-top:8px">'
+          + '⚠️ فيه سياسة محفوظة لأقسام مش موجودة في بيانات الموظفين دلوقتي: '
+          + escapeHtml_(orphans.join(' · ')) + ' — السياسة دي مش هتتطبّق على حد.</p>';
+      }
+      area.innerHTML = h;
+      renderQdpSummary_();
+    }
+
+    function qdpToggleRow_(dept) {
+      const cells = Array.from(document.querySelectorAll('.qdp-cell')).filter(c => c.dataset.dept === dept);
+      const allOn = cells.every(c => c.checked);
+      cells.forEach(c => { c.checked = !allOn; });
+      renderQdpSummary_();
+    }
+
+    function renderQdpSummary_() {
+      const byDept = {};
+      Array.from(document.querySelectorAll('.qdp-cell')).forEach(c => {
+        if (!c.checked) return;
+        (byDept[c.dataset.dept] = byDept[c.dataset.dept] || []).push(c.dataset.month);
+      });
+      const parts = qdpDepts_.map(d => {
+        const ms = (byDept[d] || []).sort();
+        return '<b>' + escapeHtml_(d) + ':</b> ' + (ms.length ? escapeHtml_(ms.map(pysMonthLabel_).join(' + ')) : '—');
+      });
+      document.getElementById('qdpSummary').innerHTML = parts.join(' · ');
+    }
+
+    async function saveQuarterPolicy_() {
+      if (!ayCanManage_()) { setQdpStatus_('❌ مالكش صلاحية الإعدادات.', true); return; }
+      const yearId = document.getElementById('pysYear').value;
+      if (!yearId) { setQdpStatus_('اختار السنة الأول.', true); return; }
+      // ⬅️ بنبعت كل الخلايا (نعم/لا) عشان إلغاء التحديد يتسجّل صراحةً
+      //    بدل ما يتفسَّر كـ"غياب صف" — الشيت Append-only وآخر صف هو الساري.
+      const rows = Array.from(document.querySelectorAll('.qdp-cell'))
+        .map(c => c.dataset.dept + '|' + c.dataset.month + '|' + (c.checked ? 'نعم' : 'لا'));
+      setQdpStatus_('جاري الحفظ...');
+      try {
+        await callApiPost_({ action: 'quarterDeductionPolicySet', yearId: yearId, rows: rows.join(';') });
+        await loadQuarterPolicy_();
+        setQdpStatus_('✅ اتحفظت السياسة.');
+      } catch (err) { setQdpStatus_('❌ ' + err.message, true); }
     }
 
     // ============================================================
