@@ -1345,6 +1345,60 @@
       <div id="ptListStatus" style="font-size:13px;margin-bottom:8px"></div>
       <div id="ptListArea"></div>
     </div>
+
+    <!-- ============== P2 — الراتب الأساسي وحركات المرتب ============== -->
+    <div class="card">
+      <h2>حركات مرتب موظف</h2>
+      <div class="form-grid">
+        <div><label>الموظف</label>
+          <select id="stEmp" onchange="loadEmployeeSalary_()"><option value="">— اختار —</option></select></div>
+      </div>
+      <div id="stBasicInfo" style="font-size:13px;margin-top:6px"></div>
+    </div>
+
+    <div class="card" id="stBasicCard" style="display:none">
+      <h2>الراتب الأساسي</h2>
+      <p style="font-size:12px;color:#777">
+        الراتب الأساسي <b>حركة بتاريخ سريان</b> — تغييره معناه تسجيل حركة جديدة،
+        <b>مع إقفال القديمة بـ«ساري حتى»</b>. لو اتداخلت فترتان، حساب المرتب
+        بيتوقف بخطأ صريح لحد ما تتصحّح.
+      </p>
+      <div class="form-grid">
+        <div><label>القيمة (جنيه)</label><input type="number" id="stBasicValue" min="1" step="0.01"></div>
+        <div><label>ساري من</label><input type="date" id="stBasicFrom"></div>
+        <div><label>ساري حتى (فاضي = مستمر)</label><input type="date" id="stBasicTo"></div>
+      </div>
+      <div><label>السبب / ملاحظة</label><input type="text" id="stBasicReason" placeholder="مثال: تعيين — أو علاوة سنوية"></div>
+      <div id="stBasicWarn" style="display:none;font-size:13px;margin-top:8px;padding:10px;border-radius:8px"></div>
+      <div class="form-actions">
+        <button onclick="saveBasicSalary_()">حفظ الراتب الأساسي</button>
+      </div>
+      <div id="stBasicStatus" style="font-size:13px;margin-top:6px"></div>
+    </div>
+
+    <div class="card" id="stTxCard" style="display:none">
+      <h2>إضافة حركة مرتب</h2>
+      <div class="form-grid">
+        <div><label>نوع الحركة</label>
+          <select id="stTxType" onchange="onStTxTypeChange_()"><option value="">— اختار —</option></select></div>
+        <div><label>القيمة (جنيه)</label><input type="number" id="stTxValue" step="0.01"></div>
+        <div><label>من تاريخ</label><input type="date" id="stTxFrom"></div>
+        <div><label>لحد تاريخ (فاضي = مستمرة)</label><input type="date" id="stTxTo"></div>
+      </div>
+      <div><label>السبب / ملاحظة</label><input type="text" id="stTxReason"></div>
+      <div id="stTxEffect" style="display:none;font-size:13px;margin-top:8px;padding:10px;border-radius:8px"></div>
+      <div class="form-actions">
+        <button onclick="saveSalaryTx_()">حفظ الحركة</button>
+        <button class="secondary" onclick="resetSalaryTxForm_()">إلغاء</button>
+      </div>
+      <div id="stTxStatus" style="font-size:13px;margin-top:6px"></div>
+    </div>
+
+    <div class="card" id="stListCard" style="display:none">
+      <h2>حركات الموظف المسجَّلة</h2>
+      <div id="stListStatus" style="font-size:13px;margin-bottom:8px"></div>
+      <div id="stListArea"></div>
+    </div>
   </div>
 
   <div id="view-notifications" class="view" style="display:none">
@@ -5897,10 +5951,13 @@
     async function loadPayrollTxTypesView_() {
       if (!ptCanManage_()) { setPtListStatus_('❌ مالكش صلاحية إدارة حركات المرتب.', true); return; }
       setPtListStatus_('جاري التحميل...');
+      // ⬅️ P2: قائمة الموظفين لازمة لبطاقة حركات المرتب.
+      if (employeesCache.length === 0) { try { await loadEmployees_(); } catch (e) {} }
       try {
         const json = await callApi_({ action: 'salaryTxTypes' });
         ptTypesCache_ = json.types || [];
         renderPayrollTxTypes_();
+        fillSalaryDropdowns_();
         setPtListStatus_(ptTypesCache_.length + ' نوع.');
       } catch (err) {
         ptTypesCache_ = [];
@@ -5981,6 +6038,225 @@
         await callApiPost_({ action: 'salaryTxTypeToggle', name: name, active: active ? 'true' : 'false' });
         await loadPayrollTxTypesView_();
       } catch (err) { setPtListStatus_('❌ ' + err.message, true); }
+    }
+
+
+    // ============================================================
+    // P2 — الراتب الأساسي وحركات المرتب
+    // ⛔ بتستخدم actions موجودة بس: salaryTransactions · salaryTransactionAdd
+    //    · salaryTxTypes (من P1). صفر Backend جديد.
+    // ⛔ صفر مساس بأي منطق حساب — computePayrollForPeriod_ /
+    //    getBasicSalaryAtPeriodStart_ / classifyTxCategory_ لم تُمسّ.
+    // ⛔ اسم المسجِّل بييجي من الجلسة سيرفر-سايد (Security Fix) — الواجهة
+    //    مابتبعتش user إطلاقًا.
+    // ============================================================
+    const ST_BASIC_TYPE_ = 'الراتب الأساسي';
+    let stTxCache_ = [];
+    let stEmpLoaded_ = '';
+
+    function setStStatus_(id, m, e) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+    function stShow_(id, on) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = on ? '' : 'none';
+    }
+
+    // ⬅️ تعبئة قوائم الموظفين والأنواع — الأنواع النشطة فقط، و"الراتب
+    //    الأساسي" (basic) مستبعد لأن له بطاقته الخاصة.
+    function fillSalaryDropdowns_() {
+      const emp = document.getElementById('stEmp');
+      if (emp && emp.options.length <= 1) {
+        employeesCache.forEach(e => {
+          const o = document.createElement('option');
+          o.value = e.code; o.textContent = e.nameAr + ' (' + e.code + ')' + (e.dept ? ' — ' + e.dept : '');
+          emp.appendChild(o);
+        });
+      }
+      const t = document.getElementById('stTxType');
+      if (!t) return;
+      const cur = t.value;
+      t.innerHTML = '<option value="">— اختار —</option>';
+      (ptTypesCache_ || [])
+        .filter(x => x.active && String(x.category).trim() !== 'basic')
+        .forEach(x => {
+          const o = document.createElement('option');
+          o.value = x.name; o.textContent = x.name + '  [' + x.category + ']';
+          t.appendChild(o);
+        });
+      t.value = cur;
+    }
+
+    // ⬅️ توضيح أثر التصنيف على الصافي قبل الحفظ — التصنيف الغلط بيقلب الحساب.
+    function onStTxTypeChange_() {
+      const box = document.getElementById('stTxEffect');
+      const name = document.getElementById('stTxType').value;
+      const def = (ptTypesCache_ || []).find(x => x.name === name);
+      if (!def) { box.style.display = 'none'; return; }
+      const cat = String(def.category).trim();
+      const map = {
+        earning:   ['bg-success', 'var(--color-success)', 'إضافة — بتزوّد صافي المرتب.'],
+        deduction: ['bg-danger', 'var(--color-danger)', 'خصم نقدي — بيقلّل صافي المرتب (القيمة بتتاخد بالمطلق).'],
+        excluded:  ['', '#777', 'مستبعد — مش بيدخل صافي المرتب إطلاقًا.'],
+        summer:    ['', '#777', 'خصم/رد الصيف — مستبعد من صافي المرتب، وبيتدار من شاشة منفصلة.'],
+      };
+      const m = map[cat] || ['', 'var(--color-danger)', '⚠️ تصنيف غير معروف — حساب المرتب هيتوقف بخطأ.'];
+      box.style.display = '';
+      box.style.color = m[1];
+      box.style.background = 'var(--color-bg-soft, #f4f6f8)';
+      box.innerHTML = '<b>[' + escapeHtml_(cat) + ']</b> ' + escapeHtml_(m[2]);
+    }
+
+    async function loadEmployeeSalary_() {
+      const code = document.getElementById('stEmp').value;
+      stEmpLoaded_ = code;
+      const on = !!code;
+      ['stBasicCard', 'stTxCard', 'stListCard'].forEach(id => stShow_(id, on));
+      setStStatus_('stBasicInfo', '');
+      if (!on) { stTxCache_ = []; return; }
+      setStStatus_('stListStatus', 'جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'salaryTransactions', employee: code });
+        stTxCache_ = json.transactions || [];
+        fillSalaryDropdowns_();
+        renderSalaryTxList_();
+        renderBasicSalaryInfo_();
+        setStStatus_('stListStatus', stTxCache_.length + ' حركة.');
+      } catch (err) {
+        stTxCache_ = [];
+        document.getElementById('stListArea').innerHTML = '';
+        setStStatus_('stListStatus', '❌ ' + err.message, true);
+      }
+    }
+
+    // ⬅️ عرض الراتب الأساسي الساري النهارده + كشف أي تداخل.
+    //    ⚠️ عرض فقط — نفس شروط getBasicSalaryAtPeriodStart_ بالحرف
+    //    (from ≤ اليوم و (to فاضي أو to ≥ اليوم))، بدون أي حساب جديد.
+    function basicSalaryRowsAt_(dayKey) {
+      return (stTxCache_ || []).filter(t =>
+        t.type === ST_BASIC_TYPE_ && t.from && t.from <= dayKey && (!t.to || t.to >= dayKey));
+    }
+    function renderBasicSalaryInfo_() {
+      const today = toInputDate_(new Date());
+      const act = basicSalaryRowsAt_(today);
+      const el = document.getElementById('stBasicInfo');
+      if (act.length === 0) {
+        el.innerHTML = '<span style="color:var(--color-danger);font-weight:700">⚠️ مفيش راتب أساسي ساري النهارده — حساب المرتب هيفشل لحد ما تسجّله.</span>';
+      } else if (act.length > 1) {
+        el.innerHTML = '<span style="color:var(--color-danger);font-weight:700">🔴 فيه ' + act.length
+          + ' رواتب أساسية متداخلة النهارده — حساب المرتب هيتوقف بخطأ. لازم تقفل الزيادة بـ«ساري حتى» من الشيت.</span>';
+      } else {
+        el.innerHTML = '<b>الراتب الأساسي الساري النهارده:</b> ' + act[0].value
+          + '  <span style="color:#777">(من ' + escapeHtml_(act[0].from)
+          + (act[0].to ? ' حتى ' + escapeHtml_(act[0].to) : ' — مستمر') + ')</span>';
+      }
+    }
+
+    // ⬅️ فحص التداخل قبل الحفظ — الـBackend بيقبل الكتابة وبيتوقف وقت
+    //    الحساب، فبنكشفه هنا بدل ما يتفاجئ بيه وقت المرتبات.
+    function basicOverlapWarning_(from, to) {
+      const t2 = to || '9999-12-31';
+      const clash = (stTxCache_ || []).filter(t => {
+        if (t.type !== ST_BASIC_TYPE_ || !t.from) return false;
+        return t.from <= t2 && (t.to || '9999-12-31') >= from;
+      });
+      return clash;
+    }
+
+    async function saveBasicSalary_() {
+      if (!ptCanManage_()) { setStStatus_('stBasicStatus', '❌ مالكش صلاحية إدارة حركات المرتب.', true); return; }
+      const code = document.getElementById('stEmp').value;
+      const value = document.getElementById('stBasicValue').value.trim();
+      const from = document.getElementById('stBasicFrom').value;
+      const to = document.getElementById('stBasicTo').value;
+      const reason = document.getElementById('stBasicReason').value.trim();
+      if (!code) { setStStatus_('stBasicStatus', 'اختار الموظف الأول.', true); return; }
+      if (!(Number(value) > 0)) { setStStatus_('stBasicStatus', 'القيمة لازم تكون رقمًا أكبر من صفر.', true); return; }
+      if (!from) { setStStatus_('stBasicStatus', 'تاريخ «ساري من» مطلوب.', true); return; }
+      if (to && to < from) { setStStatus_('stBasicStatus', '«ساري حتى» لازم يكون بعد «ساري من».', true); return; }
+
+      const clash = basicOverlapWarning_(from, to);
+      if (clash.length) {
+        const lines = clash.map(c => '• ' + c.value + ' من ' + c.from + (c.to ? ' حتى ' + c.to : ' — مستمر')).join('\n');
+        if (!confirm('🔴 فيه راتب أساسي فترته متداخلة مع اللي بتسجّله:\n\n' + lines
+          + '\n\nلو حفظت من غير ما تقفل القديم بـ«ساري حتى»، حساب المرتب هيتوقف بخطأ '
+          + '«فيه أكتر من راتب أساسي متعارض».\n\nتكمّل؟')) return;
+      }
+      setStStatus_('stBasicStatus', 'جاري الحفظ...');
+      try {
+        // ⛔ صفر user من العميل — السيرفر بياخده من الجلسة.
+        await callApiPost_({ action: 'salaryTransactionAdd',
+          data: { code: code, type: ST_BASIC_TYPE_, from: from, to: to || '', value: Number(value), reason: reason } });
+        ['stBasicValue', 'stBasicFrom', 'stBasicTo', 'stBasicReason'].forEach(id => document.getElementById(id).value = '');
+        setStStatus_('stBasicStatus', '✅ اتسجّل الراتب الأساسي.');
+        await loadEmployeeSalary_();
+      } catch (err) { setStStatus_('stBasicStatus', '❌ ' + err.message, true); }
+    }
+
+    async function saveSalaryTx_() {
+      if (!ptCanManage_()) { setStStatus_('stTxStatus', '❌ مالكش صلاحية إدارة حركات المرتب.', true); return; }
+      const code = document.getElementById('stEmp').value;
+      const type = document.getElementById('stTxType').value;
+      const value = document.getElementById('stTxValue').value.trim();
+      const from = document.getElementById('stTxFrom').value;
+      const to = document.getElementById('stTxTo').value;
+      const reason = document.getElementById('stTxReason').value.trim();
+      if (!code) { setStStatus_('stTxStatus', 'اختار الموظف الأول.', true); return; }
+      if (!type) { setStStatus_('stTxStatus', 'اختار نوع الحركة.', true); return; }
+      const def = (ptTypesCache_ || []).find(x => x.name === type);
+      // ⛔ الأنواع المتوقفة مرفوضة في السيرفر كمان — ده حارس واجهة إضافي.
+      if (!def || !def.active) { setStStatus_('stTxStatus', 'نوع الحركة ده متوقف أو مش موجود.', true); return; }
+      if (!(Number(value) !== 0)) { setStStatus_('stTxStatus', 'القيمة مطلوبة ولازم تكون رقمًا.', true); return; }
+      if (!from) { setStStatus_('stTxStatus', 'تاريخ «من» مطلوب.', true); return; }
+      if (to && to < from) { setStStatus_('stTxStatus', '«لحد تاريخ» لازم يكون بعد «من تاريخ».', true); return; }
+      setStStatus_('stTxStatus', 'جاري الحفظ...');
+      try {
+        await callApiPost_({ action: 'salaryTransactionAdd',
+          data: { code: code, type: type, from: from, to: to || '', value: Number(value), reason: reason } });
+        resetSalaryTxForm_();
+        setStStatus_('stTxStatus', '✅ اتسجّلت الحركة.');
+        await loadEmployeeSalary_();
+      } catch (err) { setStStatus_('stTxStatus', '❌ ' + err.message, true); }
+    }
+
+    function resetSalaryTxForm_() {
+      ['stTxType', 'stTxValue', 'stTxFrom', 'stTxTo', 'stTxReason'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('stTxEffect').style.display = 'none';
+      setStStatus_('stTxStatus', '');
+    }
+
+    function renderSalaryTxList_() {
+      const area = document.getElementById('stListArea');
+      if (!stTxCache_.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">مفيش حركات مسجّلة للموظف ده.</p>';
+        return;
+      }
+      const catOf = n => {
+        const d = (ptTypesCache_ || []).find(x => x.name === n);
+        return d ? d.category : '';
+      };
+      let h = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>نوع الحركة</th><th>التصنيف</th><th>من</th><th>إلى</th><th>القيمة</th>'
+        + '<th>السبب</th><th>سجّله</th><th>وقت التسجيل</th>'
+        + '</tr></thead><tbody>';
+      stTxCache_.forEach(t => {
+        const isBasic = t.type === ST_BASIC_TYPE_;
+        h += '<tr' + (isBasic ? ' style="background:var(--color-bg-soft, #f4f6f8)"' : '') + '>'
+          + '<td>' + escapeHtml_(t.type) + (isBasic ? ' <b>(أساسي)</b>' : '') + '</td>'
+          + '<td>' + escapeHtml_(catOf(t.type) || '—') + '</td>'
+          + '<td>' + escapeHtml_(t.from || '—') + '</td>'
+          + '<td>' + (t.to ? escapeHtml_(t.to) : '<span style="color:#777">مستمرة</span>') + '</td>'
+          + '<td>' + t.value + '</td>'
+          + '<td>' + escapeHtml_(t.reason || '') + '</td>'
+          + '<td>' + escapeHtml_(t.user || '') + '</td>'
+          + '<td>' + escapeHtml_(t.registeredAt || '') + '</td>'
+          + '</tr>';
+      });
+      h += '</tbody></table></div>'
+        + '<p style="font-size:12px;color:#777;margin-top:8px">التعديل والحذف لسه مش متاحين من الشاشة — بيتعملوا من شيت «حركات المرتب» مباشرةً.</p>';
+      area.innerHTML = h;
     }
 
     // ============================================================
