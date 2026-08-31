@@ -5973,7 +5973,7 @@
         return;
       }
       let h = '<div class="table-wrap"><table><thead><tr>'
-        + '<th>اسم النوع</th><th>إضافة/خصم</th><th>التصنيف</th><th>الحالة</th><th></th>'
+        + '<th>اسم النوع</th><th>إضافة/خصم</th><th>التصنيف</th><th>الحالة</th><th></th><th></th>'
         + '</tr></thead><tbody>';
       ptTypesCache_.forEach(t => {
         const name = escapeHtml_(String(t.name));
@@ -5989,6 +5989,7 @@
           + '<td>' + (t.active
               ? '<span style="color:var(--color-success);font-weight:700">نشط</span>'
               : '<span style="color:#999">متوقف</span>') + '</td>'
+          + '<td><button class="link-btn" onclick="editPayrollTxCategory_(\'' + name + '\')">تعديل التصنيف</button></td>'
           + '<td><button class="link-btn" onclick="togglePayrollTxType_(\'' + name + '\', ' + (t.active ? 'false' : 'true') + ')">'
           + (t.active ? 'إيقاف' : 'تفعيل') + '</button></td>'
           + '</tr>';
@@ -6010,8 +6011,12 @@
       if (direction !== 'إضافة' && direction !== 'خصم') { setPtFormStatus_('لازم تختار «إضافة» أو «خصم».', true); return; }
       // ⬅️ التصنيف إلزامي في الواجهة، والسيرفر بيتحقق منه كمان (Fail-Closed).
       if (PT_CATEGORIES_.indexOf(category) === -1) { setPtFormStatus_('لازم تختار التصنيف (Category).', true); return; }
+      // ⚠️ الاسم المكرر مش خطأ — النظام Append-Only وآخر صف هو الساري،
+      //    فالحفظ بيستبدل بيانات النوع. تأكيد صريح بدل رفض قاطع.
       if (ptTypesCache_.some(t => String(t.name).trim() === name)) {
-        setPtFormStatus_('فيه نوع بنفس الاسم موجود بالفعل.', true); return;
+        if (!confirm('فيه نوع بنفس الاسم «' + name + '» موجود بالفعل.\n\n'
+          + 'الحفظ هيستبدل بياناته (الاتجاه والتصنيف) لأن آخر صف هو الساري.\n\n'
+          + 'لو قصدك تصحّح التصنيف بس، استخدم زر «تعديل التصنيف» من الجدول.\n\nتكمّل؟')) return;
       }
       setPtFormStatus_('جاري الحفظ...');
       try {
@@ -6027,6 +6032,58 @@
       document.getElementById('ptDirection').value = '';
       document.getElementById('ptCategory').value = '';
       setPtFormStatus_('');
+    }
+
+    // ⬅️ تصحيح تصنيف نوع موجود — بدون أي Backend جديد.
+    //    النظام Append-Only و**آخر صف لكل اسم هو الساري**
+    //    (getSalaryTxTypes_)، فصف جديد بنفس الاسم = تصحيح.
+    // ⚠️ addSalaryTxType_ بتكتب "نعم" في عمود النشاط دايمًا، فلو النوع
+    //    كان متوقفًا بنرجّعه متوقفًا بـsalaryTxTypeToggle بعدها مباشرةً.
+    // ⛔ صفر مساس بأي منطق حساب أو صلاحية — نفس الـ2 actions الموجودة.
+    async function editPayrollTxCategory_(name) {
+      if (!ptCanManage_()) { setPtListStatus_('❌ مالكش صلاحية إدارة حركات المرتب.', true); return; }
+      const def = (ptTypesCache_ || []).find(t => String(t.name).trim() === String(name).trim());
+      if (!def) { setPtListStatus_('النوع مش موجود.', true); return; }
+
+      const cur = String(def.category || '').trim();
+      const isBasicType = String(name).trim() === ST_BASIC_TYPE_;
+      let msg = 'تصنيف «' + name + '» الحالي: ' + (cur || '(غير مصنَّف)')
+        + '\n\nاكتب التصنيف الجديد:\n' + PT_CATEGORIES_.join(' · ');
+      if (isBasicType) {
+        msg = '⚠️ ده نوع «الراتب الأساسي» — تصنيفه الصحيح لازم يكون basic،\n'
+            + 'وإلا getBasicSalaryAtPeriodStart_ مش هتلاقي راتبًا وحساب المرتب هيفشل.\n\n' + msg;
+      }
+      const next = prompt(msg, isBasicType ? 'basic' : (cur || ''));
+      if (next === null) return;
+      const cat = String(next).trim();
+      if (PT_CATEGORIES_.indexOf(cat) === -1) {
+        setPtListStatus_('❌ التصنيف لازم يكون واحدًا من: ' + PT_CATEGORIES_.join(' · '), true); return;
+      }
+      if (cat === cur) { setPtListStatus_('التصنيف زي ما هو — مفيش تغيير.'); return; }
+
+      // ⚠️ تحذير مشدَّد عند أي تغيير يخص basic — بيحدد الراتب الأساسي.
+      if (isBasicType && cat !== 'basic') {
+        if (!confirm('🔴 إنت بتشيل تصنيف basic عن «الراتب الأساسي».\n\n'
+          + 'حساب المرتب هيفشل لكل الموظفين برسالة «مفيش راتب أساسي مسجَّل».\n\nمتأكد؟')) return;
+      } else if (cat === 'basic' && !isBasicType) {
+        if (!confirm('⚠️ التصنيف basic مخصَّص للراتب الأساسي.\n\n'
+          + 'لو فيه أكتر من نوع بتصنيف basic للموظف الواحد، حساب المرتب هيتوقف '
+          + 'بخطأ «أكتر من راتب أساسي متعارض».\n\nتكمّل؟')) return;
+      } else if (!confirm('تغيير تصنيف «' + name + '» من ' + (cur || '(غير مصنَّف)') + ' إلى ' + cat
+          + '؟\n\nده بيغيّر أثر النوع على صافي المرتب لكل الحركات المسجَّلة بيه.')) { return; }
+
+      setPtListStatus_('جاري التصحيح...');
+      try {
+        // (1) صف جديد بنفس الاسم ونفس الاتجاه والتصنيف الجديد
+        await callApiPost_({ action: 'salaryTxTypeAdd',
+          name: String(name).trim(), direction: def.direction, category: cat });
+        // (2) الحالة زي ما كانت — التصحيح مايعيدش تفعيل نوع متوقف
+        if (!def.active) {
+          await callApiPost_({ action: 'salaryTxTypeToggle', name: String(name).trim(), active: 'false' });
+        }
+        await loadPayrollTxTypesView_();
+        setPtListStatus_('✅ اتصحّح التصنيف إلى ' + cat + '.');
+      } catch (err) { setPtListStatus_('❌ ' + err.message, true); }
     }
 
     async function togglePayrollTxType_(name, active) {
