@@ -1420,6 +1420,40 @@
        ⛔ طبقة واجهة فوق actions موجودة: salaryTxTypes · salaryTxTypeAdd ·
           salaryTxTypeToggle. صفر Backend جديد · صفر مساس بأي حساب. -->
   <div id="view-payrollTypes" class="view" style="display:none">
+    <!-- ============== البند 11 / A1 — سلف الموظفين ==============
+         ⛔ تسجيل وجدولة بس — صفر أثر مالي في A1:
+            صفر حركة مرتب · صفر Period ID · صفر Tx Ref. -->
+    <div class="card">
+      <h2>سلف الموظفين</h2>
+      <p style="font-size:12px;color:#777">
+        تسجيل السلفة بيولّد <b>جدول أقساط</b> تلقائيًا — والمجموع بيساوي إجمالي
+        السلفة بالظبط (فرق التقريب بيروح لآخر قسط).
+        <br>⚠️ <b>المرحلة دي تسجيل بس</b> — الأقساط بتتسجّل بحالة
+        «بانتظار فترة»، ومفيش أي خصم بيحصل ولا أي حركة مرتب بتتكتب.
+        ربط الأقساط بالفترات وخصمها مراحل لاحقة.
+      </p>
+      <div class="form-grid">
+        <div><label>الموظف</label>
+          <select id="advEmp"><option value="">— اختار —</option></select></div>
+        <div><label>تاريخ السلفة</label><input type="date" id="advDate"></div>
+        <div><label>إجمالي السلفة</label>
+          <input type="number" id="advTotal" step="0.01" min="0.01" oninput="renderAdvPreview_()"></div>
+        <div><label>عدد الأقساط</label>
+          <input type="number" id="advCount" step="1" min="1" value="3" oninput="renderAdvPreview_()"></div>
+        <div><label>تاريخ بدء الخصم</label><input type="date" id="advStart"></div>
+        <div><label>ملاحظات (اختياري)</label><input type="text" id="advNotes"></div>
+      </div>
+      <div id="advPreview" style="font-size:13px;margin:8px 0"></div>
+      <div class="form-actions">
+        <button onclick="submitAdvance_()">حفظ السلفة</button>
+        <button class="secondary" onclick="resetAdvanceForm_()">إلغاء</button>
+      </div>
+      <div id="advFormStatus" style="font-size:13px;margin-top:6px"></div>
+      <div id="advListStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="advListArea"></div>
+      <div id="advScheduleArea" style="margin-top:12px"></div>
+    </div>
+
     <div class="card">
       <h2>إضافة نوع حركة مرتب</h2>
       <p style="font-size:12px;color:#777">
@@ -6205,6 +6239,7 @@
         ptTypesCache_ = json.types || [];
         renderPayrollTxTypes_();
         fillSalaryDropdowns_();
+        await loadAdvances_();   // ⬅️ البند 11 / A1
         setPtListStatus_(ptTypesCache_.length + ' نوع.');
       } catch (err) {
         ptTypesCache_ = [];
@@ -7125,6 +7160,152 @@
         await loadPayrollPeriods_();
         setPpStatus_('ppListStatus', '✅ اتفتحت الفترة.');
       } catch (err) { setPpStatus_('ppListStatus', '❌ ' + err.message, true); }
+    }
+
+
+    // ============================================================
+    // البند 11 / A1 — سلف الموظفين
+    // ⛔ تسجيل وجدولة بس: صفر حركة مرتب · صفر Period ID · صفر Tx Ref.
+    // ⬅️ D11-A: القسمة بالقروش والأخير ياخد فرق التقريب.
+    // ============================================================
+    let advCache_ = [];
+
+    function setAdvStatus_(id, m, e) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+
+    // ⬅️ نفس خوارزمية السيرفر بالحرف — للمعاينة بس، والسيرفر هو المرجع.
+    function advSplit_(total, count) {
+      const cents = Math.round(Number(total) * 100);
+      const n = Number(count);
+      if (!(cents > 0) || !(n > 0) || !Number.isInteger(n)) return null;
+      const base = Math.floor(cents / n);
+      const parts = [];
+      for (let i = 0; i < n; i++) parts.push(base);
+      parts[n - 1] += cents - base * n;
+      return parts.map(c => c / 100);
+    }
+
+    function renderAdvPreview_() {
+      const box = document.getElementById('advPreview');
+      const parts = advSplit_(document.getElementById('advTotal').value,
+                              document.getElementById('advCount').value);
+      if (!parts) { box.innerHTML = ''; return; }
+      const sum = parts.reduce((a, v) => a + Math.round(v * 100), 0) / 100;
+      box.innerHTML = '<b>التقسيم:</b> ' + parts.map(v => v.toFixed(2)).join(' + ')
+        + ' = <b>' + sum.toFixed(2) + '</b>';
+    }
+
+    async function loadAdvances_() {
+      setAdvStatus_('advListStatus', 'جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'advances' });
+        advCache_ = json.advances || [];
+        renderAdvances_();
+        fillAdvEmployees_();
+        setAdvStatus_('advListStatus', advCache_.length + ' سلفة.');
+      } catch (err) {
+        advCache_ = [];
+        document.getElementById('advListArea').innerHTML = '';
+        setAdvStatus_('advListStatus', '❌ ' + err.message, true);
+      }
+    }
+
+    function fillAdvEmployees_() {
+      const sel = document.getElementById('advEmp');
+      if (!sel || sel.options.length > 1) return;
+      employeesCache.forEach(e => {
+        const o = document.createElement('option');
+        o.value = e.code; o.textContent = e.code + ' — ' + (e.nameAr || '');
+        sel.appendChild(o);
+      });
+    }
+
+    function advEmpName_(code) {
+      const e = employeesCache.find(x => x.code === code);
+      return e ? (e.nameAr || '') : '';
+    }
+
+    function renderAdvances_() {
+      const area = document.getElementById('advListArea');
+      if (!advCache_.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">مفيش سلف مسجَّلة.</p>';
+        return;
+      }
+      let h = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>Advance ID</th><th>الكود</th><th>الاسم</th><th>تاريخ السلفة</th>'
+        + '<th>الإجمالي</th><th>عدد الأقساط</th><th>بدء الخصم</th><th>الحالة</th>'
+        + '<th>ملاحظات</th><th></th></tr></thead><tbody>';
+      advCache_.forEach(a => {
+        h += '<tr>'
+          + '<td>' + escapeHtml_(a.id) + '</td>'
+          + '<td>' + escapeHtml_(a.code) + '</td>'
+          + '<td>' + escapeHtml_(advEmpName_(a.code)) + '</td>'
+          + '<td>' + escapeHtml_(a.advanceDate) + '</td>'
+          + '<td>' + a.total + '</td>'
+          + '<td>' + a.count + '</td>'
+          + '<td>' + escapeHtml_(a.startDate) + '</td>'
+          + '<td>' + escapeHtml_(a.status) + '</td>'
+          + '<td>' + escapeHtml_(a.notes) + '</td>'
+          + '<td><button class="link-btn" onclick="loadAdvanceSchedule_(\'' + escapeHtml_(a.id) + '\')">الأقساط</button></td>'
+          + '</tr>';
+      });
+      h += '</tbody></table></div>';
+      area.innerHTML = h;
+    }
+
+    async function loadAdvanceSchedule_(advanceId) {
+      const area = document.getElementById('advScheduleArea');
+      area.innerHTML = 'جاري التحميل...';
+      try {
+        const json = await callApi_({ action: 'advanceSchedule', advanceId: advanceId });
+        const rows = json.schedule || [];
+        if (!rows.length) { area.innerHTML = '<p style="font-size:13px;color:#777">مفيش أقساط.</p>'; return; }
+        const sum = rows.reduce((a, r) => a + Math.round(r.value * 100), 0) / 100;
+        let h = '<h3 style="font-size:14px">أقساط السلفة ' + escapeHtml_(advanceId) + '</h3>'
+          + '<div class="table-wrap"><table><thead><tr>'
+          + '<th>القسط</th><th>القيمة</th><th>Period ID</th><th>الحالة</th>'
+          + '<th>تاريخ الخصم</th><th>Tx Ref</th></tr></thead><tbody>';
+        rows.forEach(r => {
+          h += '<tr><td>' + r.no + ' من ' + rows.length + '</td><td>' + r.value + '</td>'
+            + '<td>' + (r.periodId ? escapeHtml_(r.periodId) : '<span style="color:#999">—</span>') + '</td>'
+            + '<td>' + escapeHtml_(r.status) + '</td>'
+            + '<td>' + escapeHtml_(r.deductedAt || '—') + '</td>'
+            + '<td>' + (r.txRef ? escapeHtml_(r.txRef) : '<span style="color:#999">—</span>') + '</td></tr>';
+        });
+        h += '</tbody></table></div>'
+          + '<p style="font-size:13px;margin-top:6px"><b>مجموع الأقساط:</b> ' + sum.toFixed(2) + '</p>';
+        area.innerHTML = h;
+      } catch (err) { area.innerHTML = '❌ ' + escapeHtml_(err.message); }
+    }
+
+    async function submitAdvance_() {
+      const v = id => document.getElementById(id).value;
+      const parts = advSplit_(v('advTotal'), v('advCount'));
+      if (!v('advEmp')) { setAdvStatus_('advFormStatus', 'اختار الموظف.', true); return; }
+      if (!v('advDate')) { setAdvStatus_('advFormStatus', 'حدد تاريخ السلفة.', true); return; }
+      if (!v('advStart')) { setAdvStatus_('advFormStatus', 'حدد تاريخ بدء الخصم.', true); return; }
+      if (!parts) { setAdvStatus_('advFormStatus', 'الإجمالي وعدد الأقساط لازم يكونوا صحيحين.', true); return; }
+      setAdvStatus_('advFormStatus', 'جاري الحفظ...');
+      try {
+        // ⛔ صفر user من العميل — السيرفر بياخده من الجلسة.
+        const r = await callApiPost_({ action: 'advanceAdd',
+          code: v('advEmp'), advanceDate: v('advDate'), total: v('advTotal'),
+          count: v('advCount'), startDate: v('advStart'), notes: v('advNotes') });
+        resetAdvanceForm_();
+        setAdvStatus_('advFormStatus', '✅ اتسجّلت السلفة ' + ((r.result && r.result.id) || ''));
+        await loadAdvances_();
+      } catch (err) { setAdvStatus_('advFormStatus', '❌ ' + err.message, true); }
+    }
+
+    function resetAdvanceForm_() {
+      ['advTotal', 'advStart', 'advNotes', 'advDate'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('advCount').value = '3';
+      document.getElementById('advEmp').value = '';
+      document.getElementById('advPreview').innerHTML = '';
+      setAdvStatus_('advFormStatus', '');
     }
 
     // ============================================================
