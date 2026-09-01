@@ -1329,6 +1329,37 @@
       <div id="stblStatus" style="font-size:13px;margin:8px 0"></div>
       <div id="stblArea"></div>
     </div>
+
+    <!-- ============== تقرير الرواتب الأساسية ==============
+         ⛔ نفس SALARY_TRANSACTIONS · صفر شيت وصفر نظام جديد. -->
+    <div class="card">
+      <h2>تقرير الرواتب الأساسية</h2>
+      <p style="font-size:12px;color:#777">
+        الراتب الأساسي الحالي لكل موظف مع تاريخ سريانه. عدّل «الراتب
+        الأساسي الجديد» وحدد تاريخ السريان، ثم احفظ فرديًا أو
+        <b>حفظ الكل</b>.
+        <br>الحفظ بيسجّل <b>حركة راتب أساسي جديدة</b> — ⛔ صفر حذف أو
+        تعديل لأي راتب سابق، والتاريخ محفوظ بالكامل.
+      </p>
+      <div class="filters">
+        <div><label>القسم</label>
+          <select id="bsrDept"><option value="">— كل الأقسام —</option></select></div>
+        <div style="flex:1"><label>بحث بالاسم أو الكود</label>
+          <input type="text" id="bsrSearch" placeholder="اكتب اسمًا أو كودًا" oninput="renderBasicSalaries_()"></div>
+        <div><label>تاريخ السريان الافتراضي</label>
+          <input type="date" id="bsrFrom" onchange="bsrApplyDefaultDate_()"></div>
+        <div><button onclick="loadBasicSalaries_()">عرض التقرير</button></div>
+      </div>
+      <div class="form-actions">
+        <button onclick="saveAllBasicSalaries_()">💾 حفظ الكل</button>
+        <button class="secondary" onclick="exportBasicSalaries_()">Excel</button>
+        <button class="secondary" onclick="printBasicSalaries_()">طباعة</button>
+      </div>
+      <div id="bsrTotalBar" style="font-size:14px;margin:8px 0;padding:8px 12px;
+        background:#f2f6fc;border-radius:8px;display:none"></div>
+      <div id="bsrStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="bsrArea"></div>
+    </div>
   </div>
 
   <!-- ⚠️ Phase 5 — خصم واسترداد الصيف. Flow مستقل تمامًا عن Payroll
@@ -2647,6 +2678,10 @@
       // ⬅️ الأصلي جنب النهائي — ممنوع يظهر Final من غير Original.
       ['خصم التأخير قبل الإعفاء (يوم)', 'lateDeductionOriginal'],
       ['إجمالي التأخيرات باليوم', 'lateDeductionTotal'],
+      // ⬅️ آخر عمود: النتيجة النهائية بعد كل القواعد والإعفاءات،
+      //    بالأيام مش بالدقائق. ⛔ نفس المفتاح totalDeduction الموجود
+      //    أصلاً — صفر حساب جديد وصفر تغيير في أي رقم.
+      ['إجمالي الخصم بالأيام', 'totalDeduction'],
     ];
 
     // ⬅️ المرحلة A — شريط تحذير تشخيصي.
@@ -4518,6 +4553,199 @@
       return v ? v + '-01' : '';
     }
 
+    // ============================================================
+    // تقرير الرواتب الأساسية
+    // ⛔ عرض + حفظ عبر SALARY_TRANSACTIONS القائم — صفر نظام جديد.
+    // ============================================================
+    let bsrRows_ = [];
+
+    function bsrDefaultDate_() {
+      const el = document.getElementById('bsrFrom');
+      return (el && el.value) ? el.value : new Date().toISOString().slice(0, 10);
+    }
+
+    function bsrApplyDefaultDate_() {
+      const d = bsrDefaultDate_();
+      bsrRows_.forEach((r, i) => {
+        const el = document.getElementById('bsrDate_' + i);
+        if (el && !el.dataset.touched) el.value = d;
+      });
+    }
+
+    function bsrVisible_() {
+      const q = (document.getElementById('bsrSearch').value || '').trim().toLowerCase();
+      return bsrRows_.map((r, i) => ({ r: r, i: i })).filter(x =>
+        !q || String(x.r.code).toLowerCase().indexOf(q) !== -1
+           || String(x.r.nameAr).toLowerCase().indexOf(q) !== -1);
+    }
+
+    function bsrNewValue_(i) {
+      const el = document.getElementById('bsrNew_' + i);
+      const v = Number(el ? el.value : NaN);
+      return isNaN(v) ? bsrRows_[i].currentSalary : v;
+    }
+
+    function bsrRecalc_() {
+      const vis = bsrVisible_();
+      let cur = 0, nw = 0, changed = 0;
+      vis.forEach(x => {
+        cur += x.r.currentSalary;
+        const v = bsrNewValue_(x.i);
+        nw += v;
+        if (Math.abs(v - x.r.currentSalary) > 0.004) changed++;
+      });
+      const bar = document.getElementById('bsrTotalBar');
+      bar.innerHTML = '<b>عدد الموظفين:</b> ' + vis.length
+        + ' &nbsp;·&nbsp; <b>إجمالي الرواتب الحالية:</b> ' + cur.toFixed(2)
+        + ' &nbsp;·&nbsp; <b>إجمالي بعد التعديل:</b> ' + nw.toFixed(2)
+        + ' &nbsp;·&nbsp; <b>الفرق:</b> ' + (nw - cur).toFixed(2)
+        + ' &nbsp;·&nbsp; <b>معدَّل:</b> ' + changed;
+      bar.style.display = '';
+    }
+
+    async function loadBasicSalaries_() {
+      const area = document.getElementById('bsrArea');
+      setAdvStatus_('bsrStatus', 'جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'basicSalariesReport',
+          dept: document.getElementById('bsrDept').value });
+        const rep = json.report || {};
+        bsrRows_ = rep.rows || [];
+        const sel = document.getElementById('bsrDept');
+        if (sel && sel.options.length <= 1) {
+          (rep.departments || []).forEach(d => {
+            const o = document.createElement('option');
+            o.value = d; o.textContent = d; sel.appendChild(o);
+          });
+        }
+        const fEl = document.getElementById('bsrFrom');
+        if (fEl && !fEl.value) fEl.value = rep.today || '';
+        renderBasicSalaries_();
+        setAdvStatus_('bsrStatus', '');
+      } catch (err) {
+        area.innerHTML = ''; document.getElementById('bsrTotalBar').style.display = 'none';
+        setAdvStatus_('bsrStatus', err.message, true);
+      }
+    }
+
+    function renderBasicSalaries_() {
+      const area = document.getElementById('bsrArea');
+      if (!bsrRows_.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">لا يوجد موظفون.</p>';
+        document.getElementById('bsrTotalBar').style.display = 'none';
+        return;
+      }
+      const d = bsrDefaultDate_();
+      let h = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>كود الموظف</th><th>اسم الموظف</th><th>القسم</th><th>المسمى الوظيفي</th>'
+        + '<th>الراتب الأساسي الحالي</th><th>تاريخ سريان الحالي</th>'
+        + '<th>الراتب الأساسي الجديد</th><th>تاريخ السريان</th><th>الإجراءات</th>'
+        + '</tr></thead><tbody>';
+      bsrVisible_().forEach(x => {
+        const r = x.r, i = x.i;
+        h += '<tr>'
+          + '<td>' + escapeHtml_(r.code) + '</td>'
+          + '<td>' + escapeHtml_(r.nameAr) + '</td>'
+          + '<td>' + escapeHtml_(r.dept) + '</td>'
+          + '<td>' + escapeHtml_(r.jobTitle) + '</td>'
+          + '<td>' + (r.basicError
+              ? '<span style="color:var(--color-danger)" title="' + escapeHtml_(r.basicError) + '">—</span>'
+              : r.currentSalary.toFixed(2)) + '</td>'
+          + '<td>' + escapeHtml_(r.effectiveFrom || '—') + '</td>'
+          + '<td><input type="number" min="0" step="0.01" style="width:110px" '
+            + 'id="bsrNew_' + i + '" value="' + r.currentSalary.toFixed(2) + '" '
+            + 'oninput="bsrRecalc_()"></td>'
+          + '<td><input type="date" style="width:140px" id="bsrDate_' + i + '" '
+            + 'value="' + escapeHtml_(d) + '" onchange="this.dataset.touched=1"></td>'
+          + '<td><button class="link-btn" onclick="saveOneBasicSalary_(' + i + ')">💾 حفظ</button></td>'
+          + '</tr>';
+      });
+      h += '</tbody></table></div>';
+      area.innerHTML = h;
+      bsrRecalc_();
+    }
+
+    function bsrCollect_(only) {
+      const src = (only === undefined) ? bsrVisible_().map(x => x.i) : [only];
+      const out = [];
+      src.forEach(i => {
+        const r = bsrRows_[i];
+        const v = bsrNewValue_(i);
+        if (only === undefined && Math.abs(v - r.currentSalary) <= 0.004) return;
+        const dEl = document.getElementById('bsrDate_' + i);
+        out.push({ code: r.code, value: v, from: dEl ? dEl.value : '' });
+      });
+      return out;
+    }
+
+    async function bsrSave_(items) {
+      const res = await callApiPost_({ action: 'basicSalariesSave',
+        items: JSON.stringify(items) });
+      const rr = (res.result && res.result.results) || [];
+      const bad = rr.filter(x => !x.ok);
+      const nameOf = c => { const e = bsrRows_.find(z => z.code === c); return e ? e.nameAr : c; };
+      if (bad.length) {
+        alert('تم حفظ ' + (res.result.saved || 0) + ' موظف · فشل ' + bad.length + ':\n\n• '
+          + bad.map(x => x.code + ' — ' + nameOf(x.code) + ': ' + x.message).join('\n• '));
+      } else {
+        alert('تم حفظ ' + (res.result.saved || 0) + ' موظف بنجاح.');
+      }
+      await loadBasicSalaries_();
+    }
+
+    async function saveOneBasicSalary_(i) {
+      const items = bsrCollect_(i);
+      const r = bsrRows_[i];
+      if (!confirm('حفظ الراتب الأساسي للموظف ' + r.nameAr + '؟\n\n'
+        + 'الجديد: ' + Number(items[0].value).toFixed(2)
+        + ' · ساري من: ' + items[0].from)) return;
+      setAdvStatus_('bsrStatus', 'جاري الحفظ...');
+      try { await bsrSave_(items); setAdvStatus_('bsrStatus', ''); }
+      catch (err) { setAdvStatus_('bsrStatus', err.message, true); }
+    }
+
+    async function saveAllBasicSalaries_() {
+      const items = bsrCollect_();
+      if (!items.length) { alert('مفيش أي راتب اتعدّل.'); return; }
+      if (!confirm('حفظ ' + items.length + ' راتب أساسي معدَّل؟\n\n'
+        + '⛔ الرواتب السابقة هتفضل محفوظة في السجل.')) return;
+      setAdvStatus_('bsrStatus', 'جاري الحفظ...');
+      try { await bsrSave_(items); setAdvStatus_('bsrStatus', ''); }
+      catch (err) { setAdvStatus_('bsrStatus', err.message, true); }
+    }
+
+    function bsrExportData_() {
+      const rows = bsrVisible_().map(x => {
+        const r = x.r, i = x.i;
+        const dEl = document.getElementById('bsrDate_' + i);
+        return [r.code, r.nameAr, r.dept, r.jobTitle,
+          r.basicError ? '' : r.currentSalary.toFixed(2),
+          r.effectiveFrom || '', bsrNewValue_(i).toFixed(2),
+          dEl ? dEl.value : ''];
+      });
+      const total = bsrVisible_().reduce((a, x) => a + bsrNewValue_(x.i), 0);
+      return {
+        title: 'تقرير الرواتب الأساسية',
+        headers: ['كود الموظف', 'اسم الموظف', 'القسم', 'المسمى الوظيفي',
+          'الراتب الأساسي الحالي', 'تاريخ سريان الحالي',
+          'الراتب الأساسي الجديد', 'تاريخ السريان'],
+        rows: rows,
+        totals: [['إجمالي الرواتب', total.toFixed(2)], ['عدد الموظفين', String(rows.length)]],
+        fileName: 'تقرير_الرواتب_الأساسية_' + new Date().toISOString().slice(0, 10),
+        excelOptions: { xSplit: 0, ySplit: 1, colWidths: [10, 28, 18, 20, 18, 16, 18, 16] },
+      };
+    }
+
+    async function exportBasicSalaries_() {
+      if (!bsrRows_.length) { alert('اعرض التقرير الأول.'); return; }
+      await exportGenericToExcelJs_(bsrExportData_());
+    }
+
+    async function printBasicSalaries_() {
+      if (!bsrRows_.length) { alert('اعرض التقرير الأول.'); return; }
+      await printReport_(bsrExportData_());
+    }
+
     // ⬅️ الأقسام — من employeeDepartments الموجود. مرة واحدة بس.
     let stblDeptsLoaded_ = false;
     async function loadStblDepts_() {
@@ -4559,19 +4787,10 @@
         }
         let h = '<div class="table-wrap"><table><thead><tr>'
           + '<th>كود الموظف</th><th>اسم الموظف</th><th>القسم</th><th>المسمى الوظيفي</th>'
-          + '<th>الراتب الأساسي</th><th>العلاوة</th><th>إجمالي العلاوة</th>'
-          + '<th>خصم الربع/الربعين</th><th>إجمالي خصم الربع</th>'
-          + '<th>أيام الغياب</th><th>صافي خصم الغياب (يوم)</th><th>صافي خصم الغياب (جنيه)</th>'
-          + '<th>إجمالي دقائق التأخير</th><th>دقائق معفاة</th><th>دقائق مستحقة</th>'
-          + '<th>خصم التأخير قبل الإعفاء (يوم)</th>'
-          + '<th>صافي خصم التأخيرات (يوم)</th><th>صافي خصم التأخيرات (جنيه)</th>'
-          + '<th>دقائق الانصراف المبكر</th><th>خصم الانصراف المبكر (يوم)</th>'
-          + '<th>أيام عدم الانصراف</th><th>خصمها (يوم)</th>'
-          + '<th>الأذونات</th><th>خصم الأذونات (يوم)</th>'
-          + '<th>نسيان الكارت</th><th>خصمه (يوم)</th><th>جزاءات (يوم)</th>'
-          + '<th>إجمالي خصم الحضور (يوم)</th><th>خصم الحضور (جنيه)</th>'
-          + '<th>استحقاقات</th><th>خصومات نقدية</th><th>قسط السلفة</th>'
-          + '<th>إجمالي المرتب</th><th>صافي الراتب</th><th>الإجراءات</th>'
+          + '<th>الراتب الأساسي</th><th>العلاوة</th><th>خصم الربع/الربعين</th>'
+          + '<th>إجمالي الخصم بالأيام</th><th>قيمة الخصم النقدي</th>'
+          + '<th>إجمالي الإضافات</th><th>إجمالي الخصومات</th><th>صافي الراتب</th>'
+          + '<th>الإجراءات</th>'
           + '</tr></thead><tbody>';
         stblRows_.forEach((r, i) => {
           const err = r.basicError || r.txError;
@@ -4587,32 +4806,18 @@
               + 'id="stblAllow_' + i + '" value="' + r.allowance.toFixed(2) + '" '
               + 'title="' + escapeHtml_('نسبة القسم: ' + r.allowanceRate + '%') + '" '
               + 'oninput="stblRecalc_(' + i + ')"></td>'
-            + '<td id="stblAllowT_' + i + '">' + r.allowance.toFixed(2) + '</td>'
             + '<td><input type="number" min="0" step="0.01" style="width:90px" '
               + 'id="stblQuarter_' + i + '" value="' + r.quarterDeduction.toFixed(2) + '" '
               + 'title="' + escapeHtml_('نسبة القسم: ' + r.quarterRate + '% · ' + (r.summerRule || '—')) + '" '
               + 'oninput="stblRecalc_(' + i + ')"></td>'
-            + '<td id="stblQT_' + i + '">' + r.quarterDeduction.toFixed(2) + '</td>'
-            + '<td>' + r.absentDays + '</td>'
-            + '<td>' + r.absenceDeductionTotal + '</td>'
-            + '<td>' + r.absenceDeductionNetAmount.toFixed(2) + '</td>'
-            + '<td>' + r.lateMinutesTotal + '</td>'
-            + '<td>' + r.lateWaiverMinutes + '</td>'
-            + '<td>' + r.lateMinutesFinal + '</td>'
-            + '<td>' + r.lateDeductionOriginal + '</td>'
-            + '<td><b>' + r.lateDeductionNet + '</b></td>'
-            + '<td><b>' + r.lateDeductionNetAmount.toFixed(2) + '</b></td>'
-            + '<td>' + r.earlyMinutesTotal + '</td><td>' + r.earlyDeductionTotal + '</td>'
-            + '<td>' + r.missingCheckoutDays + '</td><td>' + r.missingCheckoutDeductionTotal + '</td>'
-            + '<td>' + r.permissionsCount + '</td><td>' + r.permissionDeduction + '</td>'
-            + '<td>' + r.forgotCheckinsCount + '</td><td>' + r.forgotCheckinDeduction + '</td>'
-            + '<td>' + r.extraPenaltyDays + '</td>'
-            + '<td>' + r.totalDeductionDays + '</td>'
+            // ⬅️ النتيجة النهائية من نفس حساب الإقفال — بالأيام ثم بالجنيه.
+            + '<td title="' + escapeHtml_('غياب ' + r.absentDays + ' يوم · تأخير صافي '
+                + r.lateMinutesFinal + ' دقيقة') + '">' + r.totalDeductionDays + '</td>'
             + '<td>' + r.attendanceDeductionAmount.toFixed(2) + '</td>'
-            + '<td>' + r.earnings.toFixed(2) + '</td>'
-            + '<td>' + r.cashDeductions.toFixed(2) + '</td>'
-            + '<td>' + r.advanceDeduction.toFixed(2) + '</td>'
-            + '<td id="stblGross_' + i + '">' + r.grossSalary.toFixed(2) + '</td>'
+            + '<td id="stblAdd_' + i + '">' + (r.allowance + r.earnings).toFixed(2) + '</td>'
+            + '<td id="stblDed_' + i + '">'
+              + (r.attendanceDeductionAmount + r.cashDeductions + r.advanceDeduction
+                 + r.quarterDeduction).toFixed(2) + '</td>'
             + '<td id="stblNet_' + i + '"><b>' + r.netSalary.toFixed(2) + '</b></td>'
             + '<td>' + (err ? '—'
                 : '<button class="link-btn" onclick="approveAllowance_(' + i + ')">اعتماد العلاوة</button>'
@@ -4635,13 +4840,12 @@
       const r = stblRows_[i];
       const add = Number(document.getElementById('stblAllow_' + i).value) || 0;
       const q = Number(document.getElementById('stblQuarter_' + i).value) || 0;
-      document.getElementById('stblAllowT_' + i).textContent = add.toFixed(2);
-      document.getElementById('stblQT_' + i).textContent = q.toFixed(2);
-      const gross = r.basicSalary + add + r.earnings;
-      const net = gross - r.attendanceDeductionAmount - r.cashDeductions
-        - r.advanceDeduction - q;
-      document.getElementById('stblGross_' + i).textContent = gross.toFixed(2);
-      document.getElementById('stblNet_' + i).innerHTML = '<b>' + net.toFixed(2) + '</b>';
+      const additions = add + r.earnings;
+      const deductions = r.attendanceDeductionAmount + r.cashDeductions + r.advanceDeduction + q;
+      document.getElementById('stblAdd_' + i).textContent = additions.toFixed(2);
+      document.getElementById('stblDed_' + i).textContent = deductions.toFixed(2);
+      document.getElementById('stblNet_' + i).innerHTML =
+        '<b>' + (r.basicSalary + additions - deductions).toFixed(2) + '</b>';
     }
 
     async function approveAllowance_(i) {
@@ -4671,45 +4875,29 @@
         const qe = document.getElementById('stblQuarter_' + idx);
         const add = Number(ae ? ae.value : r.allowance) || 0;
         const q = Number(qe ? qe.value : r.quarterDeduction) || 0;
-        const gross = r.basicSalary + add + r.earnings;
-        const net = gross - r.attendanceDeductionAmount - r.cashDeductions - r.advanceDeduction - q;
+        const additions = add + r.earnings;
+        const deductions = r.attendanceDeductionAmount + r.cashDeductions + r.advanceDeduction + q;
+        const net = r.basicSalary + additions - deductions;
         return [r.code, r.nameAr, r.dept, r.jobTitle,
           r.basicError ? '' : r.basicSalary.toFixed(2),
-          add.toFixed(2), add.toFixed(2), q.toFixed(2), q.toFixed(2),
-          r.absentDays, r.absenceDeductionTotal, r.absenceDeductionNetAmount.toFixed(2),
-          r.lateMinutesTotal, r.lateWaiverMinutes, r.lateMinutesFinal,
-          r.lateDeductionOriginal, r.lateDeductionNet, r.lateDeductionNetAmount.toFixed(2),
-          r.earlyMinutesTotal, r.earlyDeductionTotal,
-          r.missingCheckoutDays, r.missingCheckoutDeductionTotal,
-          r.permissionsCount, r.permissionDeduction,
-          r.forgotCheckinsCount, r.forgotCheckinDeduction, r.extraPenaltyDays,
+          add.toFixed(2), q.toFixed(2),
           r.totalDeductionDays, r.attendanceDeductionAmount.toFixed(2),
-          r.earnings.toFixed(2), r.cashDeductions.toFixed(2), r.advanceDeduction.toFixed(2),
-          r.basicError ? '' : gross.toFixed(2), r.basicError ? '' : net.toFixed(2)];
+          additions.toFixed(2), deductions.toFixed(2),
+          r.basicError ? '' : net.toFixed(2)];
       });
       const title = (only === undefined ? 'جدول الرواتب — ' : 'راتب الموظف — ') + stblMonthKey_
         + ' (' + stblPeriod_.from + ' → ' + stblPeriod_.to + ')';
       return {
         title: title,
         headers: ['كود الموظف', 'اسم الموظف', 'القسم', 'المسمى الوظيفي',
-          'الراتب الأساسي', 'العلاوة', 'إجمالي العلاوة',
-          'خصم الربع/الربعين', 'إجمالي خصم الربع',
-          'أيام الغياب', 'صافي خصم الغياب (يوم)', 'صافي خصم الغياب (جنيه)',
-          'إجمالي دقائق التأخير', 'دقائق معفاة', 'دقائق مستحقة',
-          'خصم التأخير قبل الإعفاء (يوم)',
-          'صافي خصم التأخيرات (يوم)', 'صافي خصم التأخيرات (جنيه)',
-          'دقائق الانصراف المبكر', 'خصم الانصراف المبكر (يوم)',
-          'أيام عدم الانصراف', 'خصمها (يوم)',
-          'الأذونات', 'خصم الأذونات (يوم)',
-          'نسيان الكارت', 'خصمه (يوم)', 'جزاءات (يوم)',
-          'إجمالي خصم الحضور (يوم)', 'خصم الحضور (جنيه)',
-          'استحقاقات', 'خصومات نقدية', 'قسط السلفة',
-          'إجمالي المرتب', 'صافي الراتب'],
+          'الراتب الأساسي', 'العلاوة', 'خصم الربع/الربعين',
+          'إجمالي الخصم بالأيام', 'قيمة الخصم النقدي',
+          'إجمالي الإضافات', 'إجمالي الخصومات', 'صافي الراتب'],
         rows: rows,
         fileName: (only === undefined ? 'جدول_الرواتب_'
           : ('راتب_' + stblRows_[only].code + '_')) + stblMonthKey_,
         excelOptions: { xSplit: 0, ySplit: 1,
-          colWidths: [10, 28, 18, 20].concat(new Array(30).fill(14)) },
+          colWidths: [10, 28, 18, 20, 14, 12, 14, 16, 16, 14, 14, 14] },
       };
     }
 
