@@ -4537,7 +4537,11 @@
         });
         h += '</tbody></table></div>';
         area.innerHTML = h;
-        setAdvStatus_('stblStatus', stblRows_.length + ' موظف · شهر ' + stblMonthKey_.slice(0, 7));
+        const rm = t.raiseMonth || '';
+        setAdvStatus_('stblStatus', stblRows_.length + ' موظف · شهر ' + stblMonthKey_.slice(0, 7)
+          + (t.isRaiseMonth ? ' · ✅ شهر العلاوة — النسبة مطبَّقة'
+             : (rm ? ' · شهر العلاوة هو ' + rm + ' — العلاوة صفر هنا'
+                   : ' · شهر العلاوة غير محدَّد في إعدادات السنة')));
       } catch (err) {
         area.innerHTML = '';
         setAdvStatus_('stblStatus', err.message, true);
