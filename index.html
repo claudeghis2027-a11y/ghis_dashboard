@@ -7152,20 +7152,22 @@
       if (!yearId) { body.style.display = 'none'; setPysStatus_(''); return; }
       setPysStatus_('جاري التحميل...');
       try {
-        const json = await callApi_({ action: 'payrollYearSettings', yearId: yearId });
+        // ⬅️ Perf: نفس الـ3 نداءات بنفس الأسماء والبارامترات بالحرف،
+        //    بس بالتوازي بدل التسلسل. ⛔ صفر تغيير في أي Logic أو UI.
+        const [json, d] = await Promise.all([
+          callApi_({ action: 'payrollYearSettings', yearId: yearId }),
+          pysDepts_.length ? Promise.resolve(null) : callApi_({ action: 'employeeDepartments' }),
+          loadQuarterPolicy_(),   // ⬅️ سياسة القسم × الشهر
+        ]);
         pysMonths_ = json.months || [];
         pysCurrent_ = json.settings || null;
-        if (!pysDepts_.length) {
-          const d = await callApi_({ action: 'employeeDepartments' });
-          pysDepts_ = d.departments || [];
-        }
+        if (d) pysDepts_ = d.departments || [];
         fillPysMonthSelect_('pysRaise', pysMonths_, pysCurrent_ ? pysCurrent_.raiseMonth : '');
         // ⬅️ شهر الرد ممكن يجي بعد نهاية السنة ⇒ القائمة = شهور السنة + 12 شهرًا.
         fillPysMonthSelect_('pysRefund', pysRefundMonths_(), pysCurrent_ ? pysCurrent_.quarterRefundMonth : '');
         renderPysDeductMonths_();
         renderPysDepts_();
         renderPysSummary_();
-        await loadQuarterPolicy_();   // ⬅️ سياسة القسم × الشهر
         body.style.display = '';
         setPysStatus_(pysCurrent_
           ? 'آخر حفظ: ' + (pysCurrent_.savedAt || '') + ' — ' + (pysCurrent_.savedBy || '')
