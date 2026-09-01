@@ -973,6 +973,26 @@
       <div id="scheduleRulesArea"></div>
       <button class="secondary" style="margin-top:10px" onclick="openScheduleRuleForm(null)">+ إضافة قاعدة مواعيد جديدة</button>
       <div id="scheduleRuleFormArea"></div>
+
+    <!-- ============== D83-C — فجوات قواعد المواعيد ==============
+         ⛔ كشف ومتابعة بس: صفر إصلاح تلقائي · صفر منع لأي عملية.
+         ⛔ صفر مساس بـclassifyDay_ أو أي محرك أو Snapshot. -->
+    <div class="card">
+      <h2>فجوات قواعد المواعيد</h2>
+      <p style="font-size:12px;color:#777">
+        الأيام اللي جوّه <b>فترات مرتبات معرَّفة</b> ومفيش قاعدة مواعيد بتغطيها.
+        <br>⚠️ <b>اليوم اللي بلا قاعدة بيتحسب بصفر تأخير وصفر انصراف مبكر</b> —
+        عشان كده الكشف ده مهم.
+        <br>⛔ <b>الشاشة دي للعرض بس</b> — مفيش أي إصلاح تلقائي، ومفيش منع لأي
+        إضافة أو تعديل أو إلغاء لقاعدة مواعيد. سدّ الفجوة قرار مستقل منك.
+        <br>⛔ فجوات <b>الفترات المقفولة</b> بتتعرض للعلم بس — نتائجها محفوظة في نسخة الإقفال.
+      </p>
+      <div class="form-actions">
+        <button class="secondary" onclick="loadScheduleGaps_()">عرض الفجوات</button>
+      </div>
+      <div id="schGapsStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="schGapsArea"></div>
+    </div>
     </div>
 
     <div class="card">
@@ -4465,6 +4485,46 @@
     function minutesToHHMM_(m) {
       const h = Math.floor(m / 60), mm = m % 60;
       return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    }
+
+    // ⬅️ D83-C — فجوات قواعد المواعيد. ⛔ عرض بحت: كل الأرقام جاية
+    //    جاهزة من السيرفر، ومفيش أي إصلاح أو منع في الواجهة.
+    async function loadScheduleGaps_() {
+      const area = document.getElementById('schGapsArea');
+      setAdvStatus_('schGapsStatus', 'جاري الفحص...');
+      try {
+        const json = await callApi_({ action: 'scheduleGaps' });
+        const rows = json.gaps || [];
+        if (!rows.length) {
+          area.innerHTML = '<p style="font-size:13px;color:var(--color-success)">'
+            + '✅ مفيش فجوات — كل أيام الفترات المعرَّفة مغطّاة بقاعدة مواعيد.</p>';
+          setAdvStatus_('schGapsStatus', '');
+          return;
+        }
+        let h = '<div class="table-wrap"><table><thead><tr>'
+          + '<th>الفترة</th><th>Period ID</th><th>من الفترة</th><th>إلى الفترة</th>'
+          + '<th>عدد الأيام</th><th>بداية الفجوة</th><th>نهاية الفجوة</th>'
+          + '<th>حالة الفترة</th></tr></thead><tbody>';
+        let total = 0;
+        rows.forEach(r => {
+          total += Number(r.days) || 0;
+          const st = r.status === 'مقفولة'
+            ? '<span style="color:var(--color-danger);font-weight:700">مقفولة</span>'
+            : '<span style="color:var(--color-success);font-weight:700">مفتوحة</span>';
+          h += '<tr><td>' + escapeHtml_(r.name) + '</td><td>' + r.periodId + '</td>'
+            + '<td>' + escapeHtml_(r.periodFrom) + '</td><td>' + escapeHtml_(r.periodTo) + '</td>'
+            + '<td><b>' + r.days + '</b></td>'
+            + '<td>' + escapeHtml_(r.gapFrom) + '</td><td>' + escapeHtml_(r.gapTo) + '</td>'
+            + '<td>' + st + '</td></tr>';
+        });
+        h += '</tbody><tfoot><tr><td colspan="4"><b>الإجمالي</b></td>'
+          + '<td><b>' + total + '</b></td><td></td><td></td><td></td></tr></tfoot></table></div>';
+        area.innerHTML = h;
+        setAdvStatus_('schGapsStatus', rows.length + ' فترة فيها فجوات · ' + total + ' يوم غير مغطّى.');
+      } catch (err) {
+        area.innerHTML = '';
+        setAdvStatus_('schGapsStatus', '❌ ' + err.message, true);
+      }
     }
 
     // ============================================================
