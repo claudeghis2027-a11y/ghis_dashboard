@@ -2431,6 +2431,13 @@
     let mcViewLoaded_ = false;
     let mcLastContext_ = null;
     let mcLastData_ = null;
+    // ⬅️ D40: Period ID المختار. بيتشال لو المستخدم عدّل أي تاريخ يدويًا
+    //    عشان مانقراش نسخة فترة بينما التواريخ بقت لمدى تاني.
+    let mcSelectedPeriodId_ = null;
+    ['mcFromDate', 'mcToDate'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => { mcSelectedPeriodId_ = null; });
+    });
 
     // ⬅️ اسم الإقفال = شهر وسنة تاريخ **نهاية** الفترة (to)، مبني من
     //    derivedMonth/derivedYear الراجعين من السيرفر — مش من الاسم
@@ -2452,13 +2459,15 @@
         const sel = document.getElementById('mcMonthSelect');
         json.months.forEach(m => {
           const opt = document.createElement('option');
-          opt.value = m.from + '|' + m.to;   // ⛔ الحساب على from|to زي ما هو
+          // ⬅️ D40: الـid كمان — Period ID هو مفتاح النسخة المقفولة.
+          opt.value = (m.id || '') + '|' + m.from + '|' + m.to;
           opt.textContent = mcPeriodLabel_(m);
           sel.appendChild(opt);
         });
         sel.onchange = () => {
           if (!sel.value) return;
-          const [f, t] = sel.value.split('|');
+          const [pid, f, t] = sel.value.split('|');
+          mcSelectedPeriodId_ = pid || null;   // ⬅️ D40
           document.getElementById('mcFromDate').value = f;
           document.getElementById('mcToDate').value = t;
         };
@@ -2479,7 +2488,8 @@
       btn.disabled = true;
       setMcStatus_('جاري تجميع الاقفال الشهري...');
       try {
-        const json = await callApi_({ action: 'monthlyClosing', from, to });
+        const json = await callApi_({ action: 'monthlyClosing', from, to,
+          periodId: mcSelectedPeriodId_ || '' });
         btn.disabled = false;
         setMcStatus_('');
         mcLastContext_ = { from, to };
@@ -2522,6 +2532,27 @@
 
     // ⬅️ المرحلة A — شريط تحذير تشخيصي.
     //    ⛔ عرض فقط — الحقول دي مش داخلة أي حساب ولا بتغيّر أي رقم.
+    // ⬅️ B3 — شارة النسخة المعتمدة + تحذير اختلاف التواريخ (D43).
+    //    ⛔ عرض بس — صفر تأثير على أي رقم.
+    function buildSnapshotBar_(data) {
+      if (!data || !data.snapshot) return '';
+      const s = data.snapshot;
+      let h = '<div style="margin:0 0 12px;padding:12px;border-radius:8px;'
+        + 'background:#eef4ff;border:1px solid var(--color-primary);font-size:13px">'
+        + '🔒 <b>البيانات دي من نسخة الإقفال المحفوظة — مش حسابًا حيًّا.</b><br>'
+        + 'الفترة: ' + escapeHtml_(s.periodName || ('#' + s.periodId))
+        + ' · النسخة: ' + escapeHtml_(s.snapshotId)
+        + ' · أقفلها: ' + escapeHtml_(s.closedBy || '—')
+        + ' · وقت الإقفال: ' + escapeHtml_(s.closedAt || '—') + '</div>';
+      if (data.periodWarning) {
+        h += '<div style="margin:0 0 12px;padding:12px;border-radius:8px;'
+          + 'background:#fff4f4;border:1px solid var(--color-danger);'
+          + 'color:var(--color-danger);font-size:13px">⚠️ <b>تنبيه:</b> '
+          + escapeHtml_(data.periodWarning.message) + '</div>';
+      }
+      return h;
+    }
+
     function buildDiagnosticsBar_(dg) {
       if (!dg) return '';
       const parts = [];
@@ -2605,7 +2636,7 @@
       });
 
       html += '</tbody></table></div>';
-      html = buildDiagnosticsBar_(data.diagnostics) + html;
+      html = buildSnapshotBar_(data) + buildDiagnosticsBar_(data.diagnostics) + html;
       html += '<p class="mc-note">خانة اليوم بتعرض دقائق التأخير للأيام الحاضرة (0 يعني في الميعاد)، أو حالة اليوم لو مش حضور. مرّر الماوس على أي خانة لتفاصيلها.</p>';
       html += '<p class="mc-note"><b>صافي دقائق التأخير = إجمالي دقائق التأخير − دقائق الإعفاء</b> (ومش بيقل عن صفر). ' +
         'الإعفاء طبقة مستقلة — البصمة والتأخير الأصلي محفوظان بدون تعديل. ' +
