@@ -841,33 +841,7 @@
       <div id="pysStatus" style="font-size:13px;margin-top:6px"></div>
     </div>
 
-    <!-- ============== B1 — فترات المرتبات الرسمية ==============
-         ⛔ الفترة = From + To يحددهما المستخدم · الطرفان Inclusive.
-            منع التداخل فقط — الفجوات مسموحة (D25-B).
-         ⚠️ B2/B3 لسه مش منفَّذين ⇒ الفترة المقفولة لسه بتتعرض بحساب حي. -->
-    <div class="card">
-      <h2>فترات المرتبات الرسمية</h2>
-      <p style="font-size:12px;color:#777">
-        الفترة الرسمية = <b>من تاريخ + لحد تاريخ</b>، والطرفان داخلان في الفترة.
-        <b>مفيش دورة ثابتة مفروضة</b> — إنت اللي بتحدد النطاق.
-        الممنوع الوحيد هو <b>التداخل</b> مع فترة رسمية أخرى؛ والفجوات مسموحة
-        وبيتم التنبيه عليها وقت الإقفال.
-        <br>⚠️ <b>الإقفال حاليًا بيسجّل الحالة والـAudit Trail بس</b> — تجميد
-        الأرقام (Snapshot) مرحلة لاحقة.
-      </p>
-      <div class="form-grid">
-        <div><label>اسم الفترة</label><input type="text" id="ppName" placeholder="مثال: سبتمبر 2026"></div>
-        <div><label>من تاريخ</label><input type="date" id="ppFrom"></div>
-        <div><label>لحد تاريخ</label><input type="date" id="ppTo"></div>
-      </div>
-      <div class="form-actions">
-        <button onclick="addPayrollPeriod_()">إضافة فترة</button>
-        <button class="secondary" onclick="resetPeriodForm_()">إلغاء</button>
-      </div>
-      <div id="ppFormStatus" style="font-size:13px;margin-top:6px"></div>
-      <div id="ppGapsArea" style="font-size:13px;margin-top:10px"></div>
-      <div id="ppListStatus" style="font-size:13px;margin:8px 0"></div>
-      <div id="ppListArea"></div>
+
     </div>
 
     <!-- ============== سياسة خصم الربعين: القسم × الشهر ==============
@@ -1288,6 +1262,52 @@
 
   <!-- ⚠️ Phase 4 — Payroll (Live Calculation بس، صفر Snapshot) -->
   <div id="view-payroll" class="view" style="display:none">
+    <!-- ============== فترة المرتب — الشهر ⇒ الفترة الرسمية ==============
+         ⛔ الفترة Read-Only · مصدرها MONTHS عبر action salaryTable
+            الموجود. صفر Period System جديد وصفر From/To يدوي. -->
+    <div class="card">
+      <h2>فترة المرتب</h2>
+      <div class="filters">
+        <div><label>الشهر</label><input type="month" id="prMonth" onchange="prSyncMonth_()"></div>
+        <div style="flex:1"><label>الفترة الرسمية</label>
+          <div id="prPeriodBox" style="padding:9px 12px;background:#f2f6fc;border-radius:8px;
+            font-size:14px;min-height:38px;box-sizing:border-box">— اختر الشهر —</div></div>
+      </div>
+      <p style="font-size:12px;color:#777;margin-top:6px">
+        الشهر المختار = <b>شهر نهاية الفترة</b>. الفترة بتتجاب تلقائيًا من
+        «فترات المرتبات» ومش قابلة للتعديل، وبيستخدمها
+        <b>جدول الرواتب</b> و<b>تقرير الرواتب الأساسية</b>.
+      </p>
+    </div>
+
+    <!-- ============== B1 — فترات المرتبات الرسمية ==============
+         ⛔ الفترة = From + To يحددهما المستخدم · الطرفان Inclusive.
+            منع التداخل فقط — الفجوات مسموحة (D25-B).
+         ⚠️ B2/B3 لسه مش منفَّذين ⇒ الفترة المقفولة لسه بتتعرض بحساب حي. -->
+    <div class="card">
+      <h2>فترات المرتبات الرسمية</h2>
+      <p style="font-size:12px;color:#777">
+        الفترة الرسمية = <b>من تاريخ + لحد تاريخ</b>، والطرفان داخلان في الفترة.
+        <b>مفيش دورة ثابتة مفروضة</b> — إنت اللي بتحدد النطاق.
+        الممنوع الوحيد هو <b>التداخل</b> مع فترة رسمية أخرى؛ والفجوات مسموحة
+        وبيتم التنبيه عليها وقت الإقفال.
+        <br>⚠️ <b>الإقفال حاليًا بيسجّل الحالة والـAudit Trail بس</b> — تجميد
+        الأرقام (Snapshot) مرحلة لاحقة.
+      </p>
+      <div class="form-grid">
+        <div><label>اسم الفترة</label><input type="text" id="ppName" placeholder="مثال: سبتمبر 2026"></div>
+        <div><label>من تاريخ</label><input type="date" id="ppFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="ppTo"></div>
+      </div>
+      <div class="form-actions">
+        <button onclick="addPayrollPeriod_()">إضافة فترة</button>
+        <button class="secondary" onclick="resetPeriodForm_()">إلغاء</button>
+      </div>
+      <div id="ppFormStatus" style="font-size:13px;margin-top:6px"></div>
+      <div id="ppGapsArea" style="font-size:13px;margin-top:10px"></div>
+      <div id="ppListStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="ppListArea"></div>
+
     <div class="card">
       <h2>الرواتب (Payroll)</h2>
       <div class="filters">
@@ -1895,9 +1915,9 @@
       try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
-      if (name === 'settings') { loadAcademicYearsView_(); loadPayrollPeriods_(); }
-      // ⬅️ الأقسام تظهر بمجرد فتح الرواتب — employeeDepartments الموجود.
-      if (name === 'payroll') { loadStblDepts_(); }
+      if (name === 'settings') { loadAcademicYearsView_(); }
+      // ⬅️ الرواتب: الأقسام + إدارة الفترات (اتنقلت من الإعدادات).
+      if (name === 'payroll') { loadStblDepts_(); loadPayrollPeriods_(); }
       if (name === 'payrollTypes') { if (!payrollTypesLoaded_) { loadPayrollTxTypesView_(); payrollTypesLoaded_ = true; } }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
@@ -4551,6 +4571,31 @@
     function stblMonthValue_() {
       const v = document.getElementById('stblMonth').value;
       return v ? v + '-01' : '';
+    }
+
+    // ⬅️ فترة المرتب — الشهر الواحد اللي بيحكم جدول الرواتب وتقرير
+    //    الرواتب الأساسية. ⛔ الفترة بتتجاب من نفس action salaryTable
+    //    الموجود (اللي بيقرا MONTHS) — صفر action وصفر منطق جديد.
+    function prSyncMonth_() {
+      const m = document.getElementById('prMonth').value;
+      const box = document.getElementById('prPeriodBox');
+      const st = document.getElementById('stblMonth');
+      if (st) st.value = m;               // جدول الرواتب يتبع نفس الشهر
+      if (!m) { box.textContent = '— اختر الشهر —'; return; }
+      // ⬅️ نفس قاعدة الباك بالحرف: شهر **نهاية** الفترة.
+      //    ⛔ من ppCache_ المحمَّلة أصلاً — صفر نداء إضافي.
+      const hit = (ppCache_ || [])
+        .filter(p => p.from && p.to && String(p.to).slice(0, 7) === m)
+        .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+      if (!hit.length) {
+        box.innerHTML = '<span style="color:var(--color-danger)">'
+          + 'لا توجد فترة مرتبات رسمية لهذا الشهر.</span>';
+        return;
+      }
+      const p = hit[hit.length - 1];
+      box.innerHTML = '<b>' + escapeHtml_(p.from) + ' → ' + escapeHtml_(p.to) + '</b>'
+        + ' &nbsp;·&nbsp; <span style="color:#777">' + escapeHtml_(p.name || ('#' + p.id))
+        + ' · ' + escapeHtml_(p.status || '') + '</span>';
     }
 
     // ============================================================
@@ -7651,6 +7696,7 @@
         renderPayrollPeriods_();
         renderPeriodGaps_();
         setPpStatus_('ppListStatus', ppCache_.length + ' فترة رسمية.');
+        try { prSyncMonth_(); } catch (e) {}   // تحديث عرض فترة المرتب
       } catch (err) {
         ppCache_ = []; ppGaps_ = [];
         document.getElementById('ppListArea').innerHTML = '';
