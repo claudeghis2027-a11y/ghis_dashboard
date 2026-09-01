@@ -1454,6 +1454,23 @@
       <div id="advScheduleArea" style="margin-top:12px"></div>
     </div>
 
+    <!-- ============== A2 (D57) — أقساط بانتظار فترة ==============
+         ⛔ لا ابتلاع · لا تحريك تلقائي · لا خصم بلا Period ID. -->
+    <div class="card">
+      <h2>أقساط بانتظار فترة</h2>
+      <p style="font-size:12px;color:#777">
+        الأقساط اللي لسه مالهاش فترة رسمية — إما لأن الفترة مش معرَّفة (فجوة)
+        أو <b>معرَّفة لكن مقفولة</b>. ⛔ النظام مابيحركش أي قسط تلقائيًا ومابيبتلعش
+        أي قسط — لازم تعرّف الفترة وتعمل «ربط الفترات» تاني، أو تعيّن الفترة يدويًا.
+        <br>⚠️ التعيين اليدوي بيقبل <b>الفترات المفتوحة بس</b>.
+      </p>
+      <div class="form-actions">
+        <button class="secondary" onclick="loadUnlinked_()">تحديث القائمة</button>
+      </div>
+      <div id="advUnlinkedStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="advUnlinkedArea"></div>
+    </div>
+
     <!-- ============== A1 — تقرير السلف ==============
          ⛔ الشهور المحصلة/المحصل/المتبقي من حالات الأقساط الفعلية بس. -->
     <div class="card">
@@ -6261,6 +6278,7 @@
         renderPayrollTxTypes_();
         fillSalaryDropdowns_();
         await loadAdvances_();   // ⬅️ البند 11 / A1
+        await loadUnlinked_();   // ⬅️ البند 11 / A2
         setPtListStatus_(ptTypesCache_.length + ' نوع.');
       } catch (err) {
         ptTypesCache_ = [];
@@ -7270,7 +7288,8 @@
           + '<td>' + escapeHtml_(a.startDate) + '</td>'
           + '<td>' + escapeHtml_(a.status) + '</td>'
           + '<td>' + escapeHtml_(a.notes) + '</td>'
-          + '<td><button class="link-btn" onclick="loadAdvanceSchedule_(\'' + escapeHtml_(a.id) + '\')">الأقساط</button></td>'
+          + '<td><button class="link-btn" onclick="loadAdvanceSchedule_(\'' + escapeHtml_(a.id) + '\')">الأقساط</button>'
+          + ' · <button class="link-btn" onclick="linkAdvancePeriods_(\'' + escapeHtml_(a.id) + '\')">🔗 ربط الفترات</button></td>'
           + '</tr>';
       });
       h += '</tbody></table></div>';
@@ -7321,6 +7340,83 @@
       } catch (err) { setAdvStatus_('advFormStatus', '❌ ' + err.message, true); }
     }
 
+    // ============================================================
+    // A2 (D57) — ربط الأقساط بالفترات
+    // ⛔ صفر أثر مالي: صفر حركة مرتب · Tx Ref فاضي.
+    // ⬅️ D64-B فترة مقفولة ⇒ مافيش ربط · D65-A آخر يوم صالح ·
+    //    D66-A أكتر من قسط في فترة ⇒ تحذير بلا ترحيل.
+    // ============================================================
+    let advOpenPeriods_ = [];
+
+    async function linkAdvancePeriods_(advanceId) {
+      setAdvStatus_('advListStatus', 'جاري الربط...');
+      try {
+        const r = await callApiPost_({ action: 'advanceLinkPeriods', advanceId: advanceId });
+        const res = r.result || {};
+        let msg = '✅ اترتبط ' + (res.linked || 0) + ' قسط · ' + (res.pending || 0) + ' لسه بانتظار فترة.';
+        setAdvStatus_('advListStatus', msg);
+        if (res.warnings && res.warnings.length) {
+          alert('⚠️ تنبيهات الربط:\n\n• ' + res.warnings.join('\n• '));
+        }
+        await loadAdvanceSchedule_(advanceId);
+        await loadUnlinked_();
+      } catch (err) { setAdvStatus_('advListStatus', '❌ ' + err.message, true); }
+    }
+
+    async function loadUnlinked_() {
+      setAdvStatus_('advUnlinkedStatus', 'جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'advanceUnlinked' });
+        const rows = json.rows || [];
+        advOpenPeriods_ = json.periods || [];
+        const area = document.getElementById('advUnlinkedArea');
+        if (!rows.length) {
+          area.innerHTML = '<p style="font-size:13px;color:var(--color-success)">✅ مفيش أقساط بانتظار فترة.</p>';
+          setAdvStatus_('advUnlinkedStatus', '');
+          return;
+        }
+        let h = '<div class="table-wrap"><table><thead><tr>'
+          + '<th>Advance ID</th><th>الموظف</th><th>القسط</th><th>القيمة</th>'
+          + '<th>بدء الخصم</th><th>تعيين فترة</th></tr></thead><tbody>';
+        rows.forEach(r => {
+          const sel = '<select id="asg_' + escapeHtml_(r.advanceId) + '_' + r.no + '">'
+            + '<option value="">— اختار فترة مفتوحة —</option>'
+            + advOpenPeriods_.map(p => '<option value="' + p.id + '">'
+                + escapeHtml_((p.name || ('#' + p.id)) + ' (' + p.from + ' → ' + p.to + ')')
+                + '</option>').join('')
+            + '</select> <button class="link-btn" onclick="assignInstallment_(\''
+            + escapeHtml_(r.advanceId) + '\',' + r.no + ')">تعيين</button>';
+          h += '<tr><td>' + escapeHtml_(r.advanceId) + '</td>'
+            + '<td>' + escapeHtml_(advEmpName_(r.code) || r.code) + '</td>'
+            + '<td>' + r.no + ' من ' + r.count + '</td>'
+            + '<td>' + r.value.toFixed(2) + '</td>'
+            + '<td>' + escapeHtml_(r.startDate) + '</td>'
+            + '<td>' + sel + '</td></tr>';
+        });
+        h += '</tbody></table></div>';
+        area.innerHTML = h;
+        setAdvStatus_('advUnlinkedStatus', rows.length + ' قسط بانتظار فترة.');
+      } catch (err) {
+        document.getElementById('advUnlinkedArea').innerHTML = '';
+        setAdvStatus_('advUnlinkedStatus', '❌ ' + err.message, true);
+      }
+    }
+
+    async function assignInstallment_(advanceId, no) {
+      const sel = document.getElementById('asg_' + advanceId + '_' + no);
+      const pid = sel ? sel.value : '';
+      if (!pid) { alert('❌ اختار الفترة الأول.'); return; }
+      const reason = prompt('سبب تعيين الفترة للقسط ' + no + ' (إلزامي):', '');
+      if (reason === null) return;
+      if (!String(reason).trim()) { alert('❌ لازم تكتب السبب.'); return; }
+      try {
+        await callApiPost_({ action: 'advanceInstallmentAssign', advanceId: advanceId,
+          no: String(no), periodId: pid, reason: reason });
+        await loadUnlinked_();
+        await loadAdvances_();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
     // ⬅️ A1 — تقرير السلف. ⛔ عرض بحت: كل الأرقام جاية جاهزة من السيرفر،
     //    ومفيش أي حساب تحصيل في الواجهة.
     async function loadAdvancesReport_() {
@@ -7343,7 +7439,8 @@
         let h = '<div class="table-wrap"><table><thead><tr>'
           + '<th>من</th><th>إلى</th><th>اسم الموظف</th><th>تاريخ السلفة</th>'
           + '<th>مبلغ السلفة</th><th>قيمة القسط</th><th>الشهور المحصلة</th>'
-          + '<th>المبلغ المحصل</th><th>المبلغ المتبقي</th><th>حالة السلفة</th>'
+          + '<th>المبلغ المحصل</th><th>المبلغ المتبقي</th>'
+          + '<th>أقساط بانتظار فترة</th><th>حالة السلفة</th>'
           + '</tr></thead><tbody>';
         let tTotal = 0, tCollected = 0, tRemaining = 0;
         rows.forEach(r => {
@@ -7360,6 +7457,7 @@
             + '<td>' + r.collectedMonths + ' من ' + r.installmentsCount + '</td>'
             + '<td>' + r.collectedAmount.toFixed(2) + '</td>'
             + '<td>' + r.remainingAmount.toFixed(2) + '</td>'
+            + '<td>' + (r.pendingPeriodCount || 0) + '</td>'
             + '<td>' + escapeHtml_(r.status) + '</td>'
             + '</tr>';
         });
@@ -7367,7 +7465,7 @@
           + '<td colspan="4"><b>الإجمالي</b></td>'
           + '<td><b>' + (tTotal / 100).toFixed(2) + '</b></td><td></td><td></td>'
           + '<td><b>' + (tCollected / 100).toFixed(2) + '</b></td>'
-          + '<td><b>' + (tRemaining / 100).toFixed(2) + '</b></td><td></td>'
+          + '<td><b>' + (tRemaining / 100).toFixed(2) + '</b></td><td></td><td></td>'
           + '</tr></tfoot></table></div>';
         area.innerHTML = h;
         setAdvStatus_('advRepStatus', rows.length + ' سلفة.');
