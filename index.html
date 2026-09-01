@@ -1268,6 +1268,31 @@
       <div id="payrollStatus" style="font-size:13px;margin:8px 0;"></div>
       <div id="payrollArea"></div>
     </div>
+
+    <!-- ============== جدول الرواتب — كل الموظفين ==============
+         ⛔ نفس مصادر البيانات الحالية · صفر Payroll logic جديد. -->
+    <div class="card">
+      <h2>جدول الرواتب</h2>
+      <p style="font-size:12px;color:#777">
+        الراتب الأساسي المعروض هو الساري في <b>شهر التقرير</b>.
+        <b>العلاوة</b> إدخال يدوي — واعتمادها بيسجّل راتبًا أساسيًا جديدًا
+        (الأساسي + العلاوة) بتاريخ سريان، ويستمر بعدها لحد ما يتغيّر.
+        <br><b>خصم الربعين</b> بيظهر في شهره بس حسب إعداد الموظف (ربع/ربعين)
+        أو قاعدة قسمه.
+      </p>
+      <div class="filters">
+        <div><label>شهر التقرير</label><input type="month" id="stblMonth"></div>
+        <div><label>القسم</label>
+          <select id="stblDept"><option value="">— كل الأقسام —</option></select></div>
+        <div><button onclick="loadSalaryTable_()">عرض الجدول</button></div>
+      </div>
+      <div class="form-actions">
+        <button class="secondary" onclick="exportSalaryTable_()">Excel</button>
+        <button class="secondary" onclick="printSalaryTable_()">طباعة</button>
+      </div>
+      <div id="stblStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="stblArea"></div>
+    </div>
   </div>
 
   <!-- ⚠️ Phase 5 — خصم واسترداد الصيف. Flow مستقل تمامًا عن Payroll
@@ -4371,6 +4396,131 @@
       } catch (err) {
         statusEl.textContent = '❌ ' + err.message;
       }
+    }
+
+    // ============================================================
+    // جدول الرواتب — كل الموظفين
+    // ⛔ قراءة بحتة من action salaryTable · صفر حساب Payroll في الواجهة.
+    // ⬅️ العلاوة يدوية، واعتمادها بيمرّ على salaryAllowanceApprove اللي
+    //    بيسجّل حركة راتب أساسي جديدة بالمسار القائم.
+    // ============================================================
+    let stblRows_ = [];
+    let stblMonthKey_ = '';
+
+    function stblMonthValue_() {
+      const v = document.getElementById('stblMonth').value;
+      return v ? v + '-01' : '';
+    }
+
+    async function loadSalaryTable_() {
+      const area = document.getElementById('stblArea');
+      setAdvStatus_('stblStatus', 'جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'salaryTable',
+          month: stblMonthValue_(), dept: document.getElementById('stblDept').value });
+        const t = json.table || {};
+        stblRows_ = t.rows || [];
+        stblMonthKey_ = t.monthKey || '';
+        // تعبئة الأقسام مرة واحدة
+        const sel = document.getElementById('stblDept');
+        if (sel && sel.options.length <= 1) {
+          (t.departments || []).forEach(d => {
+            const o = document.createElement('option');
+            o.value = d; o.textContent = d; sel.appendChild(o);
+          });
+        }
+        if (!stblRows_.length) {
+          area.innerHTML = '<p style="font-size:13px;color:#777">لا يوجد موظفون في هذا القسم.</p>';
+          setAdvStatus_('stblStatus', '');
+          return;
+        }
+        let h = '<div class="table-wrap"><table><thead><tr>'
+          + '<th>كود الموظف</th><th>اسم الموظف</th><th>القسم</th><th>المسمى الوظيفي</th>'
+          + '<th>الراتب الأساسي</th><th>العلاوة</th><th>خصم الربعين</th>'
+          + '<th>إجمالي الراتب</th><th>الإجراءات</th></tr></thead><tbody>';
+        stblRows_.forEach((r, i) => {
+          h += '<tr>'
+            + '<td>' + escapeHtml_(r.code) + '</td>'
+            + '<td>' + escapeHtml_(r.nameAr) + '</td>'
+            + '<td>' + escapeHtml_(r.dept) + '</td>'
+            + '<td>' + escapeHtml_(r.jobTitle) + '</td>'
+            + '<td>' + (r.basicError
+                ? '<span style="color:var(--color-danger)" title="' + escapeHtml_(r.basicError) + '">—</span>'
+                : r.basicSalary.toFixed(2)) + '</td>'
+            + '<td><input type="number" min="0" step="0.01" style="width:90px" '
+              + 'id="stblAllow_' + i + '" oninput="stblRecalc_(' + i + ')"></td>'
+            + '<td>' + r.quarterDeduction.toFixed(2) + '</td>'
+            + '<td id="stblTotal_' + i + '">' + r.basicSalary.toFixed(2) + '</td>'
+            + '<td>' + (r.basicError ? '—'
+                : '<button class="link-btn" onclick="approveAllowance_(' + i + ')">اعتماد العلاوة</button>'
+                  + ' · <button class="link-btn" onclick="exportSalaryTable_(' + i + ')">Excel</button>'
+                  + ' · <button class="link-btn" onclick="printSalaryTable_(' + i + ')">طباعة</button>') + '</td>'
+            + '</tr>';
+        });
+        h += '</tbody></table></div>';
+        area.innerHTML = h;
+        setAdvStatus_('stblStatus', stblRows_.length + ' موظف · شهر ' + stblMonthKey_.slice(0, 7));
+      } catch (err) {
+        area.innerHTML = '';
+        setAdvStatus_('stblStatus', err.message, true);
+      }
+    }
+
+    function stblRecalc_(i) {
+      const r = stblRows_[i];
+      const add = Number(document.getElementById('stblAllow_' + i).value) || 0;
+      document.getElementById('stblTotal_' + i).textContent = (r.basicSalary + add).toFixed(2);
+    }
+
+    async function approveAllowance_(i) {
+      const r = stblRows_[i];
+      const add = Number(document.getElementById('stblAllow_' + i).value) || 0;
+      if (!(add > 0)) { alert('اكتب قيمة العلاوة الأول.'); return; }
+      const from = prompt('تاريخ سريان العلاوة (yyyy-mm-dd):', stblMonthKey_);
+      if (from === null) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) { alert('تاريخ السريان غير صحيح.'); return; }
+      if (!confirm('اعتماد علاوة ' + add.toFixed(2) + ' للموظف ' + r.nameAr + '؟\n\n'
+        + 'الراتب الأساسي الجديد = ' + (r.basicSalary + add).toFixed(2)
+        + ' ساري من ' + from + '.')) return;
+      try {
+        const res = await callApiPost_({ action: 'salaryAllowanceApprove',
+          employee: r.code, allowance: String(add), from: from, reason: '' });
+        alert('تم اعتماد العلاوة. الراتب الأساسي الجديد = '
+          + Number(res.result.newSalary).toFixed(2));
+        await loadSalaryTable_();
+      } catch (err) { alert(err.message); }
+    }
+
+    function stblExportData_(only) {
+      const rows = (only === undefined ? stblRows_ : [stblRows_[only]]).map((r, k) => {
+        const idx = (only === undefined) ? k : only;
+        const el = document.getElementById('stblAllow_' + idx);
+        const add = Number(el ? el.value : 0) || 0;
+        return [r.code, r.nameAr, r.dept, r.jobTitle,
+          r.basicError ? '' : r.basicSalary.toFixed(2), add.toFixed(2),
+          r.quarterDeduction.toFixed(2),
+          r.basicError ? '' : (r.basicSalary + add).toFixed(2)];
+      });
+      return {
+        title: (only === undefined ? 'جدول الرواتب — ' : 'راتب الموظف — ')
+          + (stblMonthKey_ || '').slice(0, 7),
+        headers: ['كود الموظف', 'اسم الموظف', 'القسم', 'المسمى الوظيفي',
+          'الراتب الأساسي', 'العلاوة', 'خصم الربعين', 'إجمالي الراتب'],
+        rows: rows,
+        fileName: (only === undefined ? 'جدول_الرواتب_'
+          : ('راتب_' + stblRows_[only].code + '_')) + (stblMonthKey_ || '').slice(0, 7),
+        excelOptions: { xSplit: 0, ySplit: 1, colWidths: [10, 28, 18, 20, 14, 12, 14, 14] },
+      };
+    }
+
+    async function exportSalaryTable_(only) {
+      if (!stblRows_.length) { alert('اعرض الجدول الأول.'); return; }
+      await exportGenericToExcelJs_(stblExportData_(only));
+    }
+
+    async function printSalaryTable_(only) {
+      if (!stblRows_.length) { alert('اعرض الجدول الأول.'); return; }
+      await printReport_(stblExportData_(only));
     }
 
     // ============================================================
