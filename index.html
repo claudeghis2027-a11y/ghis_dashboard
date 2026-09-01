@@ -4384,28 +4384,37 @@
       const cur = document.getElementById('empSalaryCurrent');
       const hist = document.getElementById('empSalHistory');
       if (!cur || !hist) return;
+      cur.textContent = 'جاري التحميل...';
+      hist.innerHTML = '';
       try {
         const json = await callApi_({ action: 'salaryTransactions', employee: code });
-        const rows = (json.transactions || json.rows || [])
+        const rows = (json.transactions || [])
           .filter(t => t.type === 'الراتب الأساسي' && t.from)
           .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+
         if (!rows.length) {
-          cur.innerHTML = '<span style="color:var(--color-danger)">⚠️ مفيش راتب أساسي مسجَّل لهذا الموظف.</span>';
-          hist.innerHTML = '';
+          cur.innerHTML = '<b>الراتب الأساسي الحالي:</b> —'
+            + '<br><b>تاريخ السريان الحالي:</b> —';
+          hist.innerHTML = '<p style="font-size:13px;color:#777">لا توجد حركات راتب أساسي مسجلة.</p>';
           return;
         }
+
         const today = new Date().toISOString().slice(0, 10);
         // الحالي = آخر حركة تاريخ سريانها <= النهارده
         const effective = rows.filter(t => t.from <= today);
         const currentRow = effective.length ? effective[effective.length - 1] : null;
         cur.innerHTML = currentRow
-          ? '<b>الراتب الأساسي الحالي:</b> ' + Number(currentRow.value).toFixed(2)
-            + ' جنيه · <span style="color:#777">ساري من ' + escapeHtml_(currentRow.from) + '</span>'
-          : '<span style="color:var(--color-danger)">⚠️ أول تاريخ سريان مسجَّل لسه ماجاش.</span>';
+          ? '<b>الراتب الأساسي الحالي:</b> ' + Number(currentRow.value).toFixed(2) + ' جنيه'
+            + '<br><b>تاريخ السريان الحالي:</b> ' + escapeHtml_(currentRow.from)
+          : '<b>الراتب الأساسي الحالي:</b> —'
+            + '<br><b>تاريخ السريان الحالي:</b> — <span style="color:#777">'
+            + '(أول تاريخ سريان مسجَّل لسه ماجاش)</span>';
+
         let h = '<div class="table-wrap"><table><thead><tr>'
           + '<th>تاريخ السريان</th><th>الراتب</th><th>الحالة</th></tr></thead><tbody>';
         rows.forEach(t => {
-          const isCurrent = currentRow && t.from === currentRow.from && Number(t.value) === Number(currentRow.value);
+          const isCurrent = currentRow && t.from === currentRow.from
+            && Number(t.value) === Number(currentRow.value);
           const st = t.from > today ? 'قادم' : (isCurrent ? 'حالي' : 'سابق');
           h += '<tr><td>' + escapeHtml_(t.from) + '</td>'
             + '<td>' + Number(t.value).toFixed(2) + '</td>'
@@ -4415,7 +4424,7 @@
         hist.innerHTML = h;
       } catch (err) {
         cur.textContent = err.message;
-        hist.innerHTML = '';
+        hist.innerHTML = '<p style="font-size:13px;color:#777">تعذّر تحميل سجل الراتب.</p>';
       }
     }
 
