@@ -1454,6 +1454,27 @@
       <div id="advScheduleArea" style="margin-top:12px"></div>
     </div>
 
+    <!-- ============== A1 — تقرير السلف ==============
+         ⛔ الشهور المحصلة/المحصل/المتبقي من حالات الأقساط الفعلية بس. -->
+    <div class="card">
+      <h2>تقرير السلف</h2>
+      <p style="font-size:12px;color:#777">
+        <b>الشهور المحصلة</b> و<b>المبلغ المحصل</b> بيتحسبوا من الأقساط اللي
+        حالتها «مخصوم» فعليًا — ⛔ مفيش أي تحصيل مفترض أو محسوب تقديريًا.
+        <br>⚠️ في المرحلة الحالية كل الأقساط «بانتظار فترة»، فالمحصَّل = صفر
+        والمتبقي = إجمالي السلفة. الخصم الفعلي وربطه بالحركات مرحلة لاحقة.
+      </p>
+      <div class="form-grid">
+        <div><label>من تاريخ</label><input type="date" id="advRepFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="advRepTo"></div>
+      </div>
+      <div class="form-actions">
+        <button onclick="loadAdvancesReport_()">عرض التقرير</button>
+      </div>
+      <div id="advRepStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="advRepArea"></div>
+    </div>
+
     <div class="card">
       <h2>إضافة نوع حركة مرتب</h2>
       <p style="font-size:12px;color:#777">
@@ -7298,6 +7319,62 @@
         setAdvStatus_('advFormStatus', '✅ اتسجّلت السلفة ' + ((r.result && r.result.id) || ''));
         await loadAdvances_();
       } catch (err) { setAdvStatus_('advFormStatus', '❌ ' + err.message, true); }
+    }
+
+    // ⬅️ A1 — تقرير السلف. ⛔ عرض بحت: كل الأرقام جاية جاهزة من السيرفر،
+    //    ومفيش أي حساب تحصيل في الواجهة.
+    async function loadAdvancesReport_() {
+      const from = document.getElementById('advRepFrom').value;
+      const to = document.getElementById('advRepTo').value;
+      if (from && to && from > to) {
+        setAdvStatus_('advRepStatus', '«من تاريخ» لازم يكون قبل أو يساوي «لحد تاريخ».', true);
+        return;
+      }
+      setAdvStatus_('advRepStatus', 'جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'advancesReport', from: from, to: to });
+        const rows = json.rows || [];
+        const area = document.getElementById('advRepArea');
+        if (!rows.length) {
+          area.innerHTML = '<p style="font-size:13px;color:#777">مفيش سلف في المدى ده.</p>';
+          setAdvStatus_('advRepStatus', '');
+          return;
+        }
+        let h = '<div class="table-wrap"><table><thead><tr>'
+          + '<th>من</th><th>إلى</th><th>اسم الموظف</th><th>تاريخ السلفة</th>'
+          + '<th>مبلغ السلفة</th><th>قيمة القسط</th><th>الشهور المحصلة</th>'
+          + '<th>المبلغ المحصل</th><th>المبلغ المتبقي</th><th>حالة السلفة</th>'
+          + '</tr></thead><tbody>';
+        let tTotal = 0, tCollected = 0, tRemaining = 0;
+        rows.forEach(r => {
+          tTotal += Math.round(r.total * 100);
+          tCollected += Math.round(r.collectedAmount * 100);
+          tRemaining += Math.round(r.remainingAmount * 100);
+          h += '<tr>'
+            + '<td>' + escapeHtml_(from || '—') + '</td>'
+            + '<td>' + escapeHtml_(to || '—') + '</td>'
+            + '<td>' + escapeHtml_(advEmpName_(r.code) || r.code) + '</td>'
+            + '<td>' + escapeHtml_(r.advanceDate) + '</td>'
+            + '<td>' + r.total.toFixed(2) + '</td>'
+            + '<td>' + r.installmentValue.toFixed(2) + '</td>'
+            + '<td>' + r.collectedMonths + ' من ' + r.installmentsCount + '</td>'
+            + '<td>' + r.collectedAmount.toFixed(2) + '</td>'
+            + '<td>' + r.remainingAmount.toFixed(2) + '</td>'
+            + '<td>' + escapeHtml_(r.status) + '</td>'
+            + '</tr>';
+        });
+        h += '</tbody><tfoot><tr>'
+          + '<td colspan="4"><b>الإجمالي</b></td>'
+          + '<td><b>' + (tTotal / 100).toFixed(2) + '</b></td><td></td><td></td>'
+          + '<td><b>' + (tCollected / 100).toFixed(2) + '</b></td>'
+          + '<td><b>' + (tRemaining / 100).toFixed(2) + '</b></td><td></td>'
+          + '</tr></tfoot></table></div>';
+        area.innerHTML = h;
+        setAdvStatus_('advRepStatus', rows.length + ' سلفة.');
+      } catch (err) {
+        document.getElementById('advRepArea').innerHTML = '';
+        setAdvStatus_('advRepStatus', '❌ ' + err.message, true);
+      }
     }
 
     function resetAdvanceForm_() {
