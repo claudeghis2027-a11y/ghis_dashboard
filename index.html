@@ -1471,6 +1471,31 @@
       <div id="advUnlinkedArea"></div>
     </div>
 
+    <!-- ============== A3 — توليد أقساط الفترة + فحص التطابق ==============
+         ⛔ التوليد لفترة واحدة يحددها المستخدم (D69-A).
+         ⛔ فتح الشاشة **مابيكتبش** أي حاجة — الكتابة بالزر بس. -->
+    <div class="card">
+      <h2>توليد أقساط الفترة</h2>
+      <p style="font-size:12px;color:#777">
+        بيحوّل الأقساط <b>«المستحقة»</b> في الفترة المختارة إلى حركات خصم فعلية
+        في «حركات المرتب» — نوع الحركة <b>«قسط سلفة»</b> بتصنيف <b>deduction</b>.
+        <br>⛔ <b>الفترة المقفولة ممنوعة</b> · ⛔ القسط بيتخصم <b>مرة واحدة بس</b>
+        (حجز <b>PENDING</b> قبل الكتابة يمنع أي خصم مزدوج حتى لو التنفيذ اتقطع).
+        <br>⚠️ قيمة الخصم = <b>قيمة القسط نفسها</b> — مفيش أي إعادة حساب.
+      </p>
+      <div class="form-grid">
+        <div><label>الفترة</label>
+          <select id="advGenPeriod" onchange="loadGeneratable_()">
+            <option value="">— اختار فترة مفتوحة —</option></select></div>
+      </div>
+      <div class="form-actions">
+        <button onclick="generateInstallments_()">توليد أقساط الفترة</button>
+        <button class="secondary" onclick="runAdvanceIntegrity_()">فحص التطابق</button>
+      </div>
+      <div id="advGenStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="advGenArea"></div>
+    </div>
+
     <!-- ============== A1 — تقرير السلف ==============
          ⛔ الشهور المحصلة/المحصل/المتبقي من حالات الأقساط الفعلية بس. -->
     <div class="card">
@@ -6279,6 +6304,7 @@
         fillSalaryDropdowns_();
         await loadAdvances_();   // ⬅️ البند 11 / A1
         await loadUnlinked_();   // ⬅️ البند 11 / A2
+        await loadGeneratable_(); // ⬅️ البند 11 / A3 (قراءة بس)
         setPtListStatus_(ptTypesCache_.length + ' نوع.');
       } catch (err) {
         ptTypesCache_ = [];
@@ -7415,6 +7441,98 @@
         await loadUnlinked_();
         await loadAdvances_();
       } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ============================================================
+    // A3 — توليد الأقساط + فحص التطابق (D56·D60·D67·D69)
+    // ⛔ صفر كتابة عند فتح الشاشة — القراءة بس.
+    // ============================================================
+    async function loadGeneratable_() {
+      const sel = document.getElementById('advGenPeriod');
+      const pid = sel ? sel.value : '';
+      const area = document.getElementById('advGenArea');
+      try {
+        const json = await callApi_({ action: 'advanceGeneratable', periodId: pid });
+        // تعبئة قائمة الفترات المفتوحة مرة واحدة
+        if (sel && sel.options.length <= 1) {
+          (json.periods || []).forEach(p => {
+            const o = document.createElement('option');
+            o.value = p.id;
+            o.textContent = (p.name || ('#' + p.id)) + ' (' + p.from + ' → ' + p.to + ')';
+            sel.appendChild(o);
+          });
+        }
+        if (!pid) { area.innerHTML = ''; setAdvStatus_('advGenStatus', ''); return; }
+        const rows = json.rows || [];
+        if (!rows.length) {
+          area.innerHTML = '<p style="font-size:13px;color:#777">مفيش أقساط قابلة للتوليد في الفترة دي.</p>';
+          setAdvStatus_('advGenStatus', '');
+          return;
+        }
+        let h = '<div class="table-wrap"><table><thead><tr>'
+          + '<th>Advance ID</th><th>القسط</th><th>القيمة</th><th>الحالة</th>'
+          + '<th>Tx Ref</th></tr></thead><tbody>';
+        rows.forEach(r => {
+          h += '<tr><td>' + escapeHtml_(r.advanceId) + '</td><td>' + r.no + '</td>'
+            + '<td>' + r.value.toFixed(2) + '</td><td>' + escapeHtml_(r.status) + '</td>'
+            + '<td>' + (r.txRef ? escapeHtml_(r.txRef) : '<span style="color:#999">—</span>') + '</td></tr>';
+        });
+        h += '</tbody></table></div>';
+        area.innerHTML = h;
+        setAdvStatus_('advGenStatus', rows.length + ' قسط قابل للتوليد.');
+      } catch (err) {
+        area.innerHTML = '';
+        setAdvStatus_('advGenStatus', '❌ ' + err.message, true);
+      }
+    }
+
+    async function generateInstallments_() {
+      const pid = document.getElementById('advGenPeriod').value;
+      if (!pid) { setAdvStatus_('advGenStatus', 'اختار الفترة الأول.', true); return; }
+      if (!confirm('توليد أقساط الفترة المختارة؟\n\n'
+        + 'هيتكتب خصم فعلي في «حركات المرتب» لكل قسط مستحق.\n'
+        + '⛔ القسط اللي اتخصم مش هيتخصم تاني.')) return;
+      setAdvStatus_('advGenStatus', 'جاري التوليد...');
+      try {
+        const r = await callApiPost_({ action: 'advanceGenerate', periodId: pid });
+        const res = r.result || {};
+        let msg = '✅ اتولّد ' + (res.generated || 0) + ' قسط';
+        if (res.resumed) msg += ' · اتستكمل ربط ' + res.resumed;
+        if (res.skipped) msg += ' · اتخطّى ' + res.skipped;
+        if (res.typeCreated) msg += ' · (اتعمل نوع «قسط سلفة» تلقائيًا)';
+        setAdvStatus_('advGenStatus', msg);
+        const failed = (res.results || []).filter(x => !x.ok);
+        if (failed.length) {
+          alert('⚠️ أقساط اتخطّت:\n\n• ' + failed.map(x => x.tag + ': ' + x.error).join('\n• '));
+        }
+        if (res.warnings && res.warnings.length) {
+          alert('⚠️ تنبيهات التطابق:\n\n• ' + res.warnings.join('\n• '));
+        }
+        await loadGeneratable_();
+        await loadAdvances_();
+      } catch (err) { setAdvStatus_('advGenStatus', '❌ ' + err.message, true); }
+    }
+
+    async function runAdvanceIntegrity_() {
+      setAdvStatus_('advGenStatus', 'جاري الفحص...');
+      try {
+        const r = await callApi_({ action: 'advanceIntegrity' });
+        const res = r.result || {};
+        const issues = res.issues || [];
+        const area = document.getElementById('advGenArea');
+        if (!issues.length) {
+          area.innerHTML = '<p style="font-size:13px;color:var(--color-success)">✅ مفيش أي خلل في تطابق الأقساط مع حركات المرتب.</p>';
+          setAdvStatus_('advGenStatus', '');
+          return;
+        }
+        const blocks = issues.filter(i => i.level === 'block');
+        area.innerHTML = '<div style="padding:12px;border-radius:8px;background:#fff4f4;'
+          + 'border:1px solid var(--color-danger);font-size:13px">'
+          + '⚠️ <b>' + blocks.length + ' مانع · ' + (issues.length - blocks.length) + ' تحذير</b><br>'
+          + issues.map(i => (i.level === 'block' ? '🔴 ' : '⚠️ ') + escapeHtml_(i.msg)).join('<br>')
+          + '<br><span style="color:#777">⛔ ده كشف بس — مفيش أي إصلاح تلقائي.</span></div>';
+        setAdvStatus_('advGenStatus', '');
+      } catch (err) { setAdvStatus_('advGenStatus', '❌ ' + err.message, true); }
     }
 
     // ⬅️ A1 — تقرير السلف. ⛔ عرض بحت: كل الأرقام جاية جاهزة من السيرفر،
