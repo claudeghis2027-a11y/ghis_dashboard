@@ -978,7 +978,7 @@
     <div class="card">
       <h2>قواعد الخصم (تاريخية — شامل سلم الأذونات)</h2>
       <div id="deductionRulesArea"></div>
-      <button class="secondary" style="margin-top:10px" onclick="openDeductionRuleForm(null)">+ إضافة قاعدة خصم جديدة</button>
+      <button class="secondary" style="margin-top:10px" onclick="openDeductionRuleForm()">+ إضافة قاعدة خصم جديدة</button>
       <div id="deductionRuleFormArea"></div>
     </div>
 
@@ -4490,70 +4490,20 @@
       el.textContent = 'جاري التحميل...';
       try {
         const json = await callApi_({ action: 'deductionRules' });
-        dedRulesCache_ = json.rules || [];
-        dedClosedPeriods_ = json.closedPeriods || [];
         let html = '<div class="table-wrap"><table><thead><tr>' +
           '<th>من</th><th>لحد</th><th>د/وحدة تأخير</th><th>خصم وحدة تأخير</th><th>خصم غياب</th>' +
-          '<th>خصم عدم انصراف</th><th>مبكر مفعّل؟</th><th>سلم الأذونات (1-5+)</th>' +
-          '<th>الإجراءات</th></tr></thead><tbody>';
-        dedRulesCache_.forEach(r => {
-          // ⬅️ D52: قاعدة نطاقها بيتقاطع مع فترة مقفولة ⇒ الأزرار مقفولة
-          //    والسيرفر بيرفض برضه (الحماية الحقيقية سيرفر-سايد).
-          const locked = dedRuleLockedBy_(r);
-          const act = locked
-            ? '<span title="' + escapeHtml_('مقفولة في: ' + locked) + '" style="color:#999">🔒 مقفولة</span>'
-            : ('<button class="link-btn" onclick="openDeductionRuleEdit(\'' + escapeHtml_(r.id) + '\')">✏️ تعديل</button>'
-               + ' · <button class="link-btn" onclick="archiveDeductionRule(\'' + escapeHtml_(r.id) + '\')">🗑️ إلغاء</button>');
+          '<th>خصم عدم انصراف</th><th>مبكر مفعّل؟</th><th>سلم الأذونات (1-5+)</th></tr></thead><tbody>';
+        json.rules.forEach(r => {
           html += '<tr><td>' + r.from + '</td><td>' + r.to + '</td><td>' + r.lateUnitMinutes + '</td><td>' + r.lateUnitValue +
             '</td><td>' + r.absenceValue + '</td><td>' + r.missingCheckoutValue + '</td><td>' + (r.earlyLeaveEnabled ? 'نعم' : 'لا') +
-            '</td><td>' + r.permissionLadder.join(' / ') + '</td><td>' + act + '</td></tr>';
+            '</td><td>' + r.permissionLadder.join(' / ') + '</td></tr>';
         });
         html += '</tbody></table></div>';
         el.innerHTML = html;
       } catch (err) { el.textContent = '❌ ' + err.message; }
     }
 
-    // ============================================================
-    // البند 5 — تعديل/إلغاء قواعد الخصم (D9 · D10-E3 · D52 · D53)
-    // ⛔ التعديل In-place — صفر "إضافة قاعدة جديدة كبديل للتعديل".
-    // ⛔ الإلغاء = نقل للأرشيف سيرفر-سايد — صفر حذف نهائي.
-    // ============================================================
-    let dedRulesCache_ = [];
-    let dedClosedPeriods_ = [];
-
-    // ⬅️ D52 — أي فترة مقفولة نطاقها بيتقاطع مع القاعدة (شامل الطرفين).
-    function dedRuleLockedBy_(r) {
-      const hit = dedClosedPeriods_.filter(p => p.from && p.to && r.from <= p.to && r.to >= p.from);
-      return hit.length ? hit.map(p => (p.name || ('#' + p.id))).join(' · ') : '';
-    }
-
-    function openDeductionRuleEdit(ruleId) {
-      const r = dedRulesCache_.find(x => x.id === ruleId);
-      if (!r) { alert('❌ القاعدة مش موجودة — حدّث الصفحة.'); return; }
-      const locked = dedRuleLockedBy_(r);
-      if (locked) { alert('❌ مينفعش تعدّل القاعدة دي — بتتقاطع مع فترة مقفولة: ' + locked); return; }
-      openDeductionRuleForm(r);
-    }
-
-    async function archiveDeductionRule(ruleId) {
-      const r = dedRulesCache_.find(x => x.id === ruleId);
-      if (!r) { alert('❌ القاعدة مش موجودة — حدّث الصفحة.'); return; }
-      const locked = dedRuleLockedBy_(r);
-      if (locked) { alert('❌ مينفعش تلغي القاعدة دي — بتتقاطع مع فترة مقفولة: ' + locked); return; }
-      const reason = prompt('سبب إلغاء القاعدة (' + r.from + ' → ' + r.to + ') — إلزامي:', '');
-      if (reason === null) return;
-      if (!String(reason).trim()) { alert('❌ لازم تكتب سبب الإلغاء.'); return; }
-      if (!confirm('إلغاء القاعدة (' + r.from + ' → ' + r.to + ')؟\n\n'
-        + 'هتتنقل للأرشيف مع بياناتها كاملة — مش هتتحذف نهائيًا.\n'
-        + '⚠️ أي فترة مفتوحة نطاقها بيتقاطع معاها هتتغيّر أرقامها.')) return;
-      try {
-        await callApiPost_({ action: 'deductionRuleArchive', ruleId: ruleId, reason: reason });
-        loadDeductionRulesView();
-      } catch (err) { alert('❌ ' + err.message); }
-    }
-
-    // ⬅️ نفس النموذج للإضافة والتعديل — rule موجودة ⇒ وضع التعديل.
-    function openDeductionRuleForm(rule) {
+    function openDeductionRuleForm() {
       const html = `<div class="form-grid" style="margin-top:10px">
         <div><label>من تاريخ</label><input type="date" id="dedForm_from"></div>
         <div><label>لحد تاريخ</label><input type="date" id="dedForm_to"></div>
@@ -4576,44 +4526,15 @@
         <button class="secondary" onclick="document.getElementById('deductionRuleFormArea').innerHTML=''">إلغاء</button>
       </div><div id="dedFormStatus" style="font-size:13px;margin-top:6px;"></div>`;
       document.getElementById('deductionRuleFormArea').innerHTML = html;
-      dedEditingRuleId_ = null;
-      if (rule && rule.id) {
-        // ⬅️ وضع التعديل: نملأ القيم الحالية ونثبّت الـRule ID.
-        dedEditingRuleId_ = rule.id;
-        const set = (k, val) => { const el = document.getElementById('dedForm_' + k); if (el) el.value = val; };
-        set('from', rule.from); set('to', rule.to);
-        set('lateUnitMinutes', rule.lateUnitMinutes); set('lateUnitValue', rule.lateUnitValue);
-        set('absenceValue', rule.absenceValue); set('missingCheckoutValue', rule.missingCheckoutValue);
-        set('earlyLeaveEnabled', rule.earlyLeaveEnabled ? 'نعم' : 'لا');
-        set('earlyLeaveUnitMinutes', rule.earlyLeaveUnitMinutes);
-        set('earlyLeaveUnitValue', rule.earlyLeaveUnitValue);
-        const L = rule.permissionLadder || [];
-        set('permission1', L[0]); set('permission2', L[1]); set('permission3', L[2]);
-        set('permission4', L[3]); set('permission5Plus', L[4]);
-        document.getElementById('dedFormStatus').innerHTML =
-          '✏️ <b>تعديل القاعدة</b> (' + escapeHtml_(rule.from) + ' → ' + escapeHtml_(rule.to) + ')'
-          + ' · <span style="color:var(--color-danger)">⚠️ التعديل هيغيّر أرقام أي فترة مفتوحة نطاقها بيتقاطع مع القاعدة.</span>';
-      }
     }
-
-    let dedEditingRuleId_ = null;
 
     async function submitDeductionRule() {
       const statusEl = document.getElementById('dedFormStatus');
       const v = id => document.getElementById('dedForm_' + id).value;
-      // ⬅️ التعديل In-place على نفس القاعدة — ⛔ مش إضافة صف جديد.
-      let reason = '';
-      if (dedEditingRuleId_) {
-        const r = prompt('سبب التعديل (إلزامي):', '');
-        if (r === null) return;
-        if (!String(r).trim()) { statusEl.textContent = '❌ لازم تكتب سبب التعديل.'; return; }
-        reason = r;
-      }
       statusEl.textContent = 'جاري الحفظ...';
       try {
         await callApiPost_({
-          action: dedEditingRuleId_ ? 'deductionRuleUpdate' : 'deductionRuleAdd',
-          ruleId: dedEditingRuleId_ || '', reason: reason,
+          action: 'deductionRuleAdd',
           from: v('from'), to: v('to'),
           lateUnitMinutes: v('lateUnitMinutes'), lateUnitValue: v('lateUnitValue'),
           absenceValue: v('absenceValue'), missingCheckoutValue: v('missingCheckoutValue'),
@@ -4623,7 +4544,6 @@
           permission4: v('permission4'), permission5Plus: v('permission5Plus'),
         });
         document.getElementById('deductionRuleFormArea').innerHTML = '';
-        dedEditingRuleId_ = null;
         loadDeductionRulesView();
       } catch (err) { statusEl.textContent = '❌ ' + err.message; }
     }
