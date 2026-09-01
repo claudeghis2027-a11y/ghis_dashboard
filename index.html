@@ -974,24 +974,7 @@
       <button class="secondary" style="margin-top:10px" onclick="openScheduleRuleForm(null)">+ إضافة قاعدة مواعيد جديدة</button>
       <div id="scheduleRuleFormArea"></div>
 
-    <!-- ============== D83-C — فجوات قواعد المواعيد ==============
-         ⛔ كشف ومتابعة بس: صفر إصلاح تلقائي · صفر منع لأي عملية.
-         ⛔ صفر مساس بـclassifyDay_ أو أي محرك أو Snapshot. -->
-    <div class="card">
-      <h2>فجوات قواعد المواعيد</h2>
-      <p style="font-size:12px;color:#777">
-        الأيام اللي جوّه <b>فترات مرتبات معرَّفة</b> ومفيش قاعدة مواعيد بتغطيها.
-        <br>⚠️ <b>اليوم اللي بلا قاعدة بيتحسب بصفر تأخير وصفر انصراف مبكر</b> —
-        عشان كده الكشف ده مهم.
-        <br>⛔ <b>الشاشة دي للعرض بس</b> — مفيش أي إصلاح تلقائي، ومفيش منع لأي
-        إضافة أو تعديل أو إلغاء لقاعدة مواعيد. سدّ الفجوة قرار مستقل منك.
-        <br>⛔ فجوات <b>الفترات المقفولة</b> بتتعرض للعلم بس — نتائجها محفوظة في نسخة الإقفال.
-      </p>
-      <div class="form-actions">
-        <button class="secondary" onclick="loadScheduleGaps_()">عرض الفجوات</button>
-      </div>
-      <div id="schGapsStatus" style="font-size:13px;margin:8px 0"></div>
-      <div id="schGapsArea"></div>
+
     </div>
     </div>
 
@@ -4186,6 +4169,7 @@
       const fields = [
         ['القسم', emp.dept], ['المسمى الوظيفي', emp.jobTitle], ['الحالة', emp.status],
         ['تاريخ التعيين', emp.hireDate || '-'], ['تاريخ نهاية الخدمة', emp.endDate || '-'],
+        ['خصم الصيف', emp.summerDeduction || 'حسب القسم'],
         ['معفى يدويًا؟', emp.exemptManual ? 'نعم' : 'لا'], ['معفى من البصمة (نهائي)', emp.exempt ? 'نعم' : 'لا'],
         ['الجنسية', emp.nationality || '-'], ['رقم التليفون', emp.phone || '-'],
         ['طريقة القبض', emp.paymentMethod || '-'],
@@ -4329,6 +4313,12 @@
       html += f('dept', 'القسم', 'text', emp?.dept);
       html += f('jobTitle', 'المسمى الوظيفي', 'text', emp?.jobTitle);
       html += f('hireDate', 'تاريخ التعيين', 'date', emp?.hireDate);
+      // ⬅️ خصم الصيف للموظف — بيتحدد مرة واحدة هنا مع تاريخ التعيين.
+      html += '<div><label>خصم الصيف</label><select id="empForm_summerDeduction">'
+        + ['', 'ربع', 'ربعين'].map(v => '<option value="' + v + '"'
+            + ((emp && emp.summerDeduction === v) || (!emp && v === '') ? ' selected' : '')
+            + '>' + (v || '— حسب القسم —') + '</option>').join('')
+        + '</select></div>';
       html += f('endDate', 'تاريخ نهاية الخدمة', 'date', emp?.endDate);
       html += f('nationality', 'الجنسية', 'text', emp?.nationality);
       html += f('phone', 'رقم التليفون', 'text', emp?.phone);
@@ -4376,6 +4366,7 @@
       const fields = {
         nameAr: val('nameAr'), nameEn: val('nameEn'), dept: val('dept'), jobTitle: val('jobTitle'),
         hireDate: val('hireDate'), endDate: val('endDate'), nationality: val('nationality'),
+        summerDeduction: val('summerDeduction'),
         phone: val('phone'), paymentMethod: val('paymentMethod'),
         exemptManual: val('exemptManual'), receivedDocumentsAfterEnd: val('receivedDocumentsAfterEnd'),
       };
@@ -4462,17 +4453,11 @@
       try {
         const json = await callApi_({ action: 'scheduleRules' });
         schRulesCache_ = json.rules || [];
-        schClosedPeriods_ = json.closedPeriods || [];
         let html = '<div class="table-wrap"><table><thead><tr><th>من تاريخ</th><th>لحد تاريخ</th>'
           + '<th>الحضور الرسمي</th><th>الانصراف الرسمي</th><th>الإجراءات</th></tr></thead><tbody>';
         schRulesCache_.forEach(r => {
-          // ⬅️ D81: قاعدة نطاقها بيتقاطع مع فترة مقفولة ⇒ الأزرار مقفولة
-          //    (والسيرفر بيرفض برضه — الحماية الحقيقية سيرفر-سايد).
-          const locked = schRuleLockedBy_(r);
-          const act = locked
-            ? '<span title="' + escapeHtml_('مقفولة في: ' + locked) + '" style="color:#999">🔒 مقفولة</span>'
-            : ('<button class="link-btn" onclick="openScheduleRuleEdit(\'' + escapeHtml_(r.id) + '\')">✏️ تعديل</button>'
-               + ' · <button class="link-btn" onclick="archiveScheduleRule(\'' + escapeHtml_(r.id) + '\')">🗑️ إلغاء</button>');
+          const act = '<button class="link-btn" onclick="openScheduleRuleEdit(\'' + escapeHtml_(r.id) + '\')">تعديل</button>'
+            + ' · <button class="link-btn" onclick="archiveScheduleRule(\'' + escapeHtml_(r.id) + '\')">حذف</button>';
           html += '<tr><td>' + r.from + '</td><td>' + r.to + '</td><td>'
             + minutesToHHMM_(r.checkInMinutes) + '</td><td>' + minutesToHHMM_(r.checkOutMinutes)
             + '</td><td>' + act + '</td></tr>';
@@ -4487,93 +4472,29 @@
       return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
     }
 
-    // ⬅️ D83-C — فجوات قواعد المواعيد. ⛔ عرض بحت: كل الأرقام جاية
-    //    جاهزة من السيرفر، ومفيش أي إصلاح أو منع في الواجهة.
-    async function loadScheduleGaps_() {
-      const area = document.getElementById('schGapsArea');
-      setAdvStatus_('schGapsStatus', 'جاري الفحص...');
-      try {
-        const json = await callApi_({ action: 'scheduleGaps' });
-        const rows = json.gaps || [];
-        if (!rows.length) {
-          area.innerHTML = '<p style="font-size:13px;color:var(--color-success)">'
-            + '✅ مفيش فجوات — كل أيام الفترات المعرَّفة مغطّاة بقاعدة مواعيد.</p>';
-          setAdvStatus_('schGapsStatus', '');
-          return;
-        }
-        let h = '<div class="table-wrap"><table><thead><tr>'
-          + '<th>الفترة</th><th>Period ID</th><th>من الفترة</th><th>إلى الفترة</th>'
-          + '<th>عدد الأيام</th><th>بداية الفجوة</th><th>نهاية الفجوة</th>'
-          + '<th>حالة الفترة</th></tr></thead><tbody>';
-        let total = 0;
-        rows.forEach(r => {
-          total += Number(r.days) || 0;
-          const st = r.status === 'مقفولة'
-            ? '<span style="color:var(--color-danger);font-weight:700">مقفولة</span>'
-            : '<span style="color:var(--color-success);font-weight:700">مفتوحة</span>';
-          h += '<tr><td>' + escapeHtml_(r.name) + '</td><td>' + r.periodId + '</td>'
-            + '<td>' + escapeHtml_(r.periodFrom) + '</td><td>' + escapeHtml_(r.periodTo) + '</td>'
-            + '<td><b>' + r.days + '</b></td>'
-            + '<td>' + escapeHtml_(r.gapFrom) + '</td><td>' + escapeHtml_(r.gapTo) + '</td>'
-            + '<td>' + st + '</td></tr>';
-        });
-        h += '</tbody><tfoot><tr><td colspan="4"><b>الإجمالي</b></td>'
-          + '<td><b>' + total + '</b></td><td></td><td></td><td></td></tr></tfoot></table></div>';
-        area.innerHTML = h;
-        setAdvStatus_('schGapsStatus', rows.length + ' فترة فيها فجوات · ' + total + ' يوم غير مغطّى.');
-      } catch (err) {
-        area.innerHTML = '';
-        setAdvStatus_('schGapsStatus', '❌ ' + err.message, true);
-      }
-    }
-
     // ============================================================
     // قواعد المواعيد التاريخية — تعديل/إلغاء (D78-B · D79 · D80 · D81)
     // ⛔ التعديل In-place · الإلغاء أرشفة · صفر حذف نهائي.
     // ⛔ صفر تغيير في منطق التأخير/الانصراف — العرض والإدارة بس.
     // ============================================================
     let schRulesCache_ = [];
-    let schClosedPeriods_ = [];
     let schEditingRuleId_ = null;
-
-    function schRuleLockedBy_(r) {
-      const hit = schClosedPeriods_.filter(p => p.from && p.to && r.from <= p.to && r.to >= p.from);
-      return hit.length ? hit.map(p => (p.name || ('#' + p.id))).join(' · ') : '';
-    }
 
     function openScheduleRuleEdit(ruleId) {
       const r = schRulesCache_.find(x => x.id === ruleId);
-      if (!r) { alert('❌ القاعدة مش موجودة — حدّث الصفحة.'); return; }
-      const locked = schRuleLockedBy_(r);
-      if (locked) { alert('❌ مينفعش تعدّل القاعدة دي — بتتقاطع مع فترة مقفولة: ' + locked); return; }
+      if (!r) { alert('القاعدة غير موجودة.'); return; }
       openScheduleRuleForm(r);
     }
 
     async function archiveScheduleRule(ruleId) {
       const r = schRulesCache_.find(x => x.id === ruleId);
-      if (!r) { alert('❌ القاعدة مش موجودة — حدّث الصفحة.'); return; }
-      const locked = schRuleLockedBy_(r);
-      if (locked) { alert('❌ مينفعش تلغي القاعدة دي — بتتقاطع مع فترة مقفولة: ' + locked); return; }
-      const reason = prompt('سبب إلغاء قاعدة المواعيد (' + r.from + ' → ' + r.to + ') — إلزامي:', '');
-      if (reason === null) return;
-      if (!String(reason).trim()) { alert('❌ لازم تكتب سبب الإلغاء.'); return; }
-      if (!confirm('إلغاء قاعدة المواعيد (' + r.from + ' → ' + r.to + ')؟\n\n'
-        + 'هتتنقل للأرشيف ببياناتها كاملة — مش هتتحذف نهائيًا.\n'
-        + '⛔ لو الإلغاء هيسيب أي يوم بلا قاعدة جوّه فترة معرَّفة، السيرفر هيرفض.')) return;
+      if (!r) { alert('القاعدة غير موجودة.'); return; }
+      if (!confirm('حذف قاعدة المواعيد (' + r.from + ' → ' + r.to + ')؟')) return;
       try {
-        const res = await callApiPost_({ action: 'scheduleRuleArchive', ruleId: ruleId, reason: reason });
-        schShowImpact_(res.result && res.result.openPeriodsImpact);
+        await callApiPost_({ action: 'scheduleRuleArchive', ruleId: ruleId, reason: '' });
+        alert('تم حذف قاعدة المواعيد بنجاح.');
         loadScheduleRulesView();
-      } catch (err) { alert('❌ ' + err.message); }
-    }
-
-    // ⬅️ D81 — تحذير بعدد الأيام والفترات المفتوحة المتأثرة.
-    function schShowImpact_(impact) {
-      if (!impact || !impact.length) return;
-      const total = impact.reduce((a, p) => a + (p.days || 0), 0);
-      alert('⚠️ الفترات المفتوحة المتأثرة (' + impact.length + ' فترة · ' + total + ' يوم):\n\n• '
-        + impact.map(p => p.name + ' (' + p.from + ' → ' + p.to + ') — ' + p.days + ' يوم').join('\n• ')
-        + '\n\nأرقام التأخير/الانصراف في الفترات دي اتغيّرت. ⛔ الفترات المقفولة محفوظة بنسختها.');
+      } catch (err) { alert(err.message); }
     }
 
     // ⬅️ نفس النموذج للإضافة والتعديل — rule موجودة ⇒ وضع التعديل.
@@ -4596,37 +4517,29 @@
         document.getElementById('schForm_to').value = rule.to;
         document.getElementById('schForm_checkIn').value = minutesToHHMM_(rule.checkInMinutes);
         document.getElementById('schForm_checkOut').value = minutesToHHMM_(rule.checkOutMinutes);
-        document.getElementById('schFormStatus').innerHTML =
-          '✏️ <b>تعديل قاعدة المواعيد</b> (' + escapeHtml_(rule.from) + ' → ' + escapeHtml_(rule.to) + ')'
-          + ' · <span style="color:var(--color-danger)">⚠️ التعديل هيغيّر أرقام التأخير/الانصراف في الفترات المفتوحة المتقاطعة.</span>';
+        document.getElementById('schFormStatus').textContent =
+          'تعديل قاعدة المواعيد (' + rule.from + ' → ' + rule.to + ')';
       }
     }
 
     async function submitScheduleRule() {
       const statusEl = document.getElementById('schFormStatus');
-      // ⬅️ التعديل In-place على نفس القاعدة — ⛔ مش إضافة صف جديد.
-      let reason = '';
-      if (schEditingRuleId_) {
-        const r = prompt('سبب التعديل (إلزامي):', '');
-        if (r === null) return;
-        if (!String(r).trim()) { statusEl.textContent = '❌ لازم تكتب سبب التعديل.'; return; }
-        reason = r;
-      }
+      const editing = !!schEditingRuleId_;
       statusEl.textContent = 'جاري الحفظ...';
       try {
-        const res = await callApiPost_({
+        await callApiPost_({
           action: schEditingRuleId_ ? 'scheduleRuleUpdate' : 'scheduleRuleAdd',
-          ruleId: schEditingRuleId_ || '', reason: reason,
+          ruleId: schEditingRuleId_ || '', reason: '',
           from: document.getElementById('schForm_from').value,
           to: document.getElementById('schForm_to').value,
           checkIn: document.getElementById('schForm_checkIn').value,
           checkOut: document.getElementById('schForm_checkOut').value,
         });
-        if (schEditingRuleId_) schShowImpact_(res.result && res.result.openPeriodsImpact);
         document.getElementById('scheduleRuleFormArea').innerHTML = '';
         schEditingRuleId_ = null;
+        alert(editing ? 'تم تعديل قاعدة المواعيد بنجاح.' : 'تم حفظ قاعدة المواعيد بنجاح.');
         loadScheduleRulesView();
-      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+      } catch (err) { statusEl.textContent = err.message; }
     }
 
     async function loadDeductionRulesView() {
@@ -7419,10 +7332,10 @@
     async function submitAdvance_() {
       const v = id => document.getElementById(id).value;
       const parts = advSplit_(v('advTotal'), v('advCount'));
-      if (!v('advEmp')) { setAdvStatus_('advFormStatus', 'اختار الموظف.', true); return; }
-      if (!v('advDate')) { setAdvStatus_('advFormStatus', 'حدد تاريخ السلفة.', true); return; }
-      if (!v('advStart')) { setAdvStatus_('advFormStatus', 'حدد تاريخ بدء الخصم.', true); return; }
-      if (!parts) { setAdvStatus_('advFormStatus', 'الإجمالي وعدد الأقساط لازم يكونوا صحيحين.', true); return; }
+      if (!v('advEmp')) { setAdvStatus_('advFormStatus', 'اختر الموظف.', true); return; }
+      if (!v('advDate')) { setAdvStatus_('advFormStatus', 'تاريخ السلفة غير صحيح.', true); return; }
+      if (!v('advStart')) { setAdvStatus_('advFormStatus', 'تاريخ بداية الخصم غير صحيح.', true); return; }
+      if (!parts) { setAdvStatus_('advFormStatus', 'مبلغ السلفة أو عدد الأقساط غير صحيح.', true); return; }
       setAdvStatus_('advFormStatus', 'جاري الحفظ...');
       try {
         // ⛔ صفر user من العميل — السيرفر بياخده من الجلسة.
@@ -7430,7 +7343,7 @@
           code: v('advEmp'), advanceDate: v('advDate'), total: v('advTotal'),
           count: v('advCount'), startDate: v('advStart'), notes: v('advNotes') });
         resetAdvanceForm_();
-        setAdvStatus_('advFormStatus', '✅ اتسجّلت السلفة ' + ((r.result && r.result.id) || ''));
+        setAdvStatus_('advFormStatus', 'تم حفظ السلفة بنجاح.');
         await loadAdvances_();
       } catch (err) { setAdvStatus_('advFormStatus', '❌ ' + err.message, true); }
     }
