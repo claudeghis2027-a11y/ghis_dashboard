@@ -755,6 +755,24 @@
        ⛔ Year-Based Context فقط. Continuous Data (الموظفين · المستندات ·
           المستخدمين · الصلاحيات · حركات المرتب) مالهاش أي ربط بالسنة. -->
   <div id="view-settings" class="view" style="display:none">
+    <!-- ============== إعدادات الرواتب — نِسَب الأقسام ==============
+         ⛔ صفر شيت جديد: بتتخزَّن في «الإعدادات العامة» (مفتاح/قيمة). -->
+    <div class="card">
+      <h2>إعدادات الرواتب</h2>
+      <p style="font-size:12px;color:#777">
+        نسبة العلاوة ونسبة خصم الربع <b>لكل قسم</b> — دي القيمة الافتراضية
+        اللي بتتطبَّق تلقائيًا في جدول الرواتب.
+        <br>⚠️ تعديل مبلغ موظف واحد داخل جدول الرواتب <b>مابيغيّرش</b> نسبة القسم.
+        <br>نسبة خصم الربع الافتراضية 25% لو مش متسجَّلة.
+      </p>
+      <div class="form-actions">
+        <button class="secondary" onclick="loadSalaryRates_()">عرض النِسَب</button>
+        <button onclick="saveSalaryRates_()">حفظ النِسَب</button>
+      </div>
+      <div id="srtStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="srtArea"></div>
+    </div>
+
     <div class="card">
       <h2>السنة الدراسية</h2>
       <div id="ayActiveBar" style="font-size:13px;margin-bottom:10px"></div>
@@ -1275,8 +1293,11 @@
       <h2>جدول الرواتب</h2>
       <p style="font-size:12px;color:#777">
         الراتب الأساسي المعروض هو الساري في <b>شهر التقرير</b>.
-        <b>العلاوة</b> إدخال يدوي — واعتمادها بيسجّل راتبًا أساسيًا جديدًا
-        (الأساسي + العلاوة) بتاريخ سريان، ويستمر بعدها لحد ما يتغيّر.
+        <b>العلاوة</b> و<b>خصم الربعين</b> بيتحسبوا تلقائيًا من نِسَب القسم
+        في «الإعدادات → إعدادات الرواتب»، وتقدر تعدّل مبلغ أي موظف يدويًا
+        هنا — <b>التعديل اليدوي بيخص التقرير الحالي بس ومابيغيّرش نسبة القسم</b>.
+        <br>اعتماد العلاوة بيسجّل راتبًا أساسيًا جديدًا (الأساسي + المبلغ اللي
+        في الخانة) بتاريخ سريان، ويستمر بعدها لحد ما يتغيّر.
         <br><b>خصم الربعين</b> بيظهر في شهره بس حسب إعداد الموظف (ربع/ربعين)
         أو قاعدة قسمه.
       </p>
@@ -4399,6 +4420,59 @@
     }
 
     // ============================================================
+    // إعدادات الرواتب — نِسَب الأقسام (الافتراضي للقسم بس)
+    // ⛔ قراءة/حفظ عبر actions salaryRates · salaryRatesSet.
+    // ============================================================
+    let srtDepts_ = [];
+
+    async function loadSalaryRates_() {
+      const area = document.getElementById('srtArea');
+      setAdvStatus_('srtStatus', 'جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'salaryRates' });
+        srtDepts_ = json.departments || [];
+        const rates = json.rates || { allowance: {}, quarter: {} };
+        if (!srtDepts_.length) {
+          area.innerHTML = '<p style="font-size:13px;color:#777">لا توجد أقسام مسجلة.</p>';
+          setAdvStatus_('srtStatus', '');
+          return;
+        }
+        let h = '<div class="table-wrap"><table><thead><tr>'
+          + '<th>القسم</th><th>نسبة العلاوة %</th><th>نسبة خصم الربع %</th>'
+          + '</tr></thead><tbody>';
+        srtDepts_.forEach((d, i) => {
+          const a = (rates.allowance[d] === undefined) ? 0 : rates.allowance[d];
+          const q = (rates.quarter[d] === undefined) ? 25 : rates.quarter[d];
+          h += '<tr><td>' + escapeHtml_(d) + '</td>'
+            + '<td><input type="number" min="0" step="0.01" style="width:90px" '
+              + 'id="srtA_' + i + '" value="' + a + '"></td>'
+            + '<td><input type="number" min="0" step="0.01" style="width:90px" '
+              + 'id="srtQ_' + i + '" value="' + q + '"></td></tr>';
+        });
+        h += '</tbody></table></div>';
+        area.innerHTML = h;
+        setAdvStatus_('srtStatus', srtDepts_.length + ' قسم.');
+      } catch (err) {
+        area.innerHTML = '';
+        setAdvStatus_('srtStatus', err.message, true);
+      }
+    }
+
+    async function saveSalaryRates_() {
+      if (!srtDepts_.length) { alert('اعرض النِسَب الأول.'); return; }
+      const list = srtDepts_.map((d, i) => ({
+        dept: d,
+        allowanceRate: Number(document.getElementById('srtA_' + i).value) || 0,
+        quarterRate: Number(document.getElementById('srtQ_' + i).value) || 0,
+      }));
+      setAdvStatus_('srtStatus', 'جاري الحفظ...');
+      try {
+        await callApiPost_({ action: 'salaryRatesSet', rates: JSON.stringify(list) });
+        setAdvStatus_('srtStatus', 'تم حفظ نِسَب الرواتب بنجاح.');
+      } catch (err) { setAdvStatus_('srtStatus', err.message, true); }
+    }
+
+    // ============================================================
     // جدول الرواتب — كل الموظفين
     // ⛔ قراءة بحتة من action salaryTable · صفر حساب Payroll في الواجهة.
     // ⬅️ العلاوة يدوية، واعتمادها بيمرّ على salaryAllowanceApprove اللي
@@ -4448,9 +4522,13 @@
                 ? '<span style="color:var(--color-danger)" title="' + escapeHtml_(r.basicError) + '">—</span>'
                 : r.basicSalary.toFixed(2)) + '</td>'
             + '<td><input type="number" min="0" step="0.01" style="width:90px" '
-              + 'id="stblAllow_' + i + '" oninput="stblRecalc_(' + i + ')"></td>'
-            + '<td>' + r.quarterDeduction.toFixed(2) + '</td>'
-            + '<td id="stblTotal_' + i + '">' + r.basicSalary.toFixed(2) + '</td>'
+              + 'id="stblAllow_' + i + '" value="' + r.allowance.toFixed(2) + '" '
+              + 'title="' + escapeHtml_('نسبة القسم: ' + r.allowanceRate + '%') + '" '
+              + 'oninput="stblRecalc_(' + i + ')"></td>'
+            + '<td><input type="number" min="0" step="0.01" style="width:90px" '
+              + 'id="stblQuarter_' + i + '" value="' + r.quarterDeduction.toFixed(2) + '" '
+              + 'title="' + escapeHtml_('نسبة القسم: ' + r.quarterRate + '%') + '"></td>'
+            + '<td id="stblTotal_' + i + '">' + (r.basicSalary + r.allowance).toFixed(2) + '</td>'
             + '<td>' + (r.basicError ? '—'
                 : '<button class="link-btn" onclick="approveAllowance_(' + i + ')">اعتماد العلاوة</button>'
                   + ' · <button class="link-btn" onclick="exportSalaryTable_(' + i + ')">Excel</button>'
@@ -4496,9 +4574,11 @@
         const idx = (only === undefined) ? k : only;
         const el = document.getElementById('stblAllow_' + idx);
         const add = Number(el ? el.value : 0) || 0;
+        const qe = document.getElementById('stblQuarter_' + idx);
+        const q = Number(qe ? qe.value : r.quarterDeduction) || 0;
         return [r.code, r.nameAr, r.dept, r.jobTitle,
           r.basicError ? '' : r.basicSalary.toFixed(2), add.toFixed(2),
-          r.quarterDeduction.toFixed(2),
+          q.toFixed(2),
           r.basicError ? '' : (r.basicSalary + add).toFixed(2)];
       });
       return {
