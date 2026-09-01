@@ -7315,7 +7315,12 @@
           + '<td>' + escapeHtml_(a.status) + '</td>'
           + '<td>' + escapeHtml_(a.notes) + '</td>'
           + '<td><button class="link-btn" onclick="loadAdvanceSchedule_(\'' + escapeHtml_(a.id) + '\')">الأقساط</button>'
-          + ' · <button class="link-btn" onclick="linkAdvancePeriods_(\'' + escapeHtml_(a.id) + '\')">🔗 ربط الفترات</button></td>'
+          + ' · <button class="link-btn" onclick="linkAdvancePeriods_(\'' + escapeHtml_(a.id) + '\')">🔗 ربط الفترات</button>'
+          + (a.status === 'نشطة'
+              ? ' · <button class="link-btn" onclick="rescheduleAdvance_(\'' + escapeHtml_(a.id) + '\')">✏️ إعادة جدولة</button>'
+                + ' · <button class="link-btn" onclick="cancelAdvance_(\'' + escapeHtml_(a.id) + '\')">🗑️ إلغاء</button>'
+              : '')
+          + '</td>'
           + '</tr>';
       });
       h += '</tbody></table></div>';
@@ -7535,6 +7540,48 @@
       } catch (err) { setAdvStatus_('advGenStatus', '❌ ' + err.message, true); }
     }
 
+    // ============================================================
+    // A4-a (D62) — إعادة جدولة / إلغاء السلفة
+    // ⛔ صفر أثر مالي: صفر حركة مرتب · صفر عكس · صفر Reopen.
+    // ⛔ الأقساط المخصومة مابتتلمسش · PENDING بيترفض (D71-A).
+    // ============================================================
+    async function rescheduleAdvance_(advanceId) {
+      const a = advCache_.find(x => x.id === advanceId);
+      if (!a) { alert('❌ السلفة مش موجودة — حدّث الصفحة.'); return; }
+      const n = prompt('عدد الأقساط الجديد **للمتبقي** (الأقساط المخصومة مش هتتغيّر):', '');
+      if (n === null) return;
+      const reason = prompt('سبب إعادة الجدولة (إلزامي):', '');
+      if (reason === null) return;
+      if (!String(reason).trim()) { alert('❌ لازم تكتب السبب.'); return; }
+      if (!confirm('إعادة جدولة المتبقي من السلفة ' + advanceId + '؟\n\n'
+        + '⛔ الإجمالي مش هيتغيّر · ⛔ الأقساط المخصومة مش هتتلمس.')) return;
+      try {
+        const r = await callApiPost_({ action: 'advanceReschedule', advanceId: advanceId,
+          newCount: String(n), reason: reason });
+        const res = r.result || {};
+        setAdvStatus_('advListStatus', '✅ اتعادت الجدولة — ' + (res.frozen || 0)
+          + ' قسط مخصوم محفوظ · ' + (res.newCount || 0) + ' قسط جديد.');
+        await loadAdvances_();
+        await loadUnlinked_();
+      } catch (err) { setAdvStatus_('advListStatus', '❌ ' + err.message, true); }
+    }
+
+    async function cancelAdvance_(advanceId) {
+      const reason = prompt('سبب إلغاء السلفة ' + advanceId + ' (إلزامي):', '');
+      if (reason === null) return;
+      if (!String(reason).trim()) { alert('❌ لازم تكتب السبب.'); return; }
+      if (!confirm('إلغاء السلفة ' + advanceId + '؟\n\n'
+        + 'المتبقي بس هيتلغي — ⛔ الأقساط المخصومة هتفضل زي ما هي ومفيش أي عكس.')) return;
+      try {
+        const r = await callApiPost_({ action: 'advanceCancel', advanceId: advanceId, reason: reason });
+        const res = r.result || {};
+        setAdvStatus_('advListStatus', '✅ اتلغت السلفة — ' + (res.cancelled || 0)
+          + ' قسط اتلغى · ' + (res.keptDeducted || 0) + ' قسط مخصوم اتساب زي ما هو.');
+        await loadAdvances_();
+        await loadUnlinked_();
+      } catch (err) { setAdvStatus_('advListStatus', '❌ ' + err.message, true); }
+    }
+
     // ⬅️ A1 — تقرير السلف. ⛔ عرض بحت: كل الأرقام جاية جاهزة من السيرفر،
     //    ومفيش أي حساب تحصيل في الواجهة.
     async function loadAdvancesReport_() {
@@ -7557,7 +7604,7 @@
         let h = '<div class="table-wrap"><table><thead><tr>'
           + '<th>من</th><th>إلى</th><th>اسم الموظف</th><th>تاريخ السلفة</th>'
           + '<th>مبلغ السلفة</th><th>قيمة القسط</th><th>الشهور المحصلة</th>'
-          + '<th>المبلغ المحصل</th><th>المبلغ المتبقي</th>'
+          + '<th>المبلغ المحصل</th><th>الملغى</th><th>المعفى</th><th>المبلغ المتبقي</th>'
           + '<th>أقساط بانتظار فترة</th><th>حالة السلفة</th>'
           + '</tr></thead><tbody>';
         let tTotal = 0, tCollected = 0, tRemaining = 0;
@@ -7574,6 +7621,8 @@
             + '<td>' + r.installmentValue.toFixed(2) + '</td>'
             + '<td>' + r.collectedMonths + ' من ' + r.installmentsCount + '</td>'
             + '<td>' + r.collectedAmount.toFixed(2) + '</td>'
+            + '<td>' + (r.cancelledAmount || 0).toFixed(2) + '</td>'
+            + '<td>' + (r.exemptedAmount || 0).toFixed(2) + '</td>'
             + '<td>' + r.remainingAmount.toFixed(2) + '</td>'
             + '<td>' + (r.pendingPeriodCount || 0) + '</td>'
             + '<td>' + escapeHtml_(r.status) + '</td>'
@@ -7582,7 +7631,7 @@
         h += '</tbody><tfoot><tr>'
           + '<td colspan="4"><b>الإجمالي</b></td>'
           + '<td><b>' + (tTotal / 100).toFixed(2) + '</b></td><td></td><td></td>'
-          + '<td><b>' + (tCollected / 100).toFixed(2) + '</b></td>'
+          + '<td><b>' + (tCollected / 100).toFixed(2) + '</b></td><td></td><td></td>'
           + '<td><b>' + (tRemaining / 100).toFixed(2) + '</b></td><td></td><td></td>'
           + '</tr></tfoot></table></div>';
         area.innerHTML = h;
