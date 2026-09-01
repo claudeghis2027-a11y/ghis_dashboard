@@ -810,6 +810,35 @@
       <div id="pysStatus" style="font-size:13px;margin-top:6px"></div>
     </div>
 
+    <!-- ============== B1 — فترات المرتبات الرسمية ==============
+         ⛔ الفترة = From + To يحددهما المستخدم · الطرفان Inclusive.
+            منع التداخل فقط — الفجوات مسموحة (D25-B).
+         ⚠️ B2/B3 لسه مش منفَّذين ⇒ الفترة المقفولة لسه بتتعرض بحساب حي. -->
+    <div class="card">
+      <h2>فترات المرتبات الرسمية</h2>
+      <p style="font-size:12px;color:#777">
+        الفترة الرسمية = <b>من تاريخ + لحد تاريخ</b>، والطرفان داخلان في الفترة.
+        <b>مفيش دورة ثابتة مفروضة</b> — إنت اللي بتحدد النطاق.
+        الممنوع الوحيد هو <b>التداخل</b> مع فترة رسمية أخرى؛ والفجوات مسموحة
+        وبيتم التنبيه عليها وقت الإقفال.
+        <br>⚠️ <b>الإقفال حاليًا بيسجّل الحالة والـAudit Trail بس</b> — تجميد
+        الأرقام (Snapshot) مرحلة لاحقة.
+      </p>
+      <div class="form-grid">
+        <div><label>اسم الفترة</label><input type="text" id="ppName" placeholder="مثال: سبتمبر 2026"></div>
+        <div><label>من تاريخ</label><input type="date" id="ppFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="ppTo"></div>
+      </div>
+      <div class="form-actions">
+        <button onclick="addPayrollPeriod_()">إضافة فترة</button>
+        <button class="secondary" onclick="resetPeriodForm_()">إلغاء</button>
+      </div>
+      <div id="ppFormStatus" style="font-size:13px;margin-top:6px"></div>
+      <div id="ppGapsArea" style="font-size:13px;margin-top:10px"></div>
+      <div id="ppListStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="ppListArea"></div>
+    </div>
+
     <!-- ============== سياسة خصم الربعين: القسم × الشهر ==============
          ⛔ إعداد سياسة فقط — صفر تنفيذ خصم مالي في المرحلة دي. -->
     <div class="card" id="qdpCard" style="display:none">
@@ -1718,7 +1747,7 @@
       try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
-      if (name === 'settings') { loadAcademicYearsView_(); }
+      if (name === 'settings') { loadAcademicYearsView_(); loadPayrollPeriods_(); }
       if (name === 'payrollTypes') { if (!payrollTypesLoaded_) { loadPayrollTxTypesView_(); payrollTypesLoaded_ = true; } }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
@@ -6830,6 +6859,161 @@
         await loadQuarterPolicy_();
         setQdpStatus_('✅ اتحفظت السياسة.');
       } catch (err) { setQdpStatus_('❌ ' + err.message, true); }
+    }
+
+
+    // ============================================================
+    // B1 — فترات المرتبات الرسمية وإقفالها
+    // ⛔ صفر مساس بأي محرك حساب — الشاشة دي بتنادي actions جديدة بس.
+    // ⛔ B2/B3 مش منفَّذين: الفترة المقفولة لسه بتتعرض بحساب حي.
+    // ⬅️ D25-B منع التداخل فقط · D31/G2 تحذير عند الإقفال ·
+    //    D33 فحص الـTimeline الكامل · D3 صلاحيتان منفصلتان.
+    // ============================================================
+    let ppCache_ = [];
+    let ppGaps_ = [];
+
+    function ppCanClose_() {
+      return !!(currentSession && (currentSession.isAdmin || currentSession.sections.includes('period_close')));
+    }
+    function ppCanReopen_() {
+      return !!(currentSession && (currentSession.isAdmin || currentSession.sections.includes('period_reopen')));
+    }
+    function setPpStatus_(id, m, e) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = m || ''; el.style.color = e ? 'var(--color-danger)' : '';
+    }
+
+    async function loadPayrollPeriods_() {
+      setPpStatus_('ppListStatus', 'جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'payrollPeriods' });
+        ppCache_ = json.periods || [];
+        ppGaps_ = json.gaps || [];
+        renderPayrollPeriods_();
+        renderPeriodGaps_();
+        setPpStatus_('ppListStatus', ppCache_.length + ' فترة رسمية.');
+      } catch (err) {
+        ppCache_ = []; ppGaps_ = [];
+        document.getElementById('ppListArea').innerHTML = '';
+        document.getElementById('ppGapsArea').innerHTML = '';
+        setPpStatus_('ppListStatus', '❌ ' + err.message, true);
+      }
+    }
+
+    // ⬅️ D33: خط زمني للفجوات — كشف فقط، صفر إصلاح تلقائي.
+    function renderPeriodGaps_() {
+      const box = document.getElementById('ppGapsArea');
+      if (!ppGaps_.length) {
+        box.innerHTML = ppCache_.length
+          ? '<span style="color:var(--color-success)">✅ مفيش فجوات بين الفترات الرسمية.</span>' : '';
+        return;
+      }
+      box.innerHTML = '<div style="padding:10px;border-radius:8px;background:#fff4f4;'
+        + 'border:1px solid var(--color-danger);color:var(--color-danger)">'
+        + '⚠️ <b>فجوات على الـTimeline — أيام مش تابعة لأي فترة رسمية:</b><br>'
+        + ppGaps_.map(g => '• ' + escapeHtml_(g.from) + ' → ' + escapeHtml_(g.to)
+            + ' (' + g.days + ' يوم)').join('<br>')
+        + '<br><span style="color:#777">الأيام دي مش هتقدر تتقفل. ده كشف بس — مفيش أي إصلاح تلقائي.</span></div>';
+    }
+
+    function renderPayrollPeriods_() {
+      const area = document.getElementById('ppListArea');
+      if (!ppCache_.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">مفيش فترات رسمية مسجَّلة.</p>';
+        return;
+      }
+      // ⬅️ العرض مرتَّب بالتاريخ — ⛔ من غير أي خلط مع ترتيب الـid.
+      const list = ppCache_.slice().sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+      let h = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>Period ID</th><th>اسم الفترة</th><th>من</th><th>إلى</th><th>الحالة</th>'
+        + '<th>أقفلها</th><th>تاريخ الإقفال</th><th></th>'
+        + '</tr></thead><tbody>';
+      list.forEach(p => {
+        const closed = p.status === 'مقفولة';
+        let btn = '';
+        if (closed && ppCanReopen_()) {
+          btn = '<button class="link-btn" onclick="reopenPeriod_(' + p.id + ')">إعادة فتح</button>';
+        } else if (!closed && ppCanClose_()) {
+          btn = '<button class="link-btn" onclick="closePeriod_(' + p.id + ', false)">إقفال</button>';
+        }
+        h += '<tr>'
+          + '<td>' + p.id + '</td>'
+          + '<td>' + escapeHtml_(p.name || '') + '</td>'
+          + '<td>' + escapeHtml_(p.from) + '</td>'
+          + '<td>' + escapeHtml_(p.to) + '</td>'
+          + '<td>' + (closed
+              ? '<span style="color:var(--color-danger);font-weight:700">مقفولة</span>'
+              : '<span style="color:var(--color-success);font-weight:700">مفتوحة</span>') + '</td>'
+          + '<td>' + escapeHtml_(p.closedBy || '') + '</td>'
+          + '<td>' + escapeHtml_(p.closedAt || '') + '</td>'
+          + '<td>' + btn + '</td>'
+          + '</tr>';
+      });
+      h += '</tbody></table></div>';
+      area.innerHTML = h;
+    }
+
+    async function addPayrollPeriod_() {
+      if (!ppCanClose_()) { setPpStatus_('ppFormStatus', '❌ مالكش صلاحية إدارة الفترات.', true); return; }
+      const name = document.getElementById('ppName').value.trim();
+      const from = document.getElementById('ppFrom').value;
+      const to = document.getElementById('ppTo').value;
+      if (!name) { setPpStatus_('ppFormStatus', 'لازم تكتب اسم الفترة.', true); return; }
+      if (!from || !to) { setPpStatus_('ppFormStatus', 'لازم تحدد من تاريخ ولحد تاريخ.', true); return; }
+      if (from > to) { setPpStatus_('ppFormStatus', '«من تاريخ» لازم يكون قبل أو يساوي «لحد تاريخ».', true); return; }
+      setPpStatus_('ppFormStatus', 'جاري الحفظ...');
+      try {
+        // ⛔ صفر user من العميل — السيرفر بياخده من الجلسة.
+        await callApiPost_({ action: 'payrollPeriodAdd', name: name, from: from, to: to });
+        resetPeriodForm_();
+        setPpStatus_('ppFormStatus', '✅ اتضافت الفترة.');
+        await loadPayrollPeriods_();
+      } catch (err) { setPpStatus_('ppFormStatus', '❌ ' + err.message, true); }
+    }
+
+    function resetPeriodForm_() {
+      ['ppName', 'ppFrom', 'ppTo'].forEach(id => document.getElementById(id).value = '');
+      setPpStatus_('ppFormStatus', '');
+    }
+
+    // ⬅️ G2: لو السيرفر رجّع needsGapAck بنعرض التحذير ونستأذن — والقرار
+    //    للمستخدم. ⛔ مفيش أي كتابة قبل التأكيد.
+    async function closePeriod_(periodId, ack) {
+      if (!ppCanClose_()) { setPpStatus_('ppListStatus', '❌ مالكش صلاحية إقفال الفترات.', true); return; }
+      const p = ppCache_.find(x => x.id === periodId);
+      if (!ack && !confirm('إقفال الفترة «' + (p ? p.name : periodId) + '»؟\n\n'
+        + 'هيتسجّل اسمك وتاريخ الإقفال في سجل إقفال الفترات.')) return;
+      setPpStatus_('ppListStatus', 'جاري الإقفال...');
+      try {
+        const r = await callApiPost_({ action: 'periodClose', periodId: String(periodId),
+          ackGap: ack ? 'true' : 'false' });
+        const res = r.result || {};
+        if (res.needsGapAck) {
+          const lines = (res.gaps || []).map(g => '• ' + g.from + ' → ' + g.to + ' (' + g.days + ' يوم)').join('\n');
+          if (confirm('⚠️ فيه أيام خارج أي فترة رسمية على الـTimeline:\n\n' + lines
+            + '\n\nالإقفال هيتم للفترة دي فقط. تكمّل؟')) {
+            await closePeriod_(periodId, true);
+          } else { setPpStatus_('ppListStatus', 'اتلغى الإقفال.'); }
+          return;
+        }
+        await loadPayrollPeriods_();
+        setPpStatus_('ppListStatus', '✅ اتقفلت الفترة.');
+      } catch (err) { setPpStatus_('ppListStatus', '❌ ' + err.message, true); }
+    }
+
+    async function reopenPeriod_(periodId) {
+      if (!ppCanReopen_()) { setPpStatus_('ppListStatus', '❌ مالكش صلاحية إعادة فتح الفترات.', true); return; }
+      const p = ppCache_.find(x => x.id === periodId);
+      const reason = prompt('سبب إعادة فتح الفترة «' + (p ? p.name : periodId) + '» (إلزامي):', '');
+      if (reason === null) return;
+      if (!String(reason).trim()) { setPpStatus_('ppListStatus', 'لازم تكتب سبب إعادة الفتح.', true); return; }
+      setPpStatus_('ppListStatus', 'جاري إعادة الفتح...');
+      try {
+        await callApiPost_({ action: 'periodReopen', periodId: String(periodId), reason: reason });
+        await loadPayrollPeriods_();
+        setPpStatus_('ppListStatus', '✅ اتفتحت الفترة.');
+      } catch (err) { setPpStatus_('ppListStatus', '❌ ' + err.message, true); }
     }
 
     // ============================================================
