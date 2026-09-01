@@ -971,7 +971,7 @@
     <div class="card">
       <h2>قواعد المواعيد (تاريخية — كل فترة بقاعدتها)</h2>
       <div id="scheduleRulesArea"></div>
-      <button class="secondary" style="margin-top:10px" onclick="openScheduleRuleForm()">+ إضافة قاعدة مواعيد جديدة</button>
+      <button class="secondary" style="margin-top:10px" onclick="openScheduleRuleForm(null)">+ إضافة قاعدة مواعيد جديدة</button>
       <div id="scheduleRuleFormArea"></div>
     </div>
 
@@ -4441,9 +4441,21 @@
       el.textContent = 'جاري التحميل...';
       try {
         const json = await callApi_({ action: 'scheduleRules' });
-        let html = '<div class="table-wrap"><table><thead><tr><th>من تاريخ</th><th>لحد تاريخ</th><th>الحضور الرسمي</th><th>الانصراف الرسمي</th></tr></thead><tbody>';
-        json.rules.forEach(r => {
-          html += '<tr><td>' + r.from + '</td><td>' + r.to + '</td><td>' + minutesToHHMM_(r.checkInMinutes) + '</td><td>' + minutesToHHMM_(r.checkOutMinutes) + '</td></tr>';
+        schRulesCache_ = json.rules || [];
+        schClosedPeriods_ = json.closedPeriods || [];
+        let html = '<div class="table-wrap"><table><thead><tr><th>من تاريخ</th><th>لحد تاريخ</th>'
+          + '<th>الحضور الرسمي</th><th>الانصراف الرسمي</th><th>الإجراءات</th></tr></thead><tbody>';
+        schRulesCache_.forEach(r => {
+          // ⬅️ D81: قاعدة نطاقها بيتقاطع مع فترة مقفولة ⇒ الأزرار مقفولة
+          //    (والسيرفر بيرفض برضه — الحماية الحقيقية سيرفر-سايد).
+          const locked = schRuleLockedBy_(r);
+          const act = locked
+            ? '<span title="' + escapeHtml_('مقفولة في: ' + locked) + '" style="color:#999">🔒 مقفولة</span>'
+            : ('<button class="link-btn" onclick="openScheduleRuleEdit(\'' + escapeHtml_(r.id) + '\')">✏️ تعديل</button>'
+               + ' · <button class="link-btn" onclick="archiveScheduleRule(\'' + escapeHtml_(r.id) + '\')">🗑️ إلغاء</button>');
+          html += '<tr><td>' + r.from + '</td><td>' + r.to + '</td><td>'
+            + minutesToHHMM_(r.checkInMinutes) + '</td><td>' + minutesToHHMM_(r.checkOutMinutes)
+            + '</td><td>' + act + '</td></tr>';
         });
         html += '</tbody></table></div>';
         el.innerHTML = html;
@@ -4455,7 +4467,57 @@
       return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
     }
 
-    function openScheduleRuleForm() {
+    // ============================================================
+    // قواعد المواعيد التاريخية — تعديل/إلغاء (D78-B · D79 · D80 · D81)
+    // ⛔ التعديل In-place · الإلغاء أرشفة · صفر حذف نهائي.
+    // ⛔ صفر تغيير في منطق التأخير/الانصراف — العرض والإدارة بس.
+    // ============================================================
+    let schRulesCache_ = [];
+    let schClosedPeriods_ = [];
+    let schEditingRuleId_ = null;
+
+    function schRuleLockedBy_(r) {
+      const hit = schClosedPeriods_.filter(p => p.from && p.to && r.from <= p.to && r.to >= p.from);
+      return hit.length ? hit.map(p => (p.name || ('#' + p.id))).join(' · ') : '';
+    }
+
+    function openScheduleRuleEdit(ruleId) {
+      const r = schRulesCache_.find(x => x.id === ruleId);
+      if (!r) { alert('❌ القاعدة مش موجودة — حدّث الصفحة.'); return; }
+      const locked = schRuleLockedBy_(r);
+      if (locked) { alert('❌ مينفعش تعدّل القاعدة دي — بتتقاطع مع فترة مقفولة: ' + locked); return; }
+      openScheduleRuleForm(r);
+    }
+
+    async function archiveScheduleRule(ruleId) {
+      const r = schRulesCache_.find(x => x.id === ruleId);
+      if (!r) { alert('❌ القاعدة مش موجودة — حدّث الصفحة.'); return; }
+      const locked = schRuleLockedBy_(r);
+      if (locked) { alert('❌ مينفعش تلغي القاعدة دي — بتتقاطع مع فترة مقفولة: ' + locked); return; }
+      const reason = prompt('سبب إلغاء قاعدة المواعيد (' + r.from + ' → ' + r.to + ') — إلزامي:', '');
+      if (reason === null) return;
+      if (!String(reason).trim()) { alert('❌ لازم تكتب سبب الإلغاء.'); return; }
+      if (!confirm('إلغاء قاعدة المواعيد (' + r.from + ' → ' + r.to + ')؟\n\n'
+        + 'هتتنقل للأرشيف ببياناتها كاملة — مش هتتحذف نهائيًا.\n'
+        + '⛔ لو الإلغاء هيسيب أي يوم بلا قاعدة جوّه فترة معرَّفة، السيرفر هيرفض.')) return;
+      try {
+        const res = await callApiPost_({ action: 'scheduleRuleArchive', ruleId: ruleId, reason: reason });
+        schShowImpact_(res.result && res.result.openPeriodsImpact);
+        loadScheduleRulesView();
+      } catch (err) { alert('❌ ' + err.message); }
+    }
+
+    // ⬅️ D81 — تحذير بعدد الأيام والفترات المفتوحة المتأثرة.
+    function schShowImpact_(impact) {
+      if (!impact || !impact.length) return;
+      const total = impact.reduce((a, p) => a + (p.days || 0), 0);
+      alert('⚠️ الفترات المفتوحة المتأثرة (' + impact.length + ' فترة · ' + total + ' يوم):\n\n• '
+        + impact.map(p => p.name + ' (' + p.from + ' → ' + p.to + ') — ' + p.days + ' يوم').join('\n• ')
+        + '\n\nأرقام التأخير/الانصراف في الفترات دي اتغيّرت. ⛔ الفترات المقفولة محفوظة بنسختها.');
+    }
+
+    // ⬅️ نفس النموذج للإضافة والتعديل — rule موجودة ⇒ وضع التعديل.
+    function openScheduleRuleForm(rule) {
       const html = `<div class="form-grid" style="margin-top:10px">
         <div><label>من تاريخ</label><input type="date" id="schForm_from"></div>
         <div><label>لحد تاريخ</label><input type="date" id="schForm_to"></div>
@@ -4467,20 +4529,42 @@
         <button class="secondary" onclick="document.getElementById('scheduleRuleFormArea').innerHTML=''">إلغاء</button>
       </div><div id="schFormStatus" style="font-size:13px;margin-top:6px;"></div>`;
       document.getElementById('scheduleRuleFormArea').innerHTML = html;
+      schEditingRuleId_ = null;
+      if (rule && rule.id) {
+        schEditingRuleId_ = rule.id;
+        document.getElementById('schForm_from').value = rule.from;
+        document.getElementById('schForm_to').value = rule.to;
+        document.getElementById('schForm_checkIn').value = minutesToHHMM_(rule.checkInMinutes);
+        document.getElementById('schForm_checkOut').value = minutesToHHMM_(rule.checkOutMinutes);
+        document.getElementById('schFormStatus').innerHTML =
+          '✏️ <b>تعديل قاعدة المواعيد</b> (' + escapeHtml_(rule.from) + ' → ' + escapeHtml_(rule.to) + ')'
+          + ' · <span style="color:var(--color-danger)">⚠️ التعديل هيغيّر أرقام التأخير/الانصراف في الفترات المفتوحة المتقاطعة.</span>';
+      }
     }
 
     async function submitScheduleRule() {
       const statusEl = document.getElementById('schFormStatus');
+      // ⬅️ التعديل In-place على نفس القاعدة — ⛔ مش إضافة صف جديد.
+      let reason = '';
+      if (schEditingRuleId_) {
+        const r = prompt('سبب التعديل (إلزامي):', '');
+        if (r === null) return;
+        if (!String(r).trim()) { statusEl.textContent = '❌ لازم تكتب سبب التعديل.'; return; }
+        reason = r;
+      }
       statusEl.textContent = 'جاري الحفظ...';
       try {
-        await callApiPost_({
-          action: 'scheduleRuleAdd',
+        const res = await callApiPost_({
+          action: schEditingRuleId_ ? 'scheduleRuleUpdate' : 'scheduleRuleAdd',
+          ruleId: schEditingRuleId_ || '', reason: reason,
           from: document.getElementById('schForm_from').value,
           to: document.getElementById('schForm_to').value,
           checkIn: document.getElementById('schForm_checkIn').value,
           checkOut: document.getElementById('schForm_checkOut').value,
         });
+        if (schEditingRuleId_) schShowImpact_(res.result && res.result.openPeriodsImpact);
         document.getElementById('scheduleRuleFormArea').innerHTML = '';
+        schEditingRuleId_ = null;
         loadScheduleRulesView();
       } catch (err) { statusEl.textContent = '❌ ' + err.message; }
     }
