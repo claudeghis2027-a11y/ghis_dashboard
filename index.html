@@ -1529,17 +1529,16 @@
     <div class="card" id="stBasicCard" style="display:none">
       <h2>الراتب الأساسي</h2>
       <p style="font-size:12px;color:#777">
-        الراتب الأساسي <b>حركة بتاريخ سريان</b> — تغييره معناه تسجيل حركة جديدة،
-        <b>مع إقفال القديمة بـ«ساري حتى»</b>. لو اتداخلت فترتان، حساب المرتب
-        بيتوقف بخطأ صريح لحد ما تتصحّح.
+        الراتب الأساسي <b>حركة بتاريخ سريان</b> — كل تعديل حركة جديدة،
+        والحركات القديمة بتفضل محفوظة كسجل. المرتب بيستخدم آخر راتب
+        ساري عند بداية دورة المرتب.
+        <br>تقدر كمان تعدّله من <b>شاشة بيانات الموظف</b>.
       </p>
       <div class="form-grid">
         <div><label>القيمة (جنيه)</label><input type="number" id="stBasicValue" min="1" step="0.01"></div>
         <div><label>ساري من</label><input type="date" id="stBasicFrom"></div>
-        <div><label>ساري حتى (فاضي = مستمر)</label><input type="date" id="stBasicTo"></div>
       </div>
       <div><label>السبب / ملاحظة</label><input type="text" id="stBasicReason" placeholder="مثال: تعيين — أو علاوة سنوية"></div>
-      <div id="stBasicWarn" style="display:none;font-size:13px;margin-top:8px;padding:10px;border-radius:8px"></div>
       <div class="form-actions">
         <button onclick="saveBasicSalary_()">حفظ الراتب الأساسي</button>
       </div>
@@ -4160,9 +4159,30 @@
       html += '<div id="employeeHistoryPanel"></div>';
       html += '</div>';
 
+      // ⬅️ الراتب الأساسي — حركات تاريخية بتاريخ سريان بس.
+      //    المصدر الوحيد: SALARY_TRANSACTIONS.
+      html += '<div class="card" id="empSalaryCard">'
+        + '<h2>الراتب الأساسي</h2>'
+        + '<div id="empSalaryCurrent" style="font-size:14px;margin-bottom:8px">جاري التحميل...</div>'
+        + '<div class="form-grid">'
+        + '<div><label>الراتب الأساسي</label>'
+        + '<input type="number" id="empSalValue" min="1" step="0.01"></div>'
+        + '<div><label>تاريخ السريان</label><input type="date" id="empSalFrom"></div>'
+        + '<div><label>السبب / ملاحظة (اختياري)</label>'
+        + '<input type="text" id="empSalReason" placeholder="مثال: علاوة سنوية"></div>'
+        + '</div>'
+        + '<div class="form-actions">'
+        + '<button onclick="saveEmployeeBasicSalary_(\'' + code + '\')">حفظ الراتب الأساسي</button>'
+        + '</div>'
+        + '<div id="empSalStatus" style="font-size:13px;margin:6px 0"></div>'
+        + '<h3 style="font-size:14px;margin-top:12px">سجل الراتب الأساسي</h3>'
+        + '<div id="empSalHistory"></div>'
+        + '</div>';
+
       document.getElementById('employeeDetailArea').innerHTML = html;
       // بعد الرسم — تحميل الصورة غير متزامن عشان ميعطلش عرض الملف
       if (emp.referencePhotoFileId) loadReferencePhotoThumb_(code);
+      loadEmployeeBasicSalary_(code);
     }
 
     // ⚠️ الصورة المرجعية — تحميل وعرض بس. نفس نمط openDocumentFile
@@ -4351,6 +4371,71 @@
       } catch (err) {
         statusEl.textContent = '❌ ' + err.message;
       }
+    }
+
+    // ============================================================
+    // الراتب الأساسي داخل شاشة الموظف
+    // ⛔ نموذج Start-Date: كل تعديل حركة جديدة بتاريخ سريان.
+    //    مفيش تعديل ولا حذف ولا إقفال لأي حركة قديمة.
+    // ⛔ المصدر الوحيد: SALARY_TRANSACTIONS عبر action salaryTransactions
+    //    والحفظ عبر salaryTransactionAdd القائم — صفر action جديد.
+    // ============================================================
+    async function loadEmployeeBasicSalary_(code) {
+      const cur = document.getElementById('empSalaryCurrent');
+      const hist = document.getElementById('empSalHistory');
+      if (!cur || !hist) return;
+      try {
+        const json = await callApi_({ action: 'salaryTransactions', employee: code });
+        const rows = (json.transactions || json.rows || [])
+          .filter(t => t.type === 'الراتب الأساسي' && t.from)
+          .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+        if (!rows.length) {
+          cur.innerHTML = '<span style="color:var(--color-danger)">⚠️ مفيش راتب أساسي مسجَّل لهذا الموظف.</span>';
+          hist.innerHTML = '';
+          return;
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        // الحالي = آخر حركة تاريخ سريانها <= النهارده
+        const effective = rows.filter(t => t.from <= today);
+        const currentRow = effective.length ? effective[effective.length - 1] : null;
+        cur.innerHTML = currentRow
+          ? '<b>الراتب الأساسي الحالي:</b> ' + Number(currentRow.value).toFixed(2)
+            + ' جنيه · <span style="color:#777">ساري من ' + escapeHtml_(currentRow.from) + '</span>'
+          : '<span style="color:var(--color-danger)">⚠️ أول تاريخ سريان مسجَّل لسه ماجاش.</span>';
+        let h = '<div class="table-wrap"><table><thead><tr>'
+          + '<th>تاريخ السريان</th><th>الراتب</th><th>الحالة</th></tr></thead><tbody>';
+        rows.forEach(t => {
+          const isCurrent = currentRow && t.from === currentRow.from && Number(t.value) === Number(currentRow.value);
+          const st = t.from > today ? 'قادم' : (isCurrent ? 'حالي' : 'سابق');
+          h += '<tr><td>' + escapeHtml_(t.from) + '</td>'
+            + '<td>' + Number(t.value).toFixed(2) + '</td>'
+            + '<td>' + st + '</td></tr>';
+        });
+        h += '</tbody></table></div>';
+        hist.innerHTML = h;
+      } catch (err) {
+        cur.textContent = err.message;
+        hist.innerHTML = '';
+      }
+    }
+
+    async function saveEmployeeBasicSalary_(code) {
+      const st = document.getElementById('empSalStatus');
+      const value = document.getElementById('empSalValue').value.trim();
+      const from = document.getElementById('empSalFrom').value;
+      const reason = document.getElementById('empSalReason').value.trim();
+      if (!(Number(value) > 0)) { st.textContent = 'الراتب الأساسي غير صحيح.'; return; }
+      if (!from) { st.textContent = 'تاريخ السريان غير صحيح.'; return; }
+      st.textContent = 'جاري الحفظ...';
+      try {
+        // ⛔ نفس action الحالي ونفس النوع — صفر إقفال وصفر تعديل للقديم.
+        await callApiPost_({ action: 'salaryTransactionAdd',
+          data: { code: code, type: 'الراتب الأساسي', from: from, to: '',
+                  value: Number(value), reason: reason } });
+        ['empSalValue', 'empSalFrom', 'empSalReason'].forEach(id => document.getElementById(id).value = '');
+        st.textContent = 'تم حفظ الراتب الأساسي بنجاح.';
+        await loadEmployeeBasicSalary_(code);
+      } catch (err) { st.textContent = err.message; }
     }
 
     // ⚠️ Reference Photo — يتحول لـBase64 Client-side بس عشان يترفع،
@@ -6491,43 +6576,22 @@
       }
     }
 
-    // ⬅️ فحص التداخل قبل الحفظ — الـBackend بيقبل الكتابة وبيتوقف وقت
-    //    الحساب، فبنكشفه هنا بدل ما يتفاجئ بيه وقت المرتبات.
-    function basicOverlapWarning_(from, to) {
-      const t2 = to || '9999-12-31';
-      const clash = (stTxCache_ || []).filter(t => {
-        if (t.type !== ST_BASIC_TYPE_ || !t.from) return false;
-        return t.from <= t2 && (t.to || '9999-12-31') >= from;
-      });
-      return clash;
-    }
-
     async function saveBasicSalary_() {
       if (!ptCanManage_()) { setStStatus_('stBasicStatus', '❌ مالكش صلاحية إدارة حركات المرتب.', true); return; }
       const code = document.getElementById('stEmp').value;
       const value = document.getElementById('stBasicValue').value.trim();
       const from = document.getElementById('stBasicFrom').value;
-      const to = document.getElementById('stBasicTo').value;
       const reason = document.getElementById('stBasicReason').value.trim();
       if (!code) { setStStatus_('stBasicStatus', 'اختار الموظف الأول.', true); return; }
-      if (!(Number(value) > 0)) { setStStatus_('stBasicStatus', 'القيمة لازم تكون رقمًا أكبر من صفر.', true); return; }
-      if (!from) { setStStatus_('stBasicStatus', 'تاريخ «ساري من» مطلوب.', true); return; }
-      if (to && to < from) { setStStatus_('stBasicStatus', '«ساري حتى» لازم يكون بعد «ساري من».', true); return; }
-
-      const clash = basicOverlapWarning_(from, to);
-      if (clash.length) {
-        const lines = clash.map(c => '• ' + c.value + ' من ' + c.from + (c.to ? ' حتى ' + c.to : ' — مستمر')).join('\n');
-        if (!confirm('🔴 فيه راتب أساسي فترته متداخلة مع اللي بتسجّله:\n\n' + lines
-          + '\n\nلو حفظت من غير ما تقفل القديم بـ«ساري حتى»، حساب المرتب هيتوقف بخطأ '
-          + '«فيه أكتر من راتب أساسي متعارض».\n\nتكمّل؟')) return;
-      }
+      if (!(Number(value) > 0)) { setStStatus_('stBasicStatus', 'الراتب الأساسي غير صحيح.', true); return; }
+      if (!from) { setStStatus_('stBasicStatus', 'تاريخ السريان غير صحيح.', true); return; }
       setStStatus_('stBasicStatus', 'جاري الحفظ...');
       try {
         // ⛔ صفر user من العميل — السيرفر بياخده من الجلسة.
         await callApiPost_({ action: 'salaryTransactionAdd',
-          data: { code: code, type: ST_BASIC_TYPE_, from: from, to: to || '', value: Number(value), reason: reason } });
-        ['stBasicValue', 'stBasicFrom', 'stBasicTo', 'stBasicReason'].forEach(id => document.getElementById(id).value = '');
-        setStStatus_('stBasicStatus', '✅ اتسجّل الراتب الأساسي.');
+          data: { code: code, type: ST_BASIC_TYPE_, from: from, to: '', value: Number(value), reason: reason } });
+        ['stBasicValue', 'stBasicFrom', 'stBasicReason'].forEach(id => document.getElementById(id).value = '');
+        setStStatus_('stBasicStatus', 'تم حفظ الراتب الأساسي بنجاح.');
         await loadEmployeeSalary_();
       } catch (err) { setStStatus_('stBasicStatus', '❌ ' + err.message, true); }
     }
