@@ -4278,6 +4278,10 @@
         ['خصم الصيف', emp.summerDeduction || 'حسب القسم'],
         ['خصم السنة الأولى', emp.firstYearDeduction || 'حسب القاعدة العادية'],
         ['شهر أول علاوة مستحقة', emp.firstRaiseMonth || 'حسب شهر العلاوة العام'],
+        ['خصم الصيف في السنة الأولى', emp.firstYearSummerDeduction === '1'
+          ? 'شهر كامل — نصف يوليو + نصف أغسطس'
+          : emp.firstYearSummerDeduction === '2' ? 'نصف شهر — يوليو فقط'
+          : 'بدون قاعدة خاصة'],
         ['معفى يدويًا؟', emp.exemptManual ? 'نعم' : 'لا'], ['معفى من البصمة (نهائي)', emp.exempt ? 'نعم' : 'لا'],
         ['الجنسية', emp.nationality || '-'], ['رقم التليفون', emp.phone || '-'],
         ['طريقة القبض', emp.paymentMethod || '-'],
@@ -4473,6 +4477,15 @@
       html += '<div><label>شهر أول علاوة مستحقة</label>'
         + '<input type="month" id="empForm_firstRaiseMonth" value="'
         + escapeHtml_((emp && emp.firstRaiseMonth) || '') + '"></div>';
+      // ⬅️ خصم الصيف في السنة الأولى — قاعدة مستقلة تمامًا، بلا رد.
+      html += '<div><label>خصم الصيف في السنة الأولى</label>'
+        + '<select id="empForm_firstYearSummerDeduction">'
+        + [['', '— بدون قاعدة خاصة —'],
+           ['1', 'خصم شهر كامل — نصف يوليو + نصف أغسطس'],
+           ['2', 'خصم نصف شهر — يوليو فقط']].map(o => '<option value="' + o[0] + '"'
+            + (String((emp && emp.firstYearSummerDeduction) || '') === o[0] ? ' selected' : '')
+            + '>' + o[1] + '</option>').join('')
+        + '</select></div>';
       html += f('endDate', 'تاريخ نهاية الخدمة', 'date', emp?.endDate);
       html += f('nationality', 'الجنسية', 'text', emp?.nationality);
       html += f('phone', 'رقم التليفون', 'text', emp?.phone);
@@ -4523,6 +4536,7 @@
         summerDeduction: val('summerDeduction'),
         firstYearDeduction: val('firstYearDeduction'),
         firstRaiseMonth: val('firstRaiseMonth'),
+        firstYearSummerDeduction: val('firstYearSummerDeduction'),
         phone: val('phone'), paymentMethod: val('paymentMethod'),
         exemptManual: val('exemptManual'), receivedDocumentsAfterEnd: val('receivedDocumentsAfterEnd'),
       };
