@@ -786,6 +786,38 @@
       <div id="srtArea"></div>
     </div>
 
+    <!-- ============== إدارة الأقسام والمسميات الوظيفية ==============
+         ⛔ صفر شيت جديد: القوائم في «الإعدادات العامة» (مفتاح/قيمة). -->
+    <div class="card">
+      <h2>إدارة الأقسام</h2>
+      <p style="font-size:12px;color:#777">
+        القائمة المركزية للأقسام. القسم غير النشط مايظهرش للموظف الجديد،
+        <b>لكن بيانات الموظفين الحاليين مابتتغيّرش إطلاقًا</b>.
+      </p>
+      <div class="filters">
+        <div style="flex:1"><label>اسم القسم الجديد</label>
+          <input type="text" id="deptNewName" placeholder="اكتب اسم القسم"></div>
+        <div><button onclick="addNameListItem_('dept')">إضافة قسم</button></div>
+      </div>
+      <div id="deptListStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="deptListArea"></div>
+    </div>
+
+    <div class="card">
+      <h2>إدارة المسميات الوظيفية</h2>
+      <p style="font-size:12px;color:#777">
+        القائمة المركزية للمسميات الوظيفية. نفس قاعدة الأقسام —
+        <b>التعطيل مابيمسحش أي بيانات</b>.
+      </p>
+      <div class="filters">
+        <div style="flex:1"><label>المسمى الوظيفي الجديد</label>
+          <input type="text" id="jobNewName" placeholder="اكتب المسمى الوظيفي"></div>
+        <div><button onclick="addNameListItem_('jobTitle')">إضافة مسمى</button></div>
+      </div>
+      <div id="jobListStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="jobListArea"></div>
+    </div>
+
     <div class="card">
       <h2>السنة الدراسية</h2>
       <div id="ayActiveBar" style="font-size:13px;margin-bottom:10px"></div>
@@ -1915,7 +1947,7 @@
       try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
-      if (name === 'settings') { loadAcademicYearsView_(); }
+      if (name === 'settings') { loadAcademicYearsView_(); loadNameListsView_(); }
       // ⬅️ الرواتب: الأقسام + إدارة الفترات (اتنقلت من الإعدادات).
       if (name === 'payroll') { loadStblDepts_(); loadPayrollPeriods_(); }
       if (name === 'payrollTypes') { if (!payrollTypesLoaded_) { loadPayrollTxTypesView_(); payrollTypesLoaded_ = true; } }
@@ -4388,7 +4420,9 @@
       } catch (err) { statusEl.textContent = '❌ ' + err.message; }
     }
 
-    function openEmployeeForm(code) {
+    async function openEmployeeForm(code) {
+      // ⬅️ القوائم لازمة للـdropdowns — بتتحمّل مرة واحدة بس (كاش الجلسة).
+      try { await loadNameLists_(); } catch (e) { /* الحقول هتعرض القيمة الحالية بس */ }
       const emp = code ? employeesCache.find(e => e.code === code) : null;
       const isEdit = !!emp;
 
@@ -4407,8 +4441,21 @@
       }
       html += f('nameAr', 'الاسم بالعربي', 'text', emp?.nameAr);
       html += f('nameEn', 'الاسم بالإنجليزي', 'text', emp?.nameEn);
-      html += f('dept', 'القسم', 'text', emp?.dept);
-      html += f('jobTitle', 'المسمى الوظيفي', 'text', emp?.jobTitle);
+      // ⬅️ القسم والمسمى من القائمة المركزية — صفر كتابة حرة.
+      //    ⛔ القيمة الحالية للموظف بتتضاف للقائمة لو مش موجودة أو متوقفة
+      //       عشان بياناته ما تنكسرش عند التعديل.
+      const dOpts = nameListOptions_('dept', emp?.dept);
+      const jOpts = nameListOptions_('jobTitle', emp?.jobTitle);
+      const noDepts = !nameLists_.departments.some(i => i.active) && !emp?.dept;
+      const noJobs = !nameLists_.jobTitles.some(i => i.active) && !emp?.jobTitle;
+      html += '<div><label>القسم</label><select id="empForm_dept">' + dOpts + '</select>'
+        + (noDepts ? '<div style="font-size:12px;color:var(--color-danger);margin-top:4px">'
+            + 'مفيش أقسام نشطة — ضيفها من (الإعدادات ← إدارة الأقسام) الأول.</div>' : '')
+        + '</div>';
+      html += '<div><label>المسمى الوظيفي</label><select id="empForm_jobTitle">' + jOpts + '</select>'
+        + (noJobs ? '<div style="font-size:12px;color:var(--color-danger);margin-top:4px">'
+            + 'مفيش مسميات نشطة — ضيفها من (الإعدادات ← إدارة المسميات الوظيفية) الأول.</div>' : '')
+        + '</div>';
       html += f('hireDate', 'تاريخ التعيين', 'date', emp?.hireDate);
       // ⬅️ خصم الصيف للموظف — بيتحدد مرة واحدة هنا مع تاريخ التعيين.
       html += '<div><label>خصم الصيف</label><select id="empForm_summerDeduction">'
@@ -4789,6 +4836,119 @@
     async function printBasicSalaries_() {
       if (!bsrRows_.length) { alert('اعرض التقرير الأول.'); return; }
       await printReport_(bsrExportData_());
+    }
+
+    // ============================================================
+    // قوائم الأقسام والمسميات الوظيفية
+    // ⛔ نداء واحد (nameLists) بيجيب القائمتين — صفر N+1.
+    // ============================================================
+    let nameLists_ = { departments: [], jobTitles: [] };
+    let nameListsLoaded_ = false;
+
+    async function loadNameLists_(force) {
+      if (nameListsLoaded_ && !force) return nameLists_;
+      const json = await callApi_({ action: 'nameLists' });
+      nameLists_ = json.lists || { departments: [], jobTitles: [] };
+      nameListsLoaded_ = true;
+      return nameLists_;
+    }
+
+    async function loadNameListsView_() {
+      setAdvStatus_('deptListStatus', 'جاري التحميل...');
+      setAdvStatus_('jobListStatus', 'جاري التحميل...');
+      try {
+        await loadNameLists_(true);
+        renderNameList_('dept');
+        renderNameList_('jobTitle');
+        setAdvStatus_('deptListStatus', '');
+        setAdvStatus_('jobListStatus', '');
+      } catch (err) {
+        setAdvStatus_('deptListStatus', err.message, true);
+        setAdvStatus_('jobListStatus', err.message, true);
+      }
+    }
+
+    function renderNameList_(kind) {
+      const isDept = kind === 'dept';
+      const area = document.getElementById(isDept ? 'deptListArea' : 'jobListArea');
+      const items = isDept ? nameLists_.departments : nameLists_.jobTitles;
+      const label = isDept ? 'قسم' : 'مسمى وظيفي';
+      if (!items.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">مفيش أي ' + label + ' مسجَّل. ضيف واحد من فوق.</p>';
+        return;
+      }
+      let h = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>الاسم</th><th>الحالة</th><th>الإجراءات</th>'
+        + '</tr></thead><tbody>';
+      items.forEach(it => {
+        const nm = escapeHtml_(it.name);
+        h += '<tr>'
+          + '<td>' + nm + '</td>'
+          + '<td>' + (it.active
+              ? '<span style="color:var(--color-success);font-weight:700">نشط</span>'
+              : '<span style="color:#999">متوقف</span>') + '</td>'
+          + '<td><button class="link-btn" onclick="renameNameListItem_(\'' + kind + '\', \'' + nm + '\')">تعديل الاسم</button>'
+          + ' · <button class="link-btn" onclick="toggleNameListItem_(\'' + kind + '\', \'' + nm + '\', ' + (it.active ? 'false' : 'true') + ')">'
+          + (it.active ? 'تعطيل' : 'تفعيل') + '</button></td>'
+          + '</tr>';
+      });
+      h += '</tbody></table></div>';
+      area.innerHTML = h;
+    }
+
+    async function nameListCall_(kind, op, name, newName, active) {
+      const statusId = kind === 'dept' ? 'deptListStatus' : 'jobListStatus';
+      setAdvStatus_(statusId, 'جاري الحفظ...');
+      try {
+        const res = await callApiPost_({ action: 'nameListManage', kind: kind, op: op,
+          name: name, newName: newName || '', active: String(active === true) });
+        await loadNameLists_(true);
+        renderNameList_(kind);
+        setAdvStatus_(statusId, '✅ تم' + (res.result && res.result.note ? ' — ' + res.result.note : ''));
+      } catch (err) { setAdvStatus_(statusId, err.message, true); }
+    }
+
+    async function addNameListItem_(kind) {
+      const el = document.getElementById(kind === 'dept' ? 'deptNewName' : 'jobNewName');
+      const nm = (el.value || '').trim();
+      if (!nm) { alert('اكتب الاسم الأول.'); return; }
+      await nameListCall_(kind, 'add', nm);
+      el.value = '';
+    }
+
+    async function renameNameListItem_(kind, name) {
+      const nn = prompt('الاسم الجديد:', name);
+      if (nn === null) return;
+      if (!nn.trim()) { alert('الاسم مطلوب.'); return; }
+      if (!confirm('تعديل الاسم من «' + name + '» إلى «' + nn.trim() + '»؟\n\n'
+        + '⛔ بيانات الموظفين الحاليين مش هتتغيّر — الاسم القديم هيفضل عندهم.')) return;
+      await nameListCall_(kind, 'rename', name, nn.trim());
+    }
+
+    async function toggleNameListItem_(kind, name, active) {
+      if (!confirm((active ? 'تفعيل' : 'تعطيل') + ' «' + name + '»؟\n\n'
+        + (active ? '' : '⛔ التعطيل مابيمسحش أي بيانات — بس مش هيظهر للموظف الجديد.'))) return;
+      await nameListCall_(kind, 'setActive', name, '', active);
+    }
+
+    // ⬅️ خيارات الـdropdown: النشط فقط + القيمة الحالية للموظف لو مش
+    //    موجودة أو متوقفة (عشان بيانات الموظف ما تنكسرش).
+    function nameListOptions_(kind, current) {
+      const items = kind === 'dept' ? nameLists_.departments : nameLists_.jobTitles;
+      const cur = String(current || '').trim();
+      const names = items.filter(i => i.active).map(i => i.name);
+      let extra = '';
+      if (cur && names.indexOf(cur) === -1) {
+        names.unshift(cur);
+        extra = ' — القيمة الحالية';
+      }
+      let h = '<option value="">— اختر —</option>';
+      names.forEach(nm => {
+        const isExtra = extra && nm === cur;
+        h += '<option value="' + escapeHtml_(nm) + '"' + (nm === cur ? ' selected' : '') + '>'
+          + escapeHtml_(nm) + (isExtra ? extra : '') + '</option>';
+      });
+      return h;
     }
 
     // ⬅️ الأقسام — من employeeDepartments الموجود. مرة واحدة بس.
