@@ -5137,6 +5137,8 @@
             + 'onerror="this.style.display=\'none\'">'
             + '<div style="font-size:12px;margin-top:6px;word-break:break-all">' + escapeHtml_(a.fileName) + '</div>'
             + '<a href="' + escapeHtml_(a.fileUrl) + '" target="_blank" class="link-btn">فتح الملف</a>'
+            + ' · <button class="link-btn" onclick="removeInvestigationAttachment_('
+              + i + ', \'' + escapeHtml_(a.fileId) + '\')">إزالة المستند</button>'
             + '</div>';
         });
         h += '</div>';
@@ -5144,6 +5146,24 @@
       document.getElementById('invDetailArea').innerHTML = h;
       card.style.display = '';
       card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ⬅️ إزالة مرفق — Soft Delete. ⛔ الملف في Drive مابيتحذفش،
+    //    والصف بيفضل في الشيت للـAudit وبس بيتخفي من العرض.
+    async function removeInvestigationAttachment_(i, fileId) {
+      const it = invItems_[i];
+      if (!it) return;
+      if (!confirm('هل تريد إزالة هذا المستند من التحقيق؟')) return;
+      try {
+        await callApiPost_({ action: 'investigationAttachmentRemove',
+          id: it.id, fileId: fileId });
+        // ⬅️ تحديث العرض في نفس الشاشة — إعادة تحميل ثم فتح نفس التحقيق.
+        await loadInvestigations_();
+        const idx = invItems_.findIndex(x => x.id === it.id);
+        if (idx >= 0) viewInvestigation_(idx);
+        else document.getElementById('invDetailCard').style.display = 'none';
+        alert('تمت إزالة المستند.');
+      } catch (err) { alert('❌ ' + err.message); }
     }
 
     function editInvestigation_(i) {
