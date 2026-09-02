@@ -6253,8 +6253,14 @@
       const sel = document.getElementById('byTypeSelect');
       if (sel.options.length > 0) return;
       try {
-        const json = await callApi_({ action: 'documentTypes' });
-        sel.innerHTML = json.types.filter(t => t.active).map(t =>
+        // ⬅️ P1-B: الأنواع محمَّلة أصلاً في docTypesCache من loadDocTypesView
+        //    اللي بيتنفّذ مع فتح المستندات. ⛔ نفس البيانات بالحرف —
+        //    ناتج نفس الـaction — فبنتفادى نداء مكرر ودورة round-trip.
+        //    Fallback: لو الكاش فاضي بنستدعي documentTypes زي ما كان.
+        const types = (docTypesCache && docTypesCache.length)
+          ? docTypesCache
+          : (await callApi_({ action: 'documentTypes' })).types;
+        sel.innerHTML = types.filter(t => t.active).map(t =>
           '<option value="' + escapeHtml_(t.name) + '">' + escapeHtml_(t.name) + '</option>').join('');
         loadByTypeReport();
       } catch (err) { document.getElementById('byTypeReportArea').textContent = '❌ ' + err.message; }
