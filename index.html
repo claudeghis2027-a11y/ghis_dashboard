@@ -1458,6 +1458,34 @@
       <div id="summerLogStatus" style="font-size:13px;margin-top:6px;"></div>
       <div id="summerLogArea"></div>
     </div>
+
+    <!-- ============== رد الربعين ==============
+         ⛔ نفس سجل خصم واسترداد الصيف — صفر شيت وصفر نظام جديد.
+         ⛔ الرد عملية مستقلة بتاريخها — مابيدخلش Payroll أي شهر. -->
+    <div class="card">
+      <h2>رد الربعين</h2>
+      <p style="font-size:12px;color:#777">
+        الموظفون اللي اتخصم منهم <b>ربعين</b> فعليًا (صفّان خصم أو أكثر في نفس السنة).
+        <b>مَن عليه ربع واحد بس مابيظهرش.</b>
+        <br>⛔ الرد عملية مستقلة بتاريخ تنفيذها الفعلي — <b>مابيتضافش لمرتب أي شهر
+        ولا بيغيّر صافي أكتوبر ولا غيره</b>. «شهر رد الربعين» في إعدادات السنة للتخطيط بس.
+      </p>
+      <div class="filters">
+        <div><label>السنة</label><input type="number" id="qrfYear" placeholder="2026"></div>
+        <div><label>الحالة</label><select id="qrfStatus">
+          <option value="">الكل</option>
+          <option value="لسه">مستحق الرد</option>
+          <option value="تم">تم الرد</option>
+        </select></div>
+        <div><label>القسم</label><select id="qrfDept"><option value="">— كل الأقسام —</option></select></div>
+        <div style="flex:1"><label>بحث بالاسم أو الكود</label><input type="text" id="qrfSearch"></div>
+        <div><button onclick="loadQuarterRefund_()">عرض</button></div>
+      </div>
+      <div id="qrfTotals" style="font-size:14px;margin:8px 0;padding:8px 12px;
+        background:#f2f6fc;border-radius:8px;display:none"></div>
+      <div id="qrfStatusMsg" style="font-size:13px;margin:8px 0"></div>
+      <div id="qrfArea"></div>
+    </div>
   </div>
 
   <!-- ⚠️ WhatsApp Click-to-Chat — صفر API/BSP/Credentials/تكلفة.
@@ -1988,7 +2016,7 @@
       if (name === 'pendingProfile') { loadPendingProfileRequests_(); loadPhotoReview_(); }
       if (name === 'monthlyClosing') { if (!mcViewLoaded_) { loadMonthlyClosingMonths_(); mcViewLoaded_ = true; } }
       if (name === 'reportCenter') { renderReportCenter_(); }
-      if (name === 'summerDeduction') { loadSummerDeptsView_(); }
+      if (name === 'summerDeduction') { loadSummerDeptsView_(); loadQuarterRefund_(); }
       // ⚠️ Bug Fix — الشاشة دي كانت بترسم من employeesCache على طول من
       // غير أي ضمان إنها متملّية. لو اتفتحت قبل "التقارير" (مثلاً عن
       // طريق Navigation Persistence اللي بيرجّع آخر View عند الدخول)،
@@ -4921,6 +4949,94 @@
     async function printBasicSalaries_() {
       if (!bsrRows_.length) { alert('اعرض التقرير الأول.'); return; }
       await printReport_(bsrExportData_());
+    }
+
+    // ============================================================
+    // رد الربعين — عرض وتنفيذ مستقل
+    // ⛔ نفس summerDeductionRefund الحالي · صفر تأثير على Payroll.
+    // ============================================================
+    let qrfRows_ = [];
+
+    async function loadQuarterRefund_() {
+      setAdvStatus_('qrfStatusMsg', 'جاري التحميل...');
+      document.getElementById('qrfTotals').style.display = 'none';
+      try {
+        const json = await callApi_({ action: 'quarterRefundReport',
+          year: document.getElementById('qrfYear').value,
+          rstatus: document.getElementById('qrfStatus').value,
+          dept: document.getElementById('qrfDept').value,
+          search: document.getElementById('qrfSearch').value });
+        const rep = json.report || {};
+        qrfRows_ = rep.rows || [];
+        const sel = document.getElementById('qrfDept');
+        if (sel && sel.options.length <= 1) {
+          (rep.departments || []).forEach(d => {
+            const o = document.createElement('option');
+            o.value = d; o.textContent = d; sel.appendChild(o);
+          });
+        }
+        const t = rep.totals || {};
+        const bar = document.getElementById('qrfTotals');
+        bar.innerHTML = '<b>إجمالي المستحق للرد:</b> ' + (t.dueAmount || 0).toFixed(2)
+          + ' &nbsp;·&nbsp; <b>إجمالي المردود:</b> ' + (t.doneAmount || 0).toFixed(2)
+          + ' &nbsp;·&nbsp; <b>عدد المستحقين:</b> ' + (t.dueCount || 0)
+          + ' &nbsp;·&nbsp; <b>عدد اللي اتردّ لهم:</b> ' + (t.doneCount || 0)
+          + ' &nbsp;<span style="color:#777">(متابعة فقط — خارج Payroll)</span>';
+        bar.style.display = '';
+        renderQuarterRefund_();
+        setAdvStatus_('qrfStatusMsg', qrfRows_.length + ' موظف.');
+      } catch (err) {
+        document.getElementById('qrfArea').innerHTML = '';
+        setAdvStatus_('qrfStatusMsg', err.message, true);
+      }
+    }
+
+    function renderQuarterRefund_() {
+      const area = document.getElementById('qrfArea');
+      if (!qrfRows_.length) {
+        area.innerHTML = '<p style="font-size:13px;color:#777">مفيش موظفين مطابقين.</p>';
+        return;
+      }
+      let h = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>كود الموظف</th><th>اسم الموظف</th><th>القسم</th><th>شهور الخصم</th>'
+        + '<th>مبلغ الربعين</th><th>الحالة</th><th>تاريخ الرد</th><th>إجراء</th>'
+        + '</tr></thead><tbody>';
+      qrfRows_.forEach((r, i) => {
+        const due = r.status === 'مستحق الرد';
+        h += '<tr>'
+          + '<td>' + escapeHtml_(r.code) + '</td>'
+          + '<td>' + escapeHtml_(r.nameAr) + '</td>'
+          + '<td>' + escapeHtml_(r.dept || '—') + '</td>'
+          + '<td>' + escapeHtml_(r.months || '—') + '</td>'
+          + '<td>' + r.amount.toFixed(2) + '</td>'
+          + '<td>' + (due
+              ? '<span style="color:var(--color-danger);font-weight:700">مستحق الرد</span>'
+              : '<span style="color:var(--color-success);font-weight:700">تم الرد</span>') + '</td>'
+          + '<td>' + escapeHtml_(r.refundDate || '—') + '</td>'
+          // ⛔ الزر بيختفي بعد الرد ⇒ منع تكرار الرد من الواجهة،
+          //    والباك كمان بيرفض لو مفيش صفوف "لسه".
+          + '<td>' + (due
+              ? '<button class="link-btn" onclick="doQuarterRefund_(' + i + ')">رد الربعين</button>'
+              : '—') + '</td>'
+          + '</tr>';
+      });
+      h += '</tbody></table></div>';
+      area.innerHTML = h;
+    }
+
+    async function doQuarterRefund_(i) {
+      const r = qrfRows_[i];
+      if (!r || r.status !== 'مستحق الرد') return;
+      if (!confirm('رد الربعين للموظف ' + r.nameAr + ' (' + r.code + ')؟\n\n'
+        + 'المبلغ: ' + r.amount.toFixed(2) + ' · سنة ' + r.year + '\n\n'
+        + '⛔ العملية بتتسجّل بتاريخ النهارده ومابتدخلش مرتب أي شهر.')) return;
+      setAdvStatus_('qrfStatusMsg', 'جاري تنفيذ الرد...');
+      try {
+        const res = await callApiPost_({ action: 'summerDeductionRefund',
+          employee: r.code, year: r.year });
+        await loadQuarterRefund_();
+        alert('تم رد ' + res.result.refundedAmount + ' (' + res.result.rowsRefunded + ' سجل).');
+      } catch (err) { setAdvStatus_('qrfStatusMsg', err.message, true); }
     }
 
     // ============================================================
