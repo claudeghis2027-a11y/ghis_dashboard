@@ -1965,7 +1965,15 @@
         loadEmployeeCodeSetting_();
       }
       if (name === 'rules') { if (!rulesLoaded_) { loadRulesViews(); rulesLoaded_ = true; } }
-      if (name === 'documents') { if (!documentsViewLoaded_) { loadDocumentsView(); documentsViewLoaded_ = true; } }
+      // ⬅️ X2: نفس المبدأ — العلامة جوّه الدالة بعد النجاح.
+      if (name === 'documents') {
+        if (!documentsViewLoaded_) {
+          loadDocumentsView().catch(err => {
+            const el = document.getElementById('docTypesArea');
+            if (el) el.textContent = '❌ ' + err.message;
+          });
+        }
+      }
       if (name === 'users') { if (!usersViewLoaded_) { loadUsersAndRolesView(); usersViewLoaded_ = true; } }
       if (name === 'backup') { if (!backupViewLoaded_) { loadBackupsList(); loadBackupConfig(); backupViewLoaded_ = true; } }
       // ⬅️ B3: لو employeesCache متملّية (من قسم الموظفين مثلاً)، بنرسم
@@ -4937,7 +4945,14 @@
       holder.style.display = (name === 'docs') ? '' : 'none';
       document.getElementById('legalTab-inv').classList.toggle('active', name === 'inv');
       document.getElementById('legalTab-docs').classList.toggle('active', name === 'docs');
-      if (name === 'docs' && !documentsViewLoaded_) { loadDocumentsView(); documentsViewLoaded_ = true; }
+      // ⬅️ X2: العلامة بتتحط جوّه loadDocumentsView بعد النجاح بس.
+      //    الـcatch بيمنع Unhandled Rejection ويسيب العلامة false للمحاولة الجاية.
+      if (name === 'docs' && !documentsViewLoaded_) {
+        loadDocumentsView().catch(err => {
+          const el = document.getElementById('docTypesArea');
+          if (el) el.textContent = '❌ ' + err.message;
+        });
+      }
     }
 
     async function loadLegalView_() {
@@ -5832,6 +5847,10 @@
     }
 
     async function loadDocumentsView() {
+      // ⬅️ X1: قايمة الموظفين مصدرها employeesCache. لو لسه فاضي بننتظر
+      //    loadEmployees_() الموجودة بدل ما نسيب الـdropdown فاضي بصمت.
+      //    ⛔ نفس الـaction ونفس الكاش — صفر نداء جديد لو الكاش مليان.
+      if (!employeesCache.length) await loadEmployees_();
       const sel = document.getElementById('docsEmployeeSelect');
       if (sel.options.length <= 1 && employeesCache.length > 0) {
         employeesCache.forEach(emp => {
@@ -5842,6 +5861,10 @@
         });
       }
       await loadDocTypesView();
+      // ⬅️ X2: العلامة بتتحط هنا بس — بعد نجاح التحميل كله. لو رمى أي
+      //    خطوة، الاستثناء بيطلع للمنادي والعلامة بتفضل false فتتم
+      //    محاولة صحيحة تانية عند فتح الشاشة مرة جاية.
+      documentsViewLoaded_ = true;
     }
 
     async function loadDocTypesView() {
