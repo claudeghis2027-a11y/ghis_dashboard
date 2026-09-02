@@ -1424,68 +1424,50 @@
 
   <!-- ⚠️ Phase 5 — خصم واسترداد الصيف. Flow مستقل تمامًا عن Payroll
        العادي فوق، صفر لمسة له. -->
+  <!-- ============== خصم الصيف — تقرير السجل + رد بالنوع ==============
+       ⛔ عرض فقط + عملية رد واحدة. صفر حساب · صفر إعداد · صفر اختيار موظف.
+       ⛔ منطق خصم الصيف نفسه (ومنه نصف/نصفين) لم يُمسّ إطلاقًا. -->
   <div id="view-summerDeduction" class="view" style="display:none">
     <div class="card">
-      <h2>تصنيف أقسام خصم الصيف</h2>
-      <div id="summerDeptsArea"></div>
-      <div class="filters" style="margin-top:10px">
-        <div><label>اسم القسم</label><input type="text" id="summerDeptName"></div>
-        <div><label>القاعدة</label>
-          <select id="summerDeptRule">
-            <option value="Rule 1">Rule 1 — ¼ يوليو + ¼ أغسطس</option>
-            <option value="Rule 2">Rule 2 — ¼ يوليو بس</option>
-          </select>
-        </div>
-        <div><button onclick="setSummerDept_()">حفظ</button></div>
-      </div>
-      <div id="summerDeptStatus" style="font-size:13px;margin-top:6px;"></div>
-    </div>
-
-    <div class="card">
-      <h2>حساب خصم الصيف</h2>
-      <div class="filters">
-        <div><label>السنة</label><input type="number" id="summerCalcYear" placeholder="2026"></div>
-        <div><button onclick="calculateSummerDeduction_()">احسب لكل الموظفين</button></div>
-      </div>
-      <div id="summerCalcStatus" style="font-size:13px;margin-top:6px;"></div>
-    </div>
-
-    <div class="card">
-      <h2>سجل خصم الصيف والاسترداد</h2>
-      <div class="filters">
-        <div><label>كود الموظف</label><input type="text" id="summerLogEmployeeCode"></div>
-        <div><label>السنة</label><input type="number" id="summerLogYear" placeholder="2026"></div>
-        <div><button onclick="loadSummerDeductionLog_()">عرض السجل</button></div>
-        <div><button class="secondary" onclick="refundSummerDeduction_()">تنفيذ رد أكتوبر</button></div>
-      </div>
-      <div id="summerLogStatus" style="font-size:13px;margin-top:6px;"></div>
-      <div id="summerLogArea"></div>
-    </div>
-
-    <!-- ============== رد خصم الصيف ==============
-         ⛔ نفس SUMMER_DEDUCTION_LOG — صفر شيت وصفر نظام رد جديد.
-         ⛔ الرد عملية مستقلة — مابيدخلش Payroll أي شهر. -->
-    <div class="card">
-      <h2>رد خصم الصيف</h2>
+      <h2>سجل خصم الصيف</h2>
       <p style="font-size:12px;color:#777">
-        الخصومات <b>القابلة للرد</b> بس (ربع · ربعين).
-        <b>نصف/نصفين بيتخصموا فعليًا من المرتب لكن مالهمش رد</b> — فمابيظهروش هنا.
-        <br>⛔ الرد بيتسجّل بتاريخ تنفيذه — <b>مابيدخلش مرتب أي شهر ولا بيغيّر الصافي</b>.
+        تقرير عرض فقط من سجل خصم الصيف. اختار السنة واضغط «عرض التقرير» —
+        القسم ونوع الخصم اختياريان لتضييق النتائج.
+        <b>نصف/نصفين بيظهروا هنا بحالة «غير قابل للرد»</b>.
       </p>
       <div class="filters">
-        <div><label>السنة</label><input type="number" id="qrfYear" placeholder="2026"></div>
-        <div><label>القسم</label><select id="qrfDept"><option value="">— كل الأقسام —</option></select></div>
-        <div style="flex:1"><label>بحث بالاسم أو الكود</label><input type="text" id="qrfSearch"></div>
-        <div><button onclick="loadSummerRefund_()">عرض المستحقين</button></div>
+        <div><label>السنة</label><input type="number" id="sdlYear" placeholder="2026"></div>
+        <div><label>القسم</label><select id="sdlDept"><option value="">— كل الأقسام —</option></select></div>
+        <div><label>نوع الخصم</label><select id="sdlType">
+          <option value="">— الكل —</option>
+          <option value="ربع">ربع</option>
+          <option value="ربعين">ربعين</option>
+          <option value="نصف">نصف</option>
+          <option value="نصفين">نصفين</option>
+        </select></div>
+        <div><button onclick="loadSummerLog_()">عرض التقرير</button></div>
       </div>
+      <div id="sdlStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="sdlArea"></div>
+    </div>
+
+    <div class="card">
+      <h2>رد الخصم</h2>
+      <p style="font-size:12px;color:#777">
+        اختار السنة ونوع الخصم واضغط «رد» — النظام بيردّ
+        <b>كل المستحقين لهذا النوع في السنة دي مرة واحدة</b>.
+        <br>⛔ الربع والربعين بس. <b>نصف/نصفين مش قابلين للرد.</b>
+        ⛔ صفر حذف صفوف · صفر تأثير على أي مرتب.
+      </p>
       <div class="filters">
-        <div><button class="secondary" id="qrfTab-due" onclick="switchQrfTab_('due')">المستحق للرد</button></div>
-        <div><button class="secondary" id="qrfTab-done" onclick="switchQrfTab_('done')">تم الرد</button></div>
+        <div><label>السنة</label><input type="number" id="sdrYear" placeholder="2026"></div>
+        <div><label>نوع الخصم</label><select id="sdrType">
+          <option value="ربع">ربع</option>
+          <option value="ربعين">ربعين</option>
+        </select></div>
+        <div><button onclick="doSummerRefundByType_()">رد</button></div>
       </div>
-      <div id="qrfTotals" style="font-size:14px;margin:8px 0;padding:8px 12px;
-        background:#f2f6fc;border-radius:8px;display:none"></div>
-      <div id="qrfStatusMsg" style="font-size:13px;margin:8px 0"></div>
-      <div id="qrfArea"></div>
+      <div id="sdrStatus" style="font-size:13px;margin:8px 0"></div>
     </div>
   </div>
 
@@ -2017,7 +1999,7 @@
       if (name === 'pendingProfile') { loadPendingProfileRequests_(); loadPhotoReview_(); }
       if (name === 'monthlyClosing') { if (!mcViewLoaded_) { loadMonthlyClosingMonths_(); mcViewLoaded_ = true; } }
       if (name === 'reportCenter') { renderReportCenter_(); }
-      if (name === 'summerDeduction') { loadSummerDeptsView_(); loadSummerRefund_(); }
+      if (name === 'summerDeduction') { /* ⬅️ التقارير بزر صريح — صفر نداء تلقائي. */ }
       // ⚠️ Bug Fix — الشاشة دي كانت بترسم من employeesCache على طول من
       // غير أي ضمان إنها متملّية. لو اتفتحت قبل "التقارير" (مثلاً عن
       // طريق Navigation Persistence اللي بيرجّع آخر View عند الدخول)،
@@ -4955,103 +4937,81 @@
     }
 
     // ============================================================
-    // رد خصم الصيف — تبويبان: المستحق للرد · تم الرد
-    // ⛔ نفس summerDeductionRefund الحالي · صفر تأثير على Payroll.
+    // خصم الصيف — تقرير السجل + رد بالنوع
+    // ⛔ عرض فقط + عملية رد واحدة · صفر تأثير على أي مرتب.
     // ============================================================
-    let qrfDue_ = [], qrfDone_ = [], qrfTab_ = 'due';
-
-    function switchQrfTab_(t) {
-      qrfTab_ = t;
-      document.getElementById('qrfTab-due').classList.toggle('active', t === 'due');
-      document.getElementById('qrfTab-done').classList.toggle('active', t === 'done');
-      renderSummerRefund_();
-    }
-
-    async function loadSummerRefund_() {
-      setAdvStatus_('qrfStatusMsg', 'جاري التحميل...');
-      document.getElementById('qrfTotals').style.display = 'none';
+    async function loadSummerLog_() {
+      const year = document.getElementById('sdlYear').value;
+      if (!year) { setAdvStatus_('sdlStatus', 'حدد السنة الأول.', true); return; }
+      setAdvStatus_('sdlStatus', 'جاري التحميل...');
       try {
-        const json = await callApi_({ action: 'summerRefundList',
-          year: document.getElementById('qrfYear').value,
-          dept: document.getElementById('qrfDept').value,
-          search: document.getElementById('qrfSearch').value });
+        const json = await callApi_({ action: 'summerLogReport', year: year,
+          dept: document.getElementById('sdlDept').value,
+          dedType: document.getElementById('sdlType').value });
         const rep = json.report || {};
-        qrfDue_ = rep.due || []; qrfDone_ = rep.done || [];
-        const sel = document.getElementById('qrfDept');
+        const rows = rep.rows || [];
+        const sel = document.getElementById('sdlDept');
         if (sel && sel.options.length <= 1) {
           (rep.departments || []).forEach(d => {
             const o = document.createElement('option');
             o.value = d; o.textContent = d; sel.appendChild(o);
           });
         }
-        const t = rep.totals || {};
-        const bar = document.getElementById('qrfTotals');
-        bar.innerHTML = '<b>إجمالي المستحق:</b> ' + (t.dueAmount || 0).toFixed(2)
-          + ' &nbsp;·&nbsp; <b>إجمالي المردود:</b> ' + (t.doneAmount || 0).toFixed(2)
-          + ' &nbsp;·&nbsp; <b>مستحق:</b> ' + (t.dueCount || 0)
-          + ' &nbsp;·&nbsp; <b>تم الرد:</b> ' + (t.doneCount || 0)
-          + ' &nbsp;<span style="color:#777">(متابعة فقط — خارج Payroll)</span>';
-        bar.style.display = '';
-        renderSummerRefund_();
-        setAdvStatus_('qrfStatusMsg', '');
-      } catch (err) {
-        document.getElementById('qrfArea').innerHTML = '';
-        setAdvStatus_('qrfStatusMsg', err.message, true);
-      }
-    }
-
-    function renderSummerRefund_() {
-      const area = document.getElementById('qrfArea');
-      const isDue = qrfTab_ === 'due';
-      const rows = isDue ? qrfDue_ : qrfDone_;
-      if (!rows.length) {
-        area.innerHTML = '<p style="font-size:13px;color:#777">'
-          + (isDue ? 'مفيش خصومات مستحقة للرد.' : 'مفيش خصومات اتردّت.') + '</p>';
-        return;
-      }
-      let h = '<div class="table-wrap"><table><thead><tr>'
-        + '<th>كود الموظف</th><th>اسم الموظف</th><th>القسم</th><th>السنة</th>'
-        + '<th>نوع الخصم</th><th>الشهور</th><th>المبلغ</th>'
-        + (isDue ? '<th>الحالة</th><th>إجراء</th>' : '<th>تاريخ الرد</th><th>الحالة</th>')
-        + '</tr></thead><tbody>';
-      rows.forEach((r, i) => {
-        h += '<tr>'
-          + '<td>' + escapeHtml_(r.code) + '</td>'
-          + '<td>' + escapeHtml_(r.nameAr) + '</td>'
-          + '<td>' + escapeHtml_(r.dept || '—') + '</td>'
-          + '<td>' + r.year + '</td>'
-          + '<td>' + escapeHtml_(r.type) + '</td>'
-          + '<td>' + escapeHtml_(r.months || '—') + '</td>'
-          + '<td>' + r.amount.toFixed(2) + '</td>';
-        if (isDue) {
-          h += '<td><span style="color:var(--color-danger);font-weight:700">مستحق</span></td>'
-            // ⛔ الزر بيختفي بعد الرد (الصف بينتقل لتبويب «تم الرد») ⇒ منع التكرار.
-            + '<td><button class="link-btn" onclick="doSummerRefund_(' + i + ')">رد خصم الصيف</button></td>';
-        } else {
-          h += '<td>' + escapeHtml_(r.refundDate || '—') + '</td>'
-            + '<td><span style="color:var(--color-success);font-weight:700">تم الرد</span></td>';
+        const area = document.getElementById('sdlArea');
+        if (!rows.length) {
+          area.innerHTML = '<p style="font-size:13px;color:#777">مفيش خصومات صيف مسجَّلة بالفلاتر دي.</p>';
+          setAdvStatus_('sdlStatus', '');
+          return;
         }
-        h += '</tr>';
-      });
-      h += '</tbody></table></div>';
-      area.innerHTML = h;
+        let h = '<div class="table-wrap"><table><thead><tr>'
+          + '<th>كود الموظف</th><th>اسم الموظف</th><th>القسم</th>'
+          + '<th>نوع الخصم</th><th>شهر/شهور الخصم</th><th>مبلغ الخصم</th>'
+          + '<th>حالة الرد</th><th>تاريخ الرد</th>'
+          + '</tr></thead><tbody>';
+        rows.forEach(r => {
+          const color = r.status === 'مستحق' ? 'var(--color-danger)'
+            : r.status === 'تم الرد' ? 'var(--color-success)' : '#777';
+          h += '<tr>'
+            + '<td>' + escapeHtml_(r.code) + '</td>'
+            + '<td>' + escapeHtml_(r.nameAr) + '</td>'
+            + '<td>' + escapeHtml_(r.dept || '—') + '</td>'
+            + '<td>' + escapeHtml_(r.type) + '</td>'
+            + '<td>' + escapeHtml_(r.months || '—') + '</td>'
+            + '<td>' + r.amount.toFixed(2) + '</td>'
+            + '<td><span style="color:' + color + ';font-weight:700">' + escapeHtml_(r.status) + '</span></td>'
+            + '<td>' + escapeHtml_(r.refundDate || '—') + '</td>'
+            + '</tr>';
+        });
+        h += '</tbody></table></div>';
+        area.innerHTML = h;
+        setAdvStatus_('sdlStatus', rows.length + ' سطر · إجمالي الخصم '
+          + (rep.totalAmount || 0).toFixed(2));
+      } catch (err) {
+        document.getElementById('sdlArea').innerHTML = '';
+        setAdvStatus_('sdlStatus', err.message, true);
+      }
     }
 
-    async function doSummerRefund_(i) {
-      const r = qrfDue_[i];
-      if (!r) return;
-      if (!confirm('رد خصم «' + r.type + '» للموظف ' + r.nameAr + ' (' + r.code + ')؟\n\n'
-        + 'السنة: ' + r.year + ' · المبلغ: ' + r.amount.toFixed(2)
-        + (r.months ? ' · الشهور: ' + r.months : '') + '\n\n'
-        + '⛔ بيتردّ نوع «' + r.type + '» كمجموعة كاملة بس — الأنواع التانية بتفضل مستحقة.\n'
-        + '⛔ العملية بتتسجّل بتاريخ النهارده ومابتدخلش مرتب أي شهر.')) return;
-      setAdvStatus_('qrfStatusMsg', 'جاري تنفيذ الرد...');
+    async function doSummerRefundByType_() {
+      const year = document.getElementById('sdrYear').value;
+      const type = document.getElementById('sdrType').value;
+      if (!year) { setAdvStatus_('sdrStatus', 'حدد السنة الأول.', true); return; }
+      if (!confirm('رد خصم «' + type + '» لكل المستحقين في سنة ' + year + '؟\n\n'
+        + '⛔ بيتردّ النوع ده بس — الأنواع التانية مابتتأثرش.\n'
+        + '⛔ صفر حذف صفوف · صفر تأثير على أي مرتب.')) return;
+      setAdvStatus_('sdrStatus', 'جاري تنفيذ الرد...');
       try {
-        const res = await callApiPost_({ action: 'summerDeductionRefund',
-          employee: r.code, year: r.year, dedType: r.type });
-        await loadSummerRefund_();
-        alert('تم رد ' + res.result.refundedAmount + ' (' + res.result.rowsRefunded + ' سجل) — نوع «' + r.type + '».');
-      } catch (err) { setAdvStatus_('qrfStatusMsg', err.message, true); }
+        const res = await callApiPost_({ action: 'summerRefundByType',
+          year: year, dedType: type });
+        const r = res.result || {};
+        let msg = 'تم رد ' + (r.refundedAmount || 0).toFixed(2)
+          + ' لـ' + (r.employees || 0) + ' موظف (' + (r.rowsRefunded || 0) + ' سجل) — نوع «' + type + '».';
+        if (r.failed && r.failed.length) msg += '\n\n⚠️ فشل ' + r.failed.length + ':\n• ' + r.failed.join('\n• ');
+        alert(msg);
+        setAdvStatus_('sdrStatus', '');
+        // ⬅️ تحديث تقرير السجل لو كان معروضًا لنفس السنة.
+        if (document.getElementById('sdlYear').value === year) loadSummerLog_();
+      } catch (err) { setAdvStatus_('sdrStatus', err.message, true); }
     }
 
     // ============================================================
@@ -6630,75 +6590,6 @@
 
     // ⚠️ Phase 5 — خصم واسترداد الصيف. Flow مستقل تمامًا عن Payroll
     // فوق، صفر تأثير عليه.
-    async function loadSummerDeptsView_() {
-      const area = document.getElementById('summerDeptsArea');
-      try {
-        const json = await callApi_({ action: 'summerDeductionDepartments' });
-        let html = '<div class="table-wrap"><table><thead><tr><th>القسم</th><th>القاعدة</th><th>نشط؟</th></tr></thead><tbody>';
-        json.departments.forEach(d => {
-          html += '<tr><td>' + escapeHtml_(d.dept) + '</td><td>' + escapeHtml_(d.rule) + '</td><td>' + (d.active ? 'نعم' : 'لا') + '</td></tr>';
-        });
-        html += '</tbody></table></div>';
-        area.innerHTML = html;
-      } catch (err) { area.textContent = '❌ ' + err.message; }
-    }
-
-    async function setSummerDept_() {
-      const dept = document.getElementById('summerDeptName').value.trim();
-      const rule = document.getElementById('summerDeptRule').value;
-      const statusEl = document.getElementById('summerDeptStatus');
-      if (!dept) { statusEl.textContent = '❌ حدد اسم القسم.'; return; }
-      try {
-        await callApiPost_({ action: 'summerDeductionDepartmentSet', dept, rule });
-        statusEl.textContent = '✅ اتحفظ.';
-        document.getElementById('summerDeptName').value = '';
-        loadSummerDeptsView_();
-      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
-    }
-
-    async function calculateSummerDeduction_() {
-      const year = document.getElementById('summerCalcYear').value;
-      const statusEl = document.getElementById('summerCalcStatus');
-      if (!year) { statusEl.textContent = '❌ حدد السنة.'; return; }
-      statusEl.textContent = 'جاري الحساب...';
-      try {
-        const json = await callApiPost_({ action: 'summerDeductionCalculate', year });
-        const r = json.result;
-        statusEl.textContent = '✅ اتحسب لـ' + r.calculated.length + ' حالة، اتخطّى ' + r.skippedAlreadyLogged.length + ' (محسوبة بالفعل)، ' + r.skippedUnclassified.length + ' موظف بقسم مش مصنَّف.';
-      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
-    }
-
-    async function loadSummerDeductionLog_() {
-      const code = document.getElementById('summerLogEmployeeCode').value.trim();
-      const year = document.getElementById('summerLogYear').value;
-      const statusEl = document.getElementById('summerLogStatus');
-      const area = document.getElementById('summerLogArea');
-      statusEl.textContent = 'جاري التحميل...';
-      try {
-        const json = await callApi_({ action: 'summerDeductionLog', employee: code, year });
-        statusEl.textContent = '';
-        let html = '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الشهر</th><th>السنة</th><th>المبلغ</th><th>حالة الرد</th><th>تاريخ الرد</th></tr></thead><tbody>';
-        json.rows.forEach(r => {
-          html += '<tr><td>' + escapeHtml_(r.code) + '</td><td>' + escapeHtml_(r.month) + '</td><td>' + r.year + '</td><td>' + r.amount + '</td><td>' + escapeHtml_(r.refundStatus) + '</td><td>' + (r.refundDate || '-') + '</td></tr>';
-        });
-        html += '</tbody></table></div>';
-        area.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش سجلات.</p>';
-      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
-    }
-
-    async function refundSummerDeduction_() {
-      const code = document.getElementById('summerLogEmployeeCode').value.trim();
-      const year = document.getElementById('summerLogYear').value;
-      const statusEl = document.getElementById('summerLogStatus');
-      if (!code || !year) { statusEl.textContent = '❌ حدد الموظف والسنة الأول.'; return; }
-      try {
-        const json = await callApiPost_({ action: 'summerDeductionRefund', employee: code, year });
-        const successMsg = '✅ اترد مبلغ ' + json.result.refundedAmount + ' (' + json.result.rowsRefunded + ' سجل).';
-        await loadSummerDeductionLog_(); // ⬅️ ننتظرها الأول عشان مش تمسح رسالة النجاح
-        statusEl.textContent = successMsg;
-      } catch (err) { statusEl.textContent = '❌ ' + err.message; }
-    }
-
     // ============================================================
     // ⚠️ WhatsApp Click-to-Chat — صفر API/BSP/Credentials/تكلفة.
     // GHIS بيبني الرسالة بس (Backend)، وفتح wa.me بيحصل هنا
