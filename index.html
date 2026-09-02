@@ -4276,12 +4276,12 @@
         ['القسم', emp.dept], ['المسمى الوظيفي', emp.jobTitle], ['الحالة', emp.status],
         ['تاريخ التعيين', emp.hireDate || '-'], ['تاريخ نهاية الخدمة', emp.endDate || '-'],
         ['خصم الصيف', emp.summerDeduction || 'حسب القسم'],
-        ['خصم السنة الأولى', emp.firstYearDeduction || 'حسب القاعدة العادية'],
+        ['استثناء خصم السنة الأولى', ({
+          '1': 'نصف شهر يوليو فقط — بدون رد',
+          '2': 'نصف يوليو + نصف أغسطس — بدون رد',
+          '3': 'خصم ربع', '4': 'خصم ربعين'
+        })[emp.firstYearSummerDeduction] || 'بدون'],
         ['شهر أول علاوة مستحقة', emp.firstRaiseMonth || 'حسب شهر العلاوة العام'],
-        ['خصم الصيف في السنة الأولى', emp.firstYearSummerDeduction === '1'
-          ? 'شهر كامل — نصف يوليو + نصف أغسطس'
-          : emp.firstYearSummerDeduction === '2' ? 'نصف شهر — يوليو فقط'
-          : 'بدون قاعدة خاصة'],
         ['معفى يدويًا؟', emp.exemptManual ? 'نعم' : 'لا'], ['معفى من البصمة (نهائي)', emp.exempt ? 'نعم' : 'لا'],
         ['الجنسية', emp.nationality || '-'], ['رقم التليفون', emp.phone || '-'],
         ['طريقة القبض', emp.paymentMethod || '-'],
@@ -4461,31 +4461,30 @@
             + 'مفيش مسميات نشطة — ضيفها من (الإعدادات ← إدارة المسميات الوظيفية) الأول.</div>' : '')
         + '</div>';
       html += f('hireDate', 'تاريخ التعيين', 'date', emp?.hireDate);
-      // ⬅️ خصم الصيف للموظف — بيتحدد مرة واحدة هنا مع تاريخ التعيين.
+      // ⬅️ الحقل الأول: خصم الصيف الأساسي — العمود 14. مستقل تمامًا.
       html += '<div><label>خصم الصيف</label><select id="empForm_summerDeduction">'
-        + ['', 'ربع', 'ربعين'].map(v => '<option value="' + v + '"'
-            + ((emp && emp.summerDeduction === v) || (!emp && v === '') ? ' selected' : '')
-            + '>' + (v || '— حسب القسم —') + '</option>').join('')
+        + [['', '— حسب القسم —'], ['ربع', 'خصم ربع'], ['ربعين', 'خصم ربعين']]
+          .map(o => '<option value="' + o[0] + '"'
+            + (String((emp && emp.summerDeduction) || '') === o[0] ? ' selected' : '')
+            + '>' + o[1] + '</option>').join('')
         + '</select></div>';
-      // ⬅️ خصم السنة الأولى — بيتطبّق في السنة الأولى من تاريخ التعيين بس.
-      html += '<div><label>خصم السنة الأولى</label><select id="empForm_firstYearDeduction">'
-        + ['', 'شهر واحد', 'شهرين', 'بدون خصم'].map(v => '<option value="' + v + '"'
-            + ((emp && emp.firstYearDeduction === v) || (!emp && v === '') ? ' selected' : '')
-            + '>' + (v || '— حسب القاعدة العادية —') + '</option>').join('')
+      // ⬅️ الحقل الثاني: استثناء خصم السنة الأولى — العمود 17.
+      //    ⛔ بيحلّ محلّ الأساسي جوّه السنة الأولى بس · 1/2 بدون رد.
+      html += '<div><label>استثناء خصم السنة الأولى</label>'
+        + '<select id="empForm_firstYearSummerDeduction">'
+        + [['', 'بدون'],
+           ['1', 'نصف شهر يوليو فقط — بدون رد'],
+           ['2', 'نصف يوليو + نصف أغسطس — بدون رد'],
+           ['3', 'خصم ربع'],
+           ['4', 'خصم ربعين']].map(o => '<option value="' + o[0] + '"'
+            + (String((emp && emp.firstYearSummerDeduction) || '') === o[0] ? ' selected' : '')
+            + '>' + o[1] + '</option>').join('')
         + '</select></div>';
       // ⬅️ شهر أول علاوة مستحقة — يدوي بالكامل، مش محسوب من تاريخ التعيين.
       html += '<div><label>شهر أول علاوة مستحقة</label>'
         + '<input type="month" id="empForm_firstRaiseMonth" value="'
         + escapeHtml_((emp && emp.firstRaiseMonth) || '') + '"></div>';
-      // ⬅️ خصم الصيف في السنة الأولى — قاعدة مستقلة تمامًا، بلا رد.
-      html += '<div><label>خصم الصيف في السنة الأولى</label>'
-        + '<select id="empForm_firstYearSummerDeduction">'
-        + [['', '— بدون قاعدة خاصة —'],
-           ['1', 'خصم شهر كامل — نصف يوليو + نصف أغسطس'],
-           ['2', 'خصم نصف شهر — يوليو فقط']].map(o => '<option value="' + o[0] + '"'
-            + (String((emp && emp.firstYearSummerDeduction) || '') === o[0] ? ' selected' : '')
-            + '>' + o[1] + '</option>').join('')
-        + '</select></div>';
+
       html += f('endDate', 'تاريخ نهاية الخدمة', 'date', emp?.endDate);
       html += f('nationality', 'الجنسية', 'text', emp?.nationality);
       html += f('phone', 'رقم التليفون', 'text', emp?.phone);
@@ -4533,10 +4532,10 @@
       const fields = {
         nameAr: val('nameAr'), nameEn: val('nameEn'), dept: val('dept'), jobTitle: val('jobTitle'),
         hireDate: val('hireDate'), endDate: val('endDate'), nationality: val('nationality'),
+        // ⬅️ حقلان مستقلان — صفر مزامنة تلقائية بينهما.
         summerDeduction: val('summerDeduction'),
-        firstYearDeduction: val('firstYearDeduction'),
-        firstRaiseMonth: val('firstRaiseMonth'),
         firstYearSummerDeduction: val('firstYearSummerDeduction'),
+        firstRaiseMonth: val('firstRaiseMonth'),
         phone: val('phone'), paymentMethod: val('paymentMethod'),
         exemptManual: val('exemptManual'), receivedDocumentsAfterEnd: val('receivedDocumentsAfterEnd'),
       };
