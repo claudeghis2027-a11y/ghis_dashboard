@@ -692,6 +692,35 @@
   .login-forgot a { color: #315698; font-size: clamp(11px, 3.9cqw, 15px); text-decoration: underline; }
   #loginStatus { text-align: center; margin-top: 2cqw; min-height: 3cqw; font-size: clamp(11px, 3.7cqw, 14px); }
   /* ============================================================
+     Phase 1 — Localization: مبدّل اللغة + أساس LTR
+     ⛔ UI فقط. صفر تأثير على أي منطق أو بيانات.
+     ============================================================ */
+  .lang-switch {
+    position: absolute; top: 3.5cqw; inset-inline-end: 5cqw;
+    display: flex; gap: 0; border: 1px solid #dfe4ec;
+    border-radius: 6px; overflow: hidden;
+  }
+  .lang-switch .lang-btn {
+    background: #fff; color: #64748B; border: none; box-shadow: none;
+    padding: 0 2.6cqw; height: auto; min-height: 6.4cqw;
+    font-size: clamp(10px, 3.3cqw, 12px); font-weight: 700; border-radius: 0;
+  }
+  .lang-switch .lang-btn:hover { background: #F1F5F9; color: #334155; filter: none; box-shadow: none; }
+  .lang-switch .lang-btn.active { background: #12305f; color: #fff; }
+  .lang-switch .lang-btn.active:hover { background: #12305f; color: #fff; }
+
+  /* ---------- أساس LTR: الخصائص الفيزيائية اللي مابتتقلبش تلقائيًا ---------- */
+  html[dir="ltr"] .login-card { direction: ltr; }
+  html[dir="ltr"] .sidebar { border-inline-end: none; border-inline-start: 1px solid #E6EAF0; }
+  html[dir="ltr"] .sidebar-link { text-align: left; }
+  html[dir="ltr"] td[style*="text-align:right"],
+  html[dir="ltr"] td[style*="text-align: right"] { text-align: left !important; }
+  html[dir="ltr"] .breadcrumb { text-align: left; }
+  @media (max-width: 900px) {
+    html[dir="ltr"] .sidebar { right: auto; left: 0; transform: translateX(-100%); }
+    html[dir="ltr"] .sidebar.open { transform: translateX(0); }
+  }
+  /* ============================================================
      اقفال شهري — Matrix styles. Namespace كامل تحت mc- عشان صفر
      احتمال تعارض مع أي جدول أو تقرير موجود.
      ============================================================ */
@@ -766,21 +795,26 @@
     </div>
 
     <div class="login-card">
-      <h2>تسجيل الدخول</h2>
+      <!-- ⬅️ Phase 1: مبدّل اللغة — UI فقط، خارج المصادقة تمامًا. -->
+      <div class="lang-switch" id="langSwitch">
+        <button type="button" class="lang-btn" data-lang="ar" onclick="applyLang_('ar')">AR</button>
+        <button type="button" class="lang-btn" data-lang="en" onclick="applyLang_('en')">EN</button>
+      </div>
+      <h2 data-i18n="login.title">تسجيل الدخول</h2>
       <div class="login-field">
         <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2"/></svg></span>
-        <input type="text" id="loginUsername" autocomplete="username" placeholder="اسم المستخدم">
+        <input type="text" id="loginUsername" autocomplete="username" placeholder="اسم المستخدم" data-i18n-ph="login.username">
       </div>
       <div class="login-field">
         <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="10.5" width="13" height="9" rx="1.8"/><path d="M8.2 10.5V7.8a3.8 3.8 0 1 1 7.6 0v2.7"/></svg></span>
-        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="كلمة المرور">
+        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="كلمة المرور" data-i18n-ph="login.password">
         <button type="button" class="login-eye-btn" onclick="toggleLoginPasswordVisibility()" aria-label="إظهار/إخفاء كلمة المرور">
           <span class="material-symbols-outlined"><svg class="mi-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></svg></span>
         </button>
       </div>
-      <button class="login-submit-btn" onclick="doLogin()">دخول</button>
+      <button class="login-submit-btn" onclick="doLogin()" data-i18n="login.submit">دخول</button>
       <div class="login-forgot">
-        <a href="javascript:void(0)" onclick="showForgotPasswordNote_()">نسيت كلمة المرور؟</a>
+        <a href="javascript:void(0)" onclick="showForgotPasswordNote_()" data-i18n="login.forgot">نسيت كلمة المرور؟</a>
       </div>
       <div id="loginStatus" style="font-size:13px;color:#b00000;"></div>
     </div>
@@ -9278,7 +9312,64 @@
       defaultDates_();
     }
 
+    // ============================================================
+    // Phase 1 — Localization Infrastructure (UI ONLY)
+    // ⛔ اللغة تفضيل عرض بحت: صفر علاقة بالمصادقة أو الصلاحيات
+    //    أو الجلسة أو أي payload أو أي قيمة تُقارَن أو تُكتب.
+    // ⛔ t() تُستخدم للعرض فقط — ممنوع داخل:
+    //    المقارنات · الحسابات · الفلاتر على القيم الداخلية ·
+    //    API payloads · الكتابة للشيتات · الـIDs · أنواع الحركات.
+    // ⬅️ Phase 1 = بنية تحتية بس. ترجمة باقي النظام في مرحلة لاحقة.
+    // ============================================================
+    const I18N_ = {
+      ar: {
+        'login.title': 'تسجيل الدخول',
+        'login.username': 'اسم المستخدم',
+        'login.password': 'كلمة المرور',
+        'login.submit': 'دخول',
+        'login.forgot': 'نسيت كلمة المرور؟',
+      },
+      en: {
+        'login.title': 'Sign In',
+        'login.username': 'Username',
+        'login.password': 'Password',
+        'login.submit': 'Sign In',
+        'login.forgot': 'Forgot your password?',
+      },
+    };
+
+    let LANG_ = 'ar';   // ⬅️ الافتراضي عربي
+
+    // ⬅️ fallback مزدوج: EN ناقص ⇒ AR · AR ناقص ⇒ المفتاح نفسه.
+    //    فأي نص لم يُترجَم بعد يظهر عربيًا بدل أن يختفي.
+    function t(key) {
+      const d = I18N_[LANG_] || I18N_.ar;
+      if (d && d[key] != null) return d[key];
+      if (I18N_.ar && I18N_.ar[key] != null) return I18N_.ar[key];
+      return key;
+    }
+
+    function applyLang_(lang) {
+      LANG_ = (lang === 'en') ? 'en' : 'ar';
+      try { localStorage.setItem('ghis_lang', LANG_); } catch (e) { /* عرض بس */ }
+      const isEn = (LANG_ === 'en');
+      document.documentElement.lang = isEn ? 'en' : 'ar';
+      document.documentElement.dir = isEn ? 'ltr' : 'rtl';
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+      });
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        el.placeholder = t(el.getAttribute('data-i18n-ph'));
+      });
+      document.querySelectorAll('.lang-switch .lang-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-lang') === LANG_);
+      });
+    }
+
     (function initPage() {
+      // ⬅️ اللغة المحفوظة تُطبَّق قبل أي شيء — تبقى بعد الـrefresh
+      //    وبعد الـlogout، ولا تتأثر بحذف الجلسة.
+      try { applyLang_(localStorage.getItem('ghis_lang') || 'ar'); } catch (e) { /* عرض بس */ }
       const saved = localStorage.getItem('ghis_session');
       if (saved) {
         try {
