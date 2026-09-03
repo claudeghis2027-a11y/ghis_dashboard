@@ -161,13 +161,18 @@
     border-bottom: 1px solid #E9EEF4;
     position: sticky; top: 0; z-index: 30;
   }
-  .topbar-menu-btn { display: none; }
+  /* ⬅️ زر ☰ — قاعدة واحدة نهائية (كان فيه تعارض display بين قاعدتين).
+     ⛔ مخفي على الديسكتوب: الشريط ظاهر دائمًا فمالوش وظيفة هناك.
+        بيظهر في media (max-width:900px) بس — حيث الـDrawer شغّال فعلاً. */
   .topbar-menu-btn {
-    width: 38px; height: 38px; padding: 0; border-radius: 50%;
-    background: transparent; color: var(--color-primary); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
+    display: none;
+    width: 40px; height: 40px; padding: 0; border-radius: 9px;
+    background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1;
+    flex-shrink: 0; align-items: center; justify-content: center;
   }
-  .topbar-menu-btn:hover { background: var(--color-primary-50); }
+  .topbar-menu-btn .mi-svg { width: 19px; height: 19px; }
+  .topbar-menu-btn:hover { background: #EEF4FF; color: #123166; border-color: #B7C7D8; }
+  .topbar-menu-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(78,108,140,.20); }
   .topbar-title {
     display: flex; align-items: center; gap: 10px;
     font-weight: 700; color: #3A5068; font-size: 15px; flex: 1;
@@ -180,7 +185,11 @@
   .ms-wrap { position: relative; }
   .ms-btn { width: 100%; text-align: right; background: #fff; border: 1px solid #d6dae2;
     border-radius: 8px; padding: 8px 10px; font: inherit; cursor: pointer; color: inherit; }
-  .ms-btn:hover { border-color: #9fb0c9; }
+  .ms-btn:hover { background: #F1F5F9; border-color: #94A3B8; color: #334155; }
+  .ms-btn:focus, .ms-btn:active {
+    background: #FFFFFF; color: #1B2A41; border-color: #4E6C8C;
+    box-shadow: 0 0 0 3px rgba(78,108,140,.14); outline: none;
+  }
   .ms-panel { position: absolute; z-index: 40; top: calc(100% + 4px); right: 0; min-width: 240px;
     max-height: 300px; overflow: auto; background: #fff; border: 1px solid #d6dae2;
     border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 8px; }
@@ -189,7 +198,7 @@
   .ms-tools { display: flex; gap: 8px; margin-bottom: 6px; }
   .ms-tools button { flex: 1; padding: 4px 6px; font-size: 12px; }
   .ms-item { display: block; padding: 5px 6px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  .ms-item:hover { background: #f2f6fc; }
+  .ms-item:hover { background: #EDF3FA; }
   .ms-item input { margin-left: 6px; }
 
   .sidebar-scrim {
@@ -207,7 +216,7 @@
        html[dir=rtl] منفصلة (كانت هنا غلط وبتقفل الـ Drawer نهائيًا
        بسبب specificity أعلى من .sidebar.open، تم حذفها). */
     .sidebar.open { transform: translateX(0); }
-    .topbar-menu-btn { display: inline-flex; }
+    .topbar-menu-btn { display: inline-flex; }   /* ⬅️ الموبايل/التابلت فقط */
     .sidebar-scrim.show { display: block; opacity: 1; }
     .app-content-inner { padding: 16px 14px 32px; }
   }
@@ -244,7 +253,10 @@
     height: 40px; box-sizing: border-box; border: 1px solid #DDE4EC; border-radius: 9px;
     padding: 0 12px; font: inherit; font-size: 13px; background: #fff;
   }
-  .form-grid input:focus, .form-grid select:focus {
+  .form-grid input:hover, .form-grid select:hover, .form-grid textarea:hover {
+    border-color: #94A3B8;
+  }
+  .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus {
     outline: none; border-color: #4E6C8C; box-shadow: 0 0 0 3px rgba(78,108,140,.14);
   }
   input[type=text], input[type=number], input[type=password], input[type=date], input[type=file] {
@@ -308,8 +320,21 @@
     height: 40px; box-sizing: border-box; border: 1px solid #DDE4EC; border-radius: 9px;
     padding: 0 12px; font: inherit; font-size: 13px; background: #fff; color: #1B2A41;
   }
-  .filters input:focus, .filters select:focus, .filters .ms-btn:focus {
-    outline: none; border-color: #4E6C8C; box-shadow: 0 0 0 3px rgba(78,108,140,.14);
+  /* ⬅️ حالات موحّدة نهائية لعناصر التحكم: hover · focus · active · disabled.
+     ⛔ الخصوصية هنا أعلى من button:hover العامة، فالنص بيفضل واضح دايمًا
+        ومفيش عنصر بيتحوّل فجأة لكحلي غامق. */
+  .filters input:hover, .filters select:hover,
+  .filters .ms-btn:hover, .ms-wrap .ms-btn:hover {
+    background: #F1F5F9; border-color: #94A3B8; color: #334155;
+  }
+  .filters input:focus, .filters select:focus,
+  .filters .ms-btn:focus, .ms-wrap .ms-btn:focus,
+  .filters .ms-btn:active, .ms-wrap .ms-btn:active {
+    outline: none; background: #FFFFFF; color: #1B2A41;
+    border-color: #4E6C8C; box-shadow: 0 0 0 3px rgba(78,108,140,.14);
+  }
+  .filters input:disabled, .filters select:disabled {
+    background: #F1F5F9; color: #94A3B8; border-color: #E2E8F0; cursor: not-allowed;
   }
   .filters button { height: 40px; align-self: flex-end; }
   label { display: block; font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: 4px; }
