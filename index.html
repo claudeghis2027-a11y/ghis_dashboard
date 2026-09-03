@@ -4990,15 +4990,35 @@
       document.getElementById(id + '_panel').innerHTML = h;
     }
 
-    function msToggle_(id) {
-      const panel = document.getElementById(id + '_panel');
-      const willOpen = panel.classList.contains('hidden');
+    // ⬅️ إغلاق كل اللوحات — نقطة واحدة يستخدمها التبديل والـhandler المركزي.
+    function msCloseAll_(exceptId) {
       Object.keys(msState_).forEach(k => {
+        if (k === exceptId) return;
         const p = document.getElementById(k + '_panel');
         if (p) p.classList.add('hidden');
       });
+    }
+
+    function msToggle_(id) {
+      const panel = document.getElementById(id + '_panel');
+      const willOpen = panel.classList.contains('hidden');
+      msCloseAll_();
       if (willOpen) { panel.classList.remove('hidden'); msRender_(id); }
     }
+
+    // ⬅️ Outside click: مستمع واحد على مستوى document لكل المكوّنات.
+    //    ⛔ مستمع واحد بس — مش واحد لكل Multi-select.
+    //    ⛔ الضغط جوّه أي .ms-wrap (الزر · البحث · checkbox · تحديد الكل ·
+    //       إلغاء الكل) مابيقفلش — الحدث بيكمل طبيعي.
+    //    ⬅️ pointerdown في طور الالتقاط: بيسبق click/change، فالإغلاق فوري
+    //       والعمليات الداخلية بتكمل عادي لأن الحدث مابيتلغيش.
+    document.addEventListener('pointerdown', function (e) {
+      const inside = e.target && e.target.closest && e.target.closest('.ms-wrap');
+      if (inside) return;   // جوّه المكوّن ⇒ سيبه مفتوح
+      msCloseAll_();
+    }, true);   // ⬅️ capture: بيشتغل **قبل** أي معالج على العنصر نفسه،
+                //    فقبل msRender_ ما تهدم اللوحة ⇒ e.target لسه متصل
+                //    بالشجرة و closest بيدي النتيجة الصح دايمًا.
 
     function msSearch_(id, v) { msState_[id].query = v; msRender_(id); }
     function msPick_(id, v, on) {
