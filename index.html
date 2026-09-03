@@ -1894,8 +1894,8 @@
           <div style="flex:1"><label>عنوان/موضوع التحقيق</label><input type="text" id="invTitle"></div>
         </div>
         <div class="filters">
-          <div style="flex:1"><label>الموظف</label><select id="invEmpSelect"></select></div>
-          <div><button onclick="invAddEmployee_()">إضافة موظف</button></div>
+          <div style="flex:1"><label>الموظف</label><div id="invEmpSelect"></div></div>
+          <div><button onclick="invAddEmployee_()">إضافة المحددين</button></div>
         </div>
         <div id="invEmpList" style="font-size:13px;margin:8px 0"></div>
         <div><label>القرار/النتيجة</label><input type="text" id="invDecision"></div>
@@ -4814,13 +4814,6 @@
           dept: msValue_('bsrDept') });
         const rep = json.report || {};
         bsrRows_ = rep.rows || [];
-        const sel = document.getElementById('bsrDept');
-        if (sel && sel.options.length <= 1) {
-          (rep.departments || []).forEach(d => {
-            const o = document.createElement('option');
-            o.value = d; o.textContent = d; sel.appendChild(o);
-          });
-        }
         const fEl = document.getElementById('bsrFrom');
         if (fEl && !fEl.value) fEl.value = rep.today || '';
         renderBasicSalaries_();
@@ -5137,25 +5130,30 @@
     }
 
     function invFillEmployeeSelects_() {
-      const opts = '<option value="">— اختر موظف —</option>'
-        + employeesCache.map(e => '<option value="' + escapeHtml_(e.code) + '">'
-            + escapeHtml_(e.code + ' — ' + (e.nameAr || e.nameEn || '')) + '</option>').join('');
-      const a = document.getElementById('invEmpSelect');
-      const b = document.getElementById('invFilterEmp');
-      if (a) a.innerHTML = opts;
-      // ⬅️ Multi-select موحد — القيم أكواد، والعرض «كود — اسم».
+      // ⬅️ نفس المكوّن الموحد للاتنين — القيم أكواد والعرض «كود — اسم».
       const empLabels = {};
       employeesCache.forEach(e => { empLabels[e.code] = e.code + ' — ' + (e.nameAr || e.nameEn || ''); });
-      msInit_('invFilterEmp', employeesCache.map(e => e.code), 'كل الموظفين', empLabels);
+      const codes = employeesCache.map(e => e.code);
+      // ⬅️ نموذج التحقيق: Multi-select حقيقي — أكتر من موظف لنفس التحقيق.
+      msInit_('invEmpSelect', codes, 'اختر موظفين', empLabels);
+      // ⬅️ فلتر تقرير التحقيقات.
+      msInit_('invFilterEmp', codes, 'كل الموظفين', empLabels);
     }
 
     function invAddEmployee_() {
-      const code = document.getElementById('invEmpSelect').value;
-      if (!code) { alert('اختر موظفًا الأول.'); return; }
+      // ⬅️ Multi-select: بنضيف كل المحددين مرة واحدة.
+      const picked = msValue_('invEmpSelect').split(',').map(x => x.trim()).filter(Boolean);
+      if (!picked.length) { alert('اختر موظف واحد على الأقل.'); return; }
       // ⛔ منع تكرار نفس الموظف داخل التحقيق الواحد.
-      if (invEmps_.indexOf(code) !== -1) { alert('الموظف ده مضاف بالفعل للتحقيق.'); return; }
-      invEmps_.push(code);
+      const added = [], dup = [];
+      picked.forEach(code => {
+        if (invEmps_.indexOf(code) !== -1) { dup.push(code); return; }
+        invEmps_.push(code); added.push(code);
+      });
+      msClear_('invEmpSelect');
       renderInvEmployees_();
+      if (!added.length) alert('كل الموظفين المحددين مضافين بالفعل للتحقيق.');
+      else if (dup.length) alert('اتضاف ' + added.length + ' موظف · ' + dup.length + ' كانوا مضافين قبل كده.');
     }
 
     function invRemoveEmployee_(code) {
