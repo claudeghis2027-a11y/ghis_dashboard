@@ -1000,6 +1000,11 @@
           <button onclick="openEmployeeForm(null)">+ إضافة موظف جديد</button>
         </div>
       </div>
+      <div class="filters">
+        <div><label>القسم</label><div id="empFilterDept"></div></div>
+        <div><label>المسمى الوظيفي</label><div id="empFilterJob"></div></div>
+        <div><button class="secondary" onclick="renderEmployeesFiltered_()">تطبيق الفلتر</button></div>
+      </div>
       <div id="empStatus" style="font-size:13px;color:#555;margin:8px 0;"></div>
       <div id="employeesListArea"></div>
     </div>
@@ -1392,6 +1397,8 @@
         <div><label>شهر التقرير</label><input type="month" id="stblMonth"></div>
         <div><label>القسم</label>
           <div id="stblDept"></div></div>
+        <div><label>المسمى الوظيفي</label>
+          <div id="stblJob"></div></div>
         <div><button onclick="loadSalaryTable_()">عرض الجدول</button></div>
       </div>
       <div class="form-actions">
@@ -1418,6 +1425,8 @@
       <div class="filters">
         <div><label>القسم</label>
           <div id="bsrDept"></div></div>
+        <div><label>المسمى الوظيفي</label>
+          <div id="bsrJob"></div></div>
         <div style="flex:1"><label>بحث بالاسم أو الكود</label>
           <input type="text" id="bsrSearch" placeholder="اكتب اسمًا أو كودًا" oninput="renderBasicSalaries_()"></div>
         <div><label>تاريخ السريان الافتراضي</label>
@@ -1453,6 +1462,7 @@
       <div class="filters">
         <div><label>السنة</label><input type="number" id="sdlYear" placeholder="2026"></div>
         <div><label>القسم</label><div id="sdlDept"></div></div>
+        <div><label>المسمى الوظيفي</label><div id="sdlJob"></div></div>
         <div><label>نوع الخصم</label><div id="sdlType"></div></div>
         <div><button onclick="loadSummerLog_()">عرض التقرير</button></div>
       </div>
@@ -1972,6 +1982,7 @@
       });
       sessionStorage.setItem('ghis_last_view', name);
       if (name === 'employees') {
+        msInitReportFilters_([['empFilterDept', 'empFilterJob']]);
         // ⚠️ Bug Fix — لو employeesCache أصلًا ممتلئة (من Lazy Loading
         // تبويب "التقارير")، كان الجدول بيفضل فاضي تمامًا لإن
         // renderEmployeesList()/loadSyncStatuses_() بتتنادى بس من
@@ -2012,6 +2023,7 @@
         // ⬅️ التقارير بزر صريح — صفر نداء تلقائي.
         //    أنواع الخصم قائمة ثابتة ⇒ تهيئة محلية بلا أي نداء.
         msInit_('sdlType', ['ربع', 'ربعين', 'نصف', 'نصفين'], 'كل الأنواع');
+        msInitReportFilters_([['sdlDept', 'sdlJob']]);
       }
       // ⚠️ Bug Fix — الشاشة دي كانت بترسم من employeesCache على طول من
       // غير أي ضمان إنها متملّية. لو اتفتحت قبل "التقارير" (مثلاً عن
@@ -4320,10 +4332,21 @@
       window[renderFn]();
     }
 
+    // ⬅️ تطبيق فلتر القسم/المسمى — نفس مسار البحث الحالي بالحرف.
+    function renderEmployeesFiltered_() {
+      resetPaginationPage_('employees');
+      renderEmployeesList();
+    }
+
     function renderEmployeesList() {
       const q = (document.getElementById('empSearchInput').value || '').trim().toLowerCase();
+      // ⬅️ فلترة محلية بالقسم والمسمى — من نفس employeesCache، صفر نداء.
+      const fDepts = msValue_('empFilterDept').split(',').map(x => x.trim()).filter(Boolean);
+      const fJobs = msValue_('empFilterJob').split(',').map(x => x.trim()).filter(Boolean);
       const filteredRows = employeesCache.filter(e =>
-        !q || e.nameAr.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.nameEn||'').toLowerCase().includes(q)
+        (!q || e.nameAr.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.nameEn||'').toLowerCase().includes(q))
+        && (!fDepts.length || fDepts.indexOf(e.dept) !== -1)
+        && (!fJobs.length || fJobs.indexOf(e.jobTitle) !== -1)
       );
       // ⚠️ Search/Filter الأول على كل البيانات، وبعدين تقسيم النتيجة
       // لصفحات — بس الصفحة الحالية هي اللي بترتسم في الـDOM
@@ -4811,7 +4834,7 @@
       setAdvStatus_('bsrStatus', 'جاري التحميل...');
       try {
         const json = await callApi_({ action: 'basicSalariesReport',
-          dept: msValue_('bsrDept') });
+          dept: msValue_('bsrDept'), jobTitle: msValue_('bsrJob') });
         const rep = json.report || {};
         bsrRows_ = rep.rows || [];
         const fEl = document.getElementById('bsrFrom');
@@ -5045,12 +5068,10 @@
       setAdvStatus_('sdlStatus', 'جاري التحميل...');
       try {
         const json = await callApi_({ action: 'summerLogReport', year: year,
-          dept: msValue_('sdlDept'),
+          dept: msValue_('sdlDept'), jobTitle: msValue_('sdlJob'),
           dedType: msValue_('sdlType') });
         const rep = json.report || {};
         const rows = rep.rows || [];
-        // ⬅️ Multi-select موحد — الأقسام من رد التقرير نفسه.
-        msInit_('sdlDept', rep.departments || [], 'كل الأقسام');
         const area = document.getElementById('sdlArea');
         if (!rows.length) {
           area.innerHTML = '<p style="font-size:13px;color:#777">مفيش خصومات صيف مسجَّلة بالفلاتر دي.</p>';
@@ -5387,6 +5408,20 @@
       return nameLists_;
     }
 
+    // ⬅️ المصدر المركزي لفلاتر التقارير: nameLists (المُدار من الإعدادات).
+    //    ⛔ النشط بس — الأقسام/المسميات المتوقفة مابتظهرش في الفلاتر.
+    //    ⛔ نداء واحد لكل جلسة (حارس nameListsLoaded_) — صفر Cache جديد.
+    //    ⛔ employeeDepartments مابتتحذفش ولا بتتغيّر — بتفضل للإعدادات.
+    async function msInitReportFilters_(pairs) {
+      try { await loadNameLists_(); } catch (e) { return; }
+      const depts = nameLists_.departments.filter(i => i.active).map(i => i.name);
+      const jobs = nameLists_.jobTitles.filter(i => i.active).map(i => i.name);
+      pairs.forEach(function (pr) {
+        if (pr[0]) msInit_(pr[0], depts, 'كل الأقسام');
+        if (pr[1]) msInit_(pr[1], jobs, 'كل المسميات');
+      });
+    }
+
     async function loadNameListsView_() {
       setAdvStatus_('deptListStatus', 'جاري التحميل...');
       setAdvStatus_('jobListStatus', 'جاري التحميل...');
@@ -5489,13 +5524,9 @@
     let stblDeptsLoaded_ = false;
     async function loadStblDepts_() {
       if (stblDeptsLoaded_) return;
-      try {
-        const d = await callApi_({ action: 'employeeDepartments' });
-        // ⬅️ Multi-select موحد لفلترَي جدول الرواتب والرواتب الأساسية.
-        msInit_('stblDept', d.departments || [], 'كل الأقسام');
-        msInit_('bsrDept', d.departments || [], 'كل الأقسام');
-        stblDeptsLoaded_ = true;
-      } catch (err) { /* الفلترة اختيارية — صامت */ }
+      // ⬅️ المصدر المركزي nameLists — نداء واحد يغذّي الفلاتر الأربعة.
+      await msInitReportFilters_([['stblDept', 'stblJob'], ['bsrDept', 'bsrJob']]);
+      stblDeptsLoaded_ = true;
     }
 
     async function loadSalaryTable_() {
@@ -5505,7 +5536,8 @@
       bar.style.display = 'none';
       try {
         const json = await callApi_({ action: 'salaryTable',
-          month: stblMonthValue_(), dept: msValue_('stblDept') });
+          month: stblMonthValue_(), dept: msValue_('stblDept'),
+          jobTitle: msValue_('stblJob') });
         const t = json.table || {};
         stblRows_ = t.rows || [];
         stblMonthKey_ = t.monthKey || '';
