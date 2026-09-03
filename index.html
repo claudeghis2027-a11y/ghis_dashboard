@@ -1177,6 +1177,8 @@
         <h2>الموظفون الناقص لهم مستندات</h2>
         <div class="filters">
           <div style="flex:1"><input type="text" id="missingSearchInput" oninput="resetPaginationPage_('missing'); renderMissingReport()" placeholder="بحث بالاسم أو الكود..."></div>
+          <div><label>القسم</label><div id="missingDept"></div></div>
+          <div><label>المسمى الوظيفي</label><div id="missingJob"></div></div>
           <div><button class="secondary" onclick="loadMissingReport()">🔄 تحديث</button></div>
         </div>
         <div id="missingReportArea"></div>
@@ -1205,6 +1207,8 @@
             <label>اختار نوع المستند</label>
             <select id="byTypeSelect" onchange="loadByTypeReport()"></select>
           </div>
+          <div><label>القسم</label><div id="byTypeDept"></div></div>
+          <div><label>المسمى الوظيفي</label><div id="byTypeJob"></div></div>
         </div>
         <div id="byTypeReportArea"></div>
       </div>
@@ -5161,7 +5165,8 @@
       // ⬅️ X2: العلامة بتتحط جوّه loadDocumentsView بعد النجاح بس.
       //    الـcatch بيمنع Unhandled Rejection ويسيب العلامة false للمحاولة الجاية.
       // ⬅️ فلاتر «قربت تنتهي» — المصدر المركزي nameLists.
-      if (name === 'docs') msInitReportFilters_([['expiryDept', 'expiryJob']]);
+      if (name === 'docs') msInitReportFilters_([['expiryDept', 'expiryJob'],
+        ['missingDept', 'missingJob'], ['byTypeDept', 'byTypeJob']]);
       if (name === 'docs' && !documentsViewLoaded_) {
         loadDocumentsView().catch(err => {
           const el = document.getElementById('docTypesArea');
@@ -6424,7 +6429,8 @@
       const el = document.getElementById('missingReportArea');
       el.textContent = 'جاري التحميل...';
       try {
-        const json = await callApi_({ action: 'missingDocumentsReport' });
+        const json = await callApi_({ action: 'missingDocumentsReport',
+          dept: msValue_('missingDept'), jobTitle: msValue_('missingJob') });
         missingReportCache = json.rows;
         renderMissingReport();
       } catch (err) { el.textContent = '❌ ' + err.message; }
@@ -6434,9 +6440,12 @@
       const filteredRows = missingReportCache.filter(r => !q || r.nameAr.toLowerCase().includes(q) || r.code.toLowerCase().includes(q));
       const { slice: rows } = getPaginatedSlice_(filteredRows, 'missing');
       let html = buildExportButtonsHtml_('exportMissingDocumentsReport_');
-      html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>عدد الناقص</th><th>الأنواع الناقصة</th></tr></thead><tbody>';
+      html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th>'
+        + '<th>القسم</th><th>المسمى الوظيفي</th>'
+        + '<th>الحالة</th><th>عدد الناقص</th><th>الأنواع الناقصة</th></tr></thead><tbody>';
       rows.forEach(r => {
         html += '<tr><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
+          '<td>' + escapeHtml_(r.dept || '-') + '</td><td>' + escapeHtml_(r.jobTitle || '-') + '</td>' +
           '<td>' + escapeHtml_(r.status) + '</td><td>' + r.missingCount + '</td>' +
           '<td style="text-align:right">' + escapeHtml_(r.missingTypes.join('، ')) + '</td></tr>';
       });
@@ -6475,8 +6484,10 @@
           return;
         }
         // ⛔ الطباعة زي ما هي بالحرف — الأنواع مجمّعة في خلية واحدة.
-        const headers = ['الكود', 'الاسم', 'الحالة', 'عدد الناقص', 'الأنواع الناقصة'];
-        const rows = missingReportCache.map(r => [r.code, r.nameAr, r.status, r.missingCount, r.missingTypes.join('، ')]);
+        // ⬅️ نفس ترتيب أعمدة الجدول بالحرف — صفر اختلاف بين الشاشة والتصدير.
+      const headers = ['الكود', 'الاسم', 'القسم', 'المسمى الوظيفي', 'الحالة', 'عدد الناقص', 'الأنواع الناقصة'];
+        const rows = missingReportCache.map(r => [r.code, r.nameAr, r.dept || '-', r.jobTitle || '-',
+        r.status, r.missingCount, r.missingTypes.join('، ')]);
         const config = {
           title: 'تقرير الموظفين الناقص لهم مستندات', headers, rows,
           fileName: 'تقرير_مستندات_ناقصة_' + new Date().toISOString().slice(0, 10),
@@ -6548,7 +6559,8 @@
       el.textContent = 'جاري التحميل...';
       resetPaginationPage_('byType'); // ⬅️ تغيير النوع = فلتر جديد، نرجع لصفحة 1
       try {
-        const json = await callApi_({ action: 'documentsByType', type });
+        const json = await callApi_({ action: 'documentsByType', type,
+          dept: msValue_('byTypeDept'), jobTitle: msValue_('byTypeJob') });
         byTypeReportCache_ = json.rows; // ⬅️ Cache عشان الـPagination تقدر تعيد الرسم من غير Fetch تاني
         renderByTypeReport_();
       } catch (err) { el.textContent = '❌ ' + err.message; }
@@ -6560,9 +6572,12 @@
       const icon = s => s === 'ساري' ? '✅' : s === 'قريب الانتهاء' ? '🟡' : s === 'منتهي' ? '🔴' : '❌';
       const { slice: rows } = getPaginatedSlice_(byTypeReportCache_, 'byType');
       let html = buildExportButtonsHtml_('exportByTypeReport_');
-      html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الحالة</th><th>الرقم</th><th>الانتهاء</th></tr></thead><tbody>';
+      html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th>'
+        + '<th>القسم</th><th>المسمى الوظيفي</th>'
+        + '<th>الحالة</th><th>الرقم</th><th>الانتهاء</th></tr></thead><tbody>';
       rows.forEach(r => {
         html += '<tr><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
+          '<td>' + escapeHtml_(r.dept || '-') + '</td><td>' + escapeHtml_(r.jobTitle || '-') + '</td>' +
           '<td>' + icon(r.status) + ' ' + escapeHtml_(r.status) + '</td><td>' + escapeHtml_(r.documentNumber || '-') + '</td>' +
           '<td>' + (r.expiryDate || '-') + '</td></tr>';
       });
@@ -6576,13 +6591,15 @@
       try {
         if (!byTypeReportCache_) { alert('❌ اعرض التقرير الأول.'); return; }
         await assertExportPermit_('documentsByTypeExport');
-        const headers = ['الكود', 'الاسم', 'الحالة', 'الرقم', 'الانتهاء'];
-        const rows = byTypeReportCache_.map(r => [r.code, r.nameAr, r.status, r.documentNumber || '-', r.expiryDate || '-']);
+        // ⬅️ نفس ترتيب أعمدة الجدول بالحرف.
+        const headers = ['الكود', 'الاسم', 'القسم', 'المسمى الوظيفي', 'الحالة', 'الرقم', 'الانتهاء'];
+        const rows = byTypeReportCache_.map(r => [r.code, r.nameAr, r.dept || '-', r.jobTitle || '-',
+          r.status, r.documentNumber || '-', r.expiryDate || '-']);
         const config = {
           title: 'تقرير المستندات حسب النوع — ' + type, headers, rows,
           filters: { 'نوع المستند': type },
           fileName: 'تقرير_مستندات_' + type + '_' + new Date().toISOString().slice(0, 10),
-          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 14, 20, 14] },
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 18, 18, 14, 20, 14] },
         };
         if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
