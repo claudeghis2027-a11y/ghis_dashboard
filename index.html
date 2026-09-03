@@ -6662,12 +6662,14 @@
       if (!expiryReportCache_) { alert('❌ اعرض التقرير الأول.'); return; }
       try {
         await assertExportPermit_('nearExpiryDocumentsReportExport');
-        const headers = ['الكود', 'الاسم', 'النوع', 'الرقم', 'الانتهاء', 'الأيام المتبقية', 'الحالة'];
-        const rows = expiryReportCache_.map(r => [r.code, r.nameAr, r.type, r.documentNumber || '-', r.expiryDate || '-', r.daysLeft ?? '-', r.status]);
+        // ⬅️ نفس ترتيب أعمدة جدول «قربت تنتهي» بالحرف — 9 أعمدة.
+        const headers = ['الكود', 'الاسم', 'القسم', 'المسمى الوظيفي', 'النوع', 'الرقم', 'الانتهاء', 'الأيام المتبقية', 'الحالة'];
+        const rows = expiryReportCache_.map(r => [r.code, r.nameAr, r.dept || '-', r.jobTitle || '-',
+          r.type, r.documentNumber || '-', r.expiryDate || '-', r.daysLeft ?? '-', r.status]);
         const config = {
           title: 'تقرير المستندات قربت تنتهي', headers, rows,
           fileName: 'مستندات_قربت_تنتهي_' + new Date().toISOString().slice(0, 10),
-          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 24, 20, 14, 14, 14] },
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [9, 30, 18, 18, 24, 20, 14, 14, 14] },
         };
         if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
