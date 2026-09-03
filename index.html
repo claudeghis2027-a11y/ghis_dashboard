@@ -1187,7 +1187,11 @@
     <div id="docsSub-expiry" class="docs-sub" style="display:none">
       <div class="card">
         <h2>المستندات قربت تنتهي</h2>
-        <button class="secondary" onclick="loadExpiryReport()">🔄 تحديث</button>
+        <div class="filters">
+          <div><label>القسم</label><div id="expiryDept"></div></div>
+          <div><label>المسمى الوظيفي</label><div id="expiryJob"></div></div>
+          <div><button class="secondary" onclick="loadExpiryReport()">🔄 تحديث</button></div>
+        </div>
         <div id="expiryReportArea"></div>
       </div>
     </div>
@@ -1297,6 +1301,8 @@
       <div class="filters">
         <div><label>من تاريخ</label><input type="date" id="newHiresFrom"></div>
         <div><label>لحد تاريخ</label><input type="date" id="newHiresTo"></div>
+        <div><label>القسم</label><div id="newHiresDept"></div></div>
+        <div><label>المسمى الوظيفي</label><div id="newHiresJob"></div></div>
         <div><button onclick="loadNewHiresReport_()">عرض التقرير</button></div>
       </div>
       <div id="newHiresStatus" style="font-size:13px;margin:8px 0;"></div>
@@ -1997,6 +2003,7 @@
       }
       if (name === 'rules') { if (!rulesLoaded_) { loadRulesViews(); rulesLoaded_ = true; } }
       // ⬅️ X2: نفس المبدأ — العلامة جوّه الدالة بعد النجاح.
+      if (name === 'newHires') { msInitReportFilters_([['newHiresDept', 'newHiresJob']]); }
       if (name === 'documents') {
         if (!documentsViewLoaded_) {
           loadDocumentsView().catch(err => {
@@ -5153,6 +5160,8 @@
       document.getElementById('legalTab-docs').classList.toggle('active', name === 'docs');
       // ⬅️ X2: العلامة بتتحط جوّه loadDocumentsView بعد النجاح بس.
       //    الـcatch بيمنع Unhandled Rejection ويسيب العلامة false للمحاولة الجاية.
+      // ⬅️ فلاتر «قربت تنتهي» — المصدر المركزي nameLists.
+      if (name === 'docs') msInitReportFilters_([['expiryDept', 'expiryJob']]);
       if (name === 'docs' && !documentsViewLoaded_) {
         loadDocumentsView().catch(err => {
           const el = document.getElementById('docTypesArea');
@@ -6482,12 +6491,16 @@
       const el = document.getElementById('expiryReportArea');
       el.textContent = 'جاري التحميل...';
       try {
-        const json = await callApi_({ action: 'nearExpiryDocumentsReport' });
+        const json = await callApi_({ action: 'nearExpiryDocumentsReport',
+          dept: msValue_('expiryDept'), jobTitle: msValue_('expiryJob') });
         expiryReportCache_ = json.rows;   // ⬅️ Snapshot للتصدير
         let html = buildExportButtonsHtml_('exportExpiryReport_');
-        html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>النوع</th><th>الرقم</th><th>الانتهاء</th><th>الأيام المتبقية</th><th>الحالة</th></tr></thead><tbody>';
+        html += '<div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th>'
+          + '<th>القسم</th><th>المسمى الوظيفي</th>'
+          + '<th>النوع</th><th>الرقم</th><th>الانتهاء</th><th>الأيام المتبقية</th><th>الحالة</th></tr></thead><tbody>';
         json.rows.forEach(r => {
           html += '<tr class="' + documentStatusClass_(r.status) + '"><td>' + escapeHtml_(r.code) + '</td><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
+            '<td>' + escapeHtml_(r.dept || '-') + '</td><td>' + escapeHtml_(r.jobTitle || '-') + '</td>' +
             '<td>' + escapeHtml_(r.type) + '</td><td>' + escapeHtml_(r.documentNumber || '-') + '</td>' +
             '<td>' + (r.expiryDate || '-') + '</td><td>' + (r.daysLeft ?? '-') + '</td><td>' + escapeHtml_(r.status) + '</td></tr>';
         });
@@ -6591,14 +6604,19 @@
       if (!from || !to) { statusEl.textContent = '❌ حدد الفترة الأول.'; return; }
       statusEl.textContent = 'جاري التحميل...';
       try {
-        const json = await callApi_({ action: 'newHiresReportExport', from, to });
+        const json = await callApi_({ action: 'newHiresReportExport', from, to,
+          dept: msValue_('newHiresDept'), jobTitle: msValue_('newHiresJob') });
         lastNewHiresRows_ = json.rows;
         lastNewHiresRange_ = { from, to };
         statusEl.textContent = '';
         let html = buildExportButtonsHtml_('exportNewHiresReport_');
-        html += '<div class="table-wrap"><table><thead><tr><th>الاسم</th><th>تاريخ التعيين</th></tr></thead><tbody>';
+        html += '<div class="table-wrap"><table><thead><tr><th>الاسم</th>'
+          + '<th>القسم</th><th>المسمى الوظيفي</th><th>تاريخ التعيين</th></tr></thead><tbody>';
         json.rows.forEach(r => {
-          html += '<tr><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td><td>' + (r.hireDate || '-') + '</td></tr>';
+          html += '<tr><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>'
+            + '<td>' + escapeHtml_(r.dept || '-') + '</td>'
+            + '<td>' + escapeHtml_(r.jobTitle || '-') + '</td>'
+            + '<td>' + (r.hireDate || '-') + '</td></tr>';
         });
         html += '</tbody></table></div>';
         area.innerHTML = html || '<p style="font-size:13px;color:#777">مفيش موظفين جدد في الفترة دي.</p>';
