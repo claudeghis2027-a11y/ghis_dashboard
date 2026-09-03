@@ -1323,6 +1323,8 @@
       <div class="filters">
         <div><label>من تاريخ</label><input type="date" id="endOfServiceFrom"></div>
         <div><label>لحد تاريخ</label><input type="date" id="endOfServiceTo"></div>
+        <div><label>القسم</label><div id="eosDept"></div></div>
+        <div><label>المسمى الوظيفي</label><div id="eosJob"></div></div>
         <div><button onclick="loadEndOfServiceReport_()">عرض التقرير</button></div>
       </div>
       <div id="endOfServiceStatus" style="font-size:13px;margin:8px 0;"></div>
@@ -2009,6 +2011,7 @@
       if (name === 'rules') { if (!rulesLoaded_) { loadRulesViews(); rulesLoaded_ = true; } }
       // ⬅️ X2: نفس المبدأ — العلامة جوّه الدالة بعد النجاح.
       if (name === 'newHires') { msInitReportFilters_([['newHiresDept', 'newHiresJob']]); }
+      if (name === 'endOfService') { msInitReportFilters_([['eosDept', 'eosJob']]); }
       if (name === 'documents') {
         if (!documentsViewLoaded_) {
           loadDocumentsView().catch(err => {
@@ -6678,14 +6681,19 @@
       statusEl.textContent = 'جاري التحميل...';
       try {
         // ⚠️ View بس — صلاحية end_of_service_reports (منفصلة عن Export)
-        const json = await callApi_({ action: 'endOfServiceReport', from, to });
+        const json = await callApi_({ action: 'endOfServiceReport', from, to,
+          dept: msValue_('eosDept'), jobTitle: msValue_('eosJob') });
         lastEndOfServiceRows_ = json.rows;   // ⬅️ B1: Snapshot للتصدير
         lastEndOfServiceRange_ = { from, to };
         statusEl.textContent = '';
         let html = buildExportButtonsHtml_('exportEndOfServiceReport_');
-        html += '<div class="table-wrap"><table><thead><tr><th>الاسم</th><th>تاريخ نهاية الخدمة</th><th>استلم الورقة؟</th><th>الملاحظة</th></tr></thead><tbody>';
+        html += '<div class="table-wrap"><table><thead><tr><th>الاسم</th>'
+          + '<th>القسم</th><th>المسمى الوظيفي</th>'
+          + '<th>تاريخ نهاية الخدمة</th><th>استلم الورقة؟</th><th>الملاحظة</th></tr></thead><tbody>';
         json.rows.forEach(r => {
-          html += '<tr><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td><td>' + (r.endDate || '-') + '</td>' +
+          html += '<tr><td style="text-align:right">' + escapeHtml_(r.nameAr) + '</td>' +
+            '<td>' + escapeHtml_(r.dept || '-') + '</td><td>' + escapeHtml_(r.jobTitle || '-') + '</td>' +
+            '<td>' + (r.endDate || '-') + '</td>' +
             '<td>' + (r.receivedDocumentsAfterEnd ? 'نعم' : 'لا') + '</td><td style="text-align:right">' + escapeHtml_(r.note) + '</td></tr>';
         });
         html += '</tbody></table></div>';
@@ -6701,14 +6709,16 @@
         // التصدير — لو المستخدم عنده View بس، checkPermission_ بترفض.
         // ⛔ صفر إعادة بناء للتقرير — التصدير من الـSnapshot المعروض.
         await assertExportPermit_('endOfServiceReportExport');
-        const headers = ['الاسم', 'تاريخ نهاية الخدمة', 'استلم الورقة؟', 'الملاحظة'];
-        const rows = lastEndOfServiceRows_.map(r => [r.nameAr, r.endDate || '-', r.receivedDocumentsAfterEnd ? 'نعم' : 'لا', r.note]);
+        // ⬅️ نفس ترتيب أعمدة الجدول بالحرف — صفر اختلاف بين الشاشة والتصدير.
+        const headers = ['الاسم', 'القسم', 'المسمى الوظيفي', 'تاريخ نهاية الخدمة', 'استلم الورقة؟', 'الملاحظة'];
+        const rows = lastEndOfServiceRows_.map(r => [r.nameAr, r.dept || '-', r.jobTitle || '-',
+          r.endDate || '-', r.receivedDocumentsAfterEnd ? 'نعم' : 'لا', r.note]);
         const config = {
           title: 'تقرير نهاية الخدمة', headers, rows,
           period: { type: 'custom', from: lastEndOfServiceRange_.from, to: lastEndOfServiceRange_.to },
           fileName: 'نهاية_الخدمة_' + lastEndOfServiceRange_.from + '_' + lastEndOfServiceRange_.to,
-          // ⬅️ Pilot: 4 أعمدة ⇒ xSplit 0 (مفيش تجميد أفقي) · تجميد الرأس بس.
-          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [32, 20, 14, 40] },
+          // ⬅️ 6 أعمدة ⇒ xSplit 0 (مفيش تجميد أفقي) · تجميد الرأس بس.
+          excelOptions: { xSplit: 0, ySplit: 1, colWidths: [32, 18, 18, 20, 14, 40] },
         };
         if (format === 'excel') await exportGenericToExcelJs_(config); else printReport_(config);
       } catch (err) { alert('❌ ' + err.message); }
