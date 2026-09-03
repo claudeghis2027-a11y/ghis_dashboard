@@ -2422,7 +2422,7 @@
       const statusEl = document.getElementById('loginStatus');
       if (!username || !password) { statusEl.textContent = 'اكتب اسم المستخدم وكلمة المرور.'; return; }
 
-      statusEl.textContent = 'جاري تسجيل الدخول...';
+      statusEl.textContent = t('login.signingIn');   // ⬅️ عرض بس — صفر تأثير على المنطق
       statusEl.style.color = '#555';
       try {
         // ⚠️ إصلاح (كان الثغرة المتبقية من Phase A): كانت هنا بتعمل
@@ -9328,6 +9328,7 @@
         'login.password': 'كلمة المرور',
         'login.submit': 'دخول',
         'login.forgot': 'نسيت كلمة المرور؟',
+        'login.signingIn': 'جاري تسجيل الدخول...',
       },
       en: {
         'login.title': 'Sign In',
@@ -9335,6 +9336,7 @@
         'login.password': 'Password',
         'login.submit': 'Sign In',
         'login.forgot': 'Forgot your password?',
+        'login.signingIn': 'Signing in...',
       },
     };
 
