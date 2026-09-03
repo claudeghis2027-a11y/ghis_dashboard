@@ -2139,22 +2139,37 @@
     // التنقل بين الأقسام
     // ============================================================
     // ⬅️ UI فقط: اسم الشاشة الحالية في الـtopbar. ⛔ صفر تأثير على أي منطق.
+    // ⬅️ Phase 3: القيم دلوقتي مفاتيح عرض — ⛔ أسماء الشاشات
+    //    (settings/legal/…) قيم داخلية لم تُمسّ، وswitchView بياخد
+    //    نفس الـname بالحرف.
     const VIEW_TITLES_ = {
-      settings: 'الإعدادات', reports: 'التقارير', monthlyClosing: 'الإقفال الشهري',
-      whatsapp: 'رسائل واتساب', pendingProfile: 'طلبات استكمال البيانات',
-      employees: 'بيانات الموظفين', rules: 'القواعد', legal: 'الشئون القانونية',
-      documents: 'المستندات', reportCenter: 'مركز التقارير', backup: 'نسخ احتياطي',
-      users: 'المستخدمين والصلاحيات', lateWaivers: 'إعفاءات التأخير والخصومات',
-      payroll: 'الرواتب', payrollTypes: 'حركات المرتب وأنواعها',
-      summerDeduction: 'خصم الصيف', notifications: 'التنبيهات والإشعارات',
-      account: 'حسابي', newHires: 'الموظفون الجدد', endOfService: 'نهاية الخدمة',
+      settings: "dyn.1f60020959",
+      reports: "dyn.4d4e102c5e",
+      monthlyClosing: "dyn.9bfb539a5b",
+      whatsapp: "dyn.3a12e4b019",
+      pendingProfile: "dyn.b574d341cb",
+      employees: "dyn.034c71c465",
+      rules: "dyn.520ca3e053",
+      legal: "dyn.d5858b2a4d",
+      documents: "dyn.fa31fbb3ff",
+      reportCenter: "dyn.d281fa4b07",
+      backup: "dyn.5fcf019e9b",
+      users: "dyn.67949c805d",
+      lateWaivers: "dyn.cafa6eb3ff",
+      payroll: "dyn.6fccef4e3a",
+      payrollTypes: "dyn.95f32d3787",
+      summerDeduction: "dyn.e42f9392a3",
+      notifications: "dyn.38259a2b39",
+      account: "dyn.c0f5269a26",
+      newHires: "dyn.cdb1c1d760",
+      endOfService: "dyn.bc4bd1d7c8",
     };
 
     function switchView(name) {
       // ⬅️ UI فقط — محاط بحارس، وأي فشل مابيأثرش على التنقل.
       try {
         const cr = document.getElementById('topbarCrumb');
-        if (cr) cr.textContent = VIEW_TITLES_[name] || '';
+        if (cr) cr.textContent = VIEW_TITLES_[name] ? t(VIEW_TITLES_[name]) : '';
       } catch (e) { /* عرض بس */ }
       ['settings', 'reports', 'monthlyClosing', 'pendingProfile', 'employees', 'rules', 'documents', 'backup', 'users', 'account', 'reportCenter', 'newHires', 'endOfService', 'payroll', 'summerDeduction', 'whatsapp', 'notifications', 'lateWaivers', 'payrollTypes', 'legal'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
@@ -2413,7 +2428,7 @@
     // عشان كده الرابط ده UI-only، بيوجّه المستخدم يتواصل مع الأدمن —
     // صفر منطق Backend جديد أو مخترع.
     function showForgotPasswordNote_() {
-      alert('لإعادة تعيين كلمة المرور، تواصل مع أدمن النظام عشان يعمللك Reset من تبويب "المستخدمين والصلاحيات".');
+      alert(t("dyn.6b04c85909"));
     }
 
     async function doLogin() {
@@ -2846,7 +2861,7 @@
     // (بوابة صلاحية منفصلة عن العرض العادي) — مش بيستخدم البيانات
     // المعروضة أصلاً في المتصفح، عشان الحماية تكون حقيقية Server-Side
     async function exportCurrentEmployeeReport_(format) {
-      if (!lastReportData_ || !lastReportData_.report) { alert('❌ افتح تقرير موظف الأول.'); return; }
+      if (!lastReportData_ || !lastReportData_.report) { alert(t("dyn.24ee4f8763")); return; }
       try {
         await assertExportPermit_('reportExport');
         const json = lastReportData_;   // ⬅️ Snapshot — صفر إعادة بناء
@@ -2894,7 +2909,7 @@
     // تصدير وضع "كل الموظفين" — بينادي نفس reportExport (بس employee=all)،
     // نفس الحماية الموجودة، صفر منطق جديد
     async function exportAllEmployeesReport_(format) {
-      if (!lastReportData_ || !lastReportData_.rows) { alert('❌ اعرض تقرير الأول.'); return; }
+      if (!lastReportData_ || !lastReportData_.rows) { alert(t("dyn.120078e5c8")); return; }
       try {
         await assertExportPermit_('reportExport');
         const json = lastReportData_;   // ⬅️ Snapshot — صفر إعادة بناء
@@ -3154,7 +3169,7 @@
     // ⛔ صفر محرك حساب جديد · صفر إعادة بناء · صفر تغيير في أي رقم —
     //    نفس الكائن اللي renderMonthlyClosing_ رسم منه بالحرف.
     async function exportMonthlyClosing_(format) {
-      if (!mcLastData_) { alert('❌ اعرض التقرير الأول.'); return; }
+      if (!mcLastData_) { alert(t("dyn.9e30991db4")); return; }
       try {
         // ⬅️ بوابة الصلاحية سيرفر-سايد (attendance_export) — كانت اتشالت
         //    مع نداء monthlyClosingExport، ودي بترجّعها بدون إعادة حساب.
@@ -3265,7 +3280,7 @@
     }
 
     async function approveNewPhoto_(code) {
-      if (!confirm('اعتماد الصورة الجديدة؟ هتحل محل الصورة الحالية وتبقى المرجعية.')) return;
+      if (!confirm(t("dyn.7858e6856a"))) return;
       try { await callApi_({ action: 'approveNewPhoto', code }); alert('✅ تم الاعتماد.'); loadPhotoReview_(); }
       catch (err) { alert('❌ ' + err.message); }
     }
@@ -3279,7 +3294,7 @@
     }
 
     async function clearFaceReview_(code) {
-      if (!confirm('فك قفل مطابقة الوجه وتصفير العداد؟')) return;
+      if (!confirm(t("dyn.1dfc5db53a"))) return;
       try { await callApi_({ action: 'clearFaceReview', code }); alert('✅ تم فك القفل.'); loadPhotoReview_(); }
       catch (err) { alert('❌ ' + err.message); }
     }
@@ -3298,7 +3313,7 @@
           // ⛔ POST مش GET: الصورة Base64 بتتجاوز حد الـURL (~16 KB)
           // بمراحل، فالطلب كان بيتقطع قبل ما يوصل السيرفر.
           await callApiPost_({ action: 'adminReplacePhoto', code, photoBase64: b64 });
-          alert('✅ تم رفع الصورة البديلة وتفعيلها.');
+          alert(t("dyn.27a7e4d09c"));
           loadPhotoReview_();
         } catch (err) { alert('❌ ' + err.message); }
       };
@@ -3344,7 +3359,7 @@
     }
 
     async function approveProfileRequest_(code, requestId) {
-      if (!confirm('اعتماد الطلب؟ البيانات هتتكتب في ملف الموظف والصورة هتبقى مرجعية رسمية.')) return;
+      if (!confirm(t("dyn.a4ef04844a"))) return;
       try {
         await callApi_({ action: 'approveProfileRequest', code, requestId });
         alert('✅ تم الاعتماد.');
@@ -3360,7 +3375,7 @@
       if (reason === null) return;
       try {
         await callApi_({ action: 'rejectProfileRequest', code, requestId, reason });
-        alert('تم الرفض.');
+        alert(t("dyn.e9139224df"));
         loadPendingProfileRequests_();
       } catch (err) { alert('❌ ' + err.message); }
     }
@@ -4388,7 +4403,7 @@
         // الكاملة للتشخيص.
         console.error('PDF EXPORT FAILED', err);
         console.error('PDF EXPORT STACK', err?.stack);
-        alert('❌ فشل إنشاء ملف PDF، يرجى المحاولة مرة أخرى.');
+        alert(t("dyn.e7dfc6ad0f"));
       } finally {
         document.body.removeChild(wrapper);
       }
@@ -4683,7 +4698,7 @@
         + 'كل جلساته الحالية هتنتهي فورًا، وهيتطلب منه تغييرها عند أول دخول.')) return;
       try {
         await callApi_({ action: 'adminResetEmployeePassword', code });
-        alert('✅ تم. الموظف يدخل بكلمة المرور الافتراضية وهيتطلب منه تغييرها.');
+        alert(t("dyn.f953200fc0"));
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -4909,7 +4924,7 @@
     }
 
     async function saveSalaryRates_() {
-      if (!srtDepts_.length) { alert('اعرض النِسَب الأول.'); return; }
+      if (!srtDepts_.length) { alert(t("dyn.56d97c68f9")); return; }
       const list = srtDepts_.map((d, i) => ({
         dept: d,
         allowanceRate: Number(document.getElementById('srtA_' + i).value) || 0,
@@ -5108,7 +5123,7 @@
 
     async function saveAllBasicSalaries_() {
       const items = bsrCollect_();
-      if (!items.length) { alert('مفيش أي راتب اتعدّل.'); return; }
+      if (!items.length) { alert(t("dyn.13dfbd0f40")); return; }
       if (!confirm('حفظ ' + items.length + ' راتب أساسي معدَّل؟\n\n'
         + '⛔ الرواتب السابقة هتفضل محفوظة في السجل.')) return;
       setAdvStatus_('bsrStatus', 'جاري الحفظ...');
@@ -5139,12 +5154,12 @@
     }
 
     async function exportBasicSalaries_() {
-      if (!bsrRows_.length) { alert('اعرض التقرير الأول.'); return; }
+      if (!bsrRows_.length) { alert(t("dyn.81c0b0d9dd")); return; }
       await exportGenericToExcelJs_(bsrExportData_());
     }
 
     async function printBasicSalaries_() {
-      if (!bsrRows_.length) { alert('اعرض التقرير الأول.'); return; }
+      if (!bsrRows_.length) { alert(t("dyn.81c0b0d9dd")); return; }
       await printReport_(bsrExportData_());
     }
 
@@ -5370,7 +5385,7 @@
     function invAddEmployee_() {
       // ⬅️ Multi-select: بنضيف كل المحددين مرة واحدة.
       const picked = msValue_('invEmpSelect').split(',').map(x => x.trim()).filter(Boolean);
-      if (!picked.length) { alert('اختر موظف واحد على الأقل.'); return; }
+      if (!picked.length) { alert(t("dyn.9349a3efde")); return; }
       // ⛔ منع تكرار نفس الموظف داخل التحقيق الواحد.
       const added = [], dup = [];
       picked.forEach(code => {
@@ -5379,7 +5394,7 @@
       });
       msClear_('invEmpSelect');
       renderInvEmployees_();
-      if (!added.length) alert('كل الموظفين المحددين مضافين بالفعل للتحقيق.');
+      if (!added.length) alert(t("dyn.87f6c53382"));
       else if (dup.length) alert('اتضاف ' + added.length + ' موظف · ' + dup.length + ' كانوا مضافين قبل كده.');
     }
 
@@ -5430,9 +5445,9 @@
     async function saveInvestigation_() {
       const date = document.getElementById('invDate').value;
       const title = (document.getElementById('invTitle').value || '').trim();
-      if (!date) { alert('حدد تاريخ التحقيق.'); return; }
-      if (!title) { alert('اكتب عنوان/موضوع التحقيق.'); return; }
-      if (!invEmps_.length) { alert('ضيف موظفًا واحدًا على الأقل.'); return; }
+      if (!date) { alert(t("dyn.eed7b10359")); return; }
+      if (!title) { alert(t("dyn.b6262f2e98")); return; }
+      if (!invEmps_.length) { alert(t("dyn.4e504f86ee")); return; }
       setAdvStatus_('invFormStatus', 'جاري الحفظ...');
       let invId = '';
       try {
@@ -5551,7 +5566,7 @@
     async function removeInvestigationAttachment_(i, fileId) {
       const it = invItems_[i];
       if (!it) return;
-      if (!confirm('هل تريد إزالة هذا المستند من التحقيق؟')) return;
+      if (!confirm(t("dyn.9dc80e3f86"))) return;
       try {
         await callApiPost_({ action: 'investigationAttachmentRemove',
           id: it.id, fileId: fileId });
@@ -5560,7 +5575,7 @@
         const idx = invItems_.findIndex(x => x.id === it.id);
         if (idx >= 0) viewInvestigation_(idx);
         else document.getElementById('invDetailCard').style.display = 'none';
-        alert('تمت إزالة المستند.');
+        alert(t("dyn.1438ea7eeb"));
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -5666,7 +5681,7 @@
     async function addNameListItem_(kind) {
       const el = document.getElementById(kind === 'dept' ? 'deptNewName' : 'jobNewName');
       const nm = (el.value || '').trim();
-      if (!nm) { alert('اكتب الاسم الأول.'); return; }
+      if (!nm) { alert(t("dyn.4e6b50d00e")); return; }
       await nameListCall_(kind, 'add', nm);
       el.value = '';
     }
@@ -5674,7 +5689,7 @@
     async function renameNameListItem_(kind, name) {
       const nn = prompt('الاسم الجديد:', name);
       if (nn === null) return;
-      if (!nn.trim()) { alert('الاسم مطلوب.'); return; }
+      if (!nn.trim()) { alert(t("dyn.46bd6db171")); return; }
       if (!confirm('تعديل الاسم من «' + name + '» إلى «' + nn.trim() + '»؟\n\n'
         + '⛔ بيانات الموظفين الحاليين مش هتتغيّر — الاسم القديم هيفضل عندهم.')) return;
       await nameListCall_(kind, 'rename', name, nn.trim());
@@ -5805,10 +5820,10 @@
     async function approveAllowance_(i) {
       const r = stblRows_[i];
       const add = Number(document.getElementById('stblAllow_' + i).value) || 0;
-      if (!(add > 0)) { alert('اكتب قيمة العلاوة الأول.'); return; }
+      if (!(add > 0)) { alert(t("dyn.091d59f052")); return; }
       const from = prompt('تاريخ سريان العلاوة (yyyy-mm-dd):', stblMonthKey_);
       if (from === null) return;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) { alert('تاريخ السريان غير صحيح.'); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) { alert(t("dyn.36fddf24ab")); return; }
       if (!confirm('اعتماد علاوة ' + add.toFixed(2) + ' للموظف ' + r.nameAr + '؟\n\n'
         + 'الراتب الأساسي الجديد = ' + (r.basicSalary + add).toFixed(2)
         + ' ساري من ' + from + '.')) return;
@@ -5857,12 +5872,12 @@
 
 
     async function exportSalaryTable_(only) {
-      if (!stblRows_.length) { alert('اعرض الجدول الأول.'); return; }
+      if (!stblRows_.length) { alert(t("dyn.71f82c48c7")); return; }
       await exportGenericToExcelJs_(stblExportData_(only));
     }
 
     async function printSalaryTable_(only) {
-      if (!stblRows_.length) { alert('اعرض الجدول الأول.'); return; }
+      if (!stblRows_.length) { alert(t("dyn.71f82c48c7")); return; }
       await printReport_(stblExportData_(only));
     }
 
@@ -6026,17 +6041,17 @@
 
     function openScheduleRuleEdit(ruleId) {
       const r = schRulesCache_.find(x => x.id === ruleId);
-      if (!r) { alert('القاعدة غير موجودة.'); return; }
+      if (!r) { alert(t("dyn.185bf52b33")); return; }
       openScheduleRuleForm(r);
     }
 
     async function archiveScheduleRule(ruleId) {
       const r = schRulesCache_.find(x => x.id === ruleId);
-      if (!r) { alert('القاعدة غير موجودة.'); return; }
+      if (!r) { alert(t("dyn.185bf52b33")); return; }
       if (!confirm('حذف قاعدة المواعيد (' + r.from + ' → ' + r.to + ')؟')) return;
       try {
         await callApiPost_({ action: 'scheduleRuleArchive', ruleId: ruleId, reason: '' });
-        alert('تم حذف قاعدة المواعيد بنجاح.');
+        alert(t("dyn.fb730d6727"));
         loadScheduleRulesView();
       } catch (err) { alert(err.message); }
     }
@@ -6501,7 +6516,7 @@
     async function exportEmployeeDocuments_(format) {
       const code = document.getElementById('docsEmployeeSelect').value;
       const emp = employeesCache.find(e => e.code === code);
-      if (!code) { alert('❌ اختار موظف الأول.'); return; }
+      if (!code) { alert(t("dyn.32083319ff")); return; }
       try {
         if (!empDocsReportCache_ || empDocsReportCache_.code !== code) { alert('❌ اعرض مستندات الموظف الأول.'); return; }
         await assertExportPermit_('employeeDocumentsExport');
@@ -6627,7 +6642,7 @@
     }
 
     async function exportMissingDocumentsReport_(format) {
-      if (!missingReportCache) { alert('❌ اعرض التقرير الأول.'); return; }
+      if (!missingReportCache) { alert(t("dyn.9e30991db4")); return; }
       try {
         await assertExportPermit_('missingDocumentsReportExport');
         if (format === 'excel') {
@@ -6693,7 +6708,7 @@
     }
 
     async function exportExpiryReport_(format) {
-      if (!expiryReportCache_) { alert('❌ اعرض التقرير الأول.'); return; }
+      if (!expiryReportCache_) { alert(t("dyn.9e30991db4")); return; }
       try {
         await assertExportPermit_('nearExpiryDocumentsReportExport');
         // ⬅️ نفس ترتيب أعمدة جدول «قربت تنتهي» بالحرف — 9 أعمدة.
@@ -6763,7 +6778,7 @@
     async function exportByTypeReport_(format) {
       const type = document.getElementById('byTypeSelect').value;
       try {
-        if (!byTypeReportCache_) { alert('❌ اعرض التقرير الأول.'); return; }
+        if (!byTypeReportCache_) { alert(t("dyn.9e30991db4")); return; }
         await assertExportPermit_('documentsByTypeExport');
         // ⬅️ نفس ترتيب أعمدة الجدول بالحرف.
         const headers = ['الكود', 'الاسم', 'القسم', 'المسمى الوظيفي', 'الحالة', 'الرقم', 'الانتهاء'];
@@ -6815,7 +6830,7 @@
     }
 
     async function exportNewHiresReport_(format) {
-      if (!lastNewHiresRows_) { alert('❌ اعرض التقرير الأول.'); return; }
+      if (!lastNewHiresRows_) { alert(t("dyn.9e30991db4")); return; }
       try {
         // ⬅️ B2: كان بيصدّر من الـSnapshot بدون أي بوابة صلاحية.
         //    ⛔ صفر تغيير في ACTION_SECTION_MAP_ أو أي صلاحية — بنستخدم
@@ -6872,7 +6887,7 @@
     }
 
     async function exportEndOfServiceReport_(format) {
-      if (!lastEndOfServiceRows_ || !lastEndOfServiceRange_) { alert('❌ اعرض التقرير الأول.'); return; }
+      if (!lastEndOfServiceRows_ || !lastEndOfServiceRange_) { alert(t("dyn.9e30991db4")); return; }
       try {
         // ⚠️ صلاحية end_of_service_reports_export منفصلة تمامًا عن صلاحية
         // العرض (end_of_service_reports). البوابة بتتفحص سيرفر-سايد قبل
@@ -7538,7 +7553,7 @@
       if (!newPassword) return;
       try {
         await callApiPost_({ action: 'adminResetPassword', username, newPassword });
-        alert('✅ اتغيّرت كلمة المرور.');
+        alert(t("dyn.bec660d771"));
       } catch (err) { alert('❌ ' + err.message); }
     }
 
@@ -8865,7 +8880,7 @@
       if (!confirm('إلغاء السلفة ' + advanceId + '؟ الأقساط القادمة مش هتتخصم.')) return;
       try {
         await callApiPost_({ action: 'advanceCancel', advanceId: advanceId, reason: '' });
-        alert('تم إلغاء السلفة بنجاح.');
+        alert(t("dyn.4fb29bdf0c"));
         await loadAdvances_();
       } catch (err) { alert(err.message); }
     }
@@ -9329,6 +9344,58 @@
         'login.submit': 'دخول',
         'login.forgot': 'نسيت كلمة المرور؟',
         'login.signingIn': 'جاري تسجيل الدخول...',
+        // ⬅️ Phase 3 — Dynamic UI (عرض فقط · صفر قيم داخلية)
+        "dyn.cafa6eb3ff": "إعفاءات التأخير والخصومات",
+        "dyn.9349a3efde": "اختر موظف واحد على الأقل.",
+        "dyn.7858e6856a": "اعتماد الصورة الجديدة؟ هتحل محل الصورة الحالية وتبقى المرجعية.",
+        "dyn.a4ef04844a": "اعتماد الطلب؟ البيانات هتتكتب في ملف الموظف والصورة هتبقى مرجعية رسمية.",
+        "dyn.81c0b0d9dd": "اعرض التقرير الأول.",
+        "dyn.71f82c48c7": "اعرض الجدول الأول.",
+        "dyn.56d97c68f9": "اعرض النِسَب الأول.",
+        "dyn.4e6b50d00e": "اكتب الاسم الأول.",
+        "dyn.b6262f2e98": "اكتب عنوان/موضوع التحقيق.",
+        "dyn.091d59f052": "اكتب قيمة العلاوة الأول.",
+        "dyn.1f60020959": "الإعدادات",
+        "dyn.9bfb539a5b": "الإقفال الشهري",
+        "dyn.46bd6db171": "الاسم مطلوب.",
+        "dyn.4d4e102c5e": "التقارير",
+        "dyn.38259a2b39": "التنبيهات والإشعارات",
+        "dyn.6fccef4e3a": "الرواتب",
+        "dyn.d5858b2a4d": "الشئون القانونية",
+        "dyn.185bf52b33": "القاعدة غير موجودة.",
+        "dyn.520ca3e053": "القواعد",
+        "dyn.67949c805d": "المستخدمين والصلاحيات",
+        "dyn.fa31fbb3ff": "المستندات",
+        "dyn.cdb1c1d760": "الموظفون الجدد",
+        "dyn.034c71c465": "بيانات الموظفين",
+        "dyn.36fddf24ab": "تاريخ السريان غير صحيح.",
+        "dyn.4fb29bdf0c": "تم إلغاء السلفة بنجاح.",
+        "dyn.e9139224df": "تم الرفض.",
+        "dyn.fb730d6727": "تم حذف قاعدة المواعيد بنجاح.",
+        "dyn.1438ea7eeb": "تمت إزالة المستند.",
+        "dyn.eed7b10359": "حدد تاريخ التحقيق.",
+        "dyn.95f32d3787": "حركات المرتب وأنواعها",
+        "dyn.c0f5269a26": "حسابي",
+        "dyn.e42f9392a3": "خصم الصيف",
+        "dyn.3a12e4b019": "رسائل واتساب",
+        "dyn.4e504f86ee": "ضيف موظفًا واحدًا على الأقل.",
+        "dyn.b574d341cb": "طلبات استكمال البيانات",
+        "dyn.1dfc5db53a": "فك قفل مطابقة الوجه وتصفير العداد؟",
+        "dyn.87f6c53382": "كل الموظفين المحددين مضافين بالفعل للتحقيق.",
+        "dyn.6b04c85909": "لإعادة تعيين كلمة المرور، تواصل مع أدمن النظام عشان يعمللك Reset من تبويب \"المستخدمين والصلاحيات\".",
+        "dyn.d281fa4b07": "مركز التقارير",
+        "dyn.13dfbd0f40": "مفيش أي راتب اتعدّل.",
+        "dyn.5fcf019e9b": "نسخ احتياطي",
+        "dyn.bc4bd1d7c8": "نهاية الخدمة",
+        "dyn.9dc80e3f86": "هل تريد إزالة هذا المستند من التحقيق؟",
+        "dyn.bec660d771": "✅ اتغيّرت كلمة المرور.",
+        "dyn.27a7e4d09c": "✅ تم رفع الصورة البديلة وتفعيلها.",
+        "dyn.f953200fc0": "✅ تم. الموظف يدخل بكلمة المرور الافتراضية وهيتطلب منه تغييرها.",
+        "dyn.32083319ff": "❌ اختار موظف الأول.",
+        "dyn.9e30991db4": "❌ اعرض التقرير الأول.",
+        "dyn.120078e5c8": "❌ اعرض تقرير الأول.",
+        "dyn.24ee4f8763": "❌ افتح تقرير موظف الأول.",
+        "dyn.e7dfc6ad0f": "❌ فشل إنشاء ملف PDF، يرجى المحاولة مرة أخرى.",
         // ⬅️ Phase 2 — Static UI (عرض فقط · صفر قيم داخلية)
         "ui.9e81d6feef": "+ إضافة",
         "ui.74591a0c3b": "+ إضافة صلاحية",
@@ -9613,6 +9680,58 @@
         'login.submit': 'Sign In',
         'login.forgot': 'Forgot your password?',
         'login.signingIn': 'Signing in...',
+        // ⬅️ Phase 3 — Dynamic UI
+        "dyn.cafa6eb3ff": "Lateness & Deduction Waivers",
+        "dyn.9349a3efde": "Select at least one employee.",
+        "dyn.7858e6856a": "Approve the new photo? It will replace the current one and become the official reference.",
+        "dyn.a4ef04844a": "Approve the request? The data will be written to the employee record and the photo will become the official reference.",
+        "dyn.81c0b0d9dd": "Generate the report first.",
+        "dyn.71f82c48c7": "Display the table first.",
+        "dyn.56d97c68f9": "View the rates first.",
+        "dyn.4e6b50d00e": "Enter the name first.",
+        "dyn.b6262f2e98": "Enter the investigation subject.",
+        "dyn.091d59f052": "Enter the raise amount first.",
+        "dyn.1f60020959": "Settings",
+        "dyn.9bfb539a5b": "Monthly Closing",
+        "dyn.46bd6db171": "Name is required.",
+        "dyn.4d4e102c5e": "Reports",
+        "dyn.38259a2b39": "Notifications",
+        "dyn.6fccef4e3a": "Payroll",
+        "dyn.d5858b2a4d": "Legal Affairs",
+        "dyn.185bf52b33": "Rule not found.",
+        "dyn.520ca3e053": "Rules",
+        "dyn.67949c805d": "Users & Permissions",
+        "dyn.fa31fbb3ff": "Documents",
+        "dyn.cdb1c1d760": "New Hires",
+        "dyn.034c71c465": "Employee Data",
+        "dyn.36fddf24ab": "Invalid effective date.",
+        "dyn.4fb29bdf0c": "Advance cancelled successfully.",
+        "dyn.e9139224df": "Rejected.",
+        "dyn.fb730d6727": "Schedule rule deleted successfully.",
+        "dyn.1438ea7eeb": "Document removed.",
+        "dyn.eed7b10359": "Select the investigation date.",
+        "dyn.95f32d3787": "Salary Transactions & Types",
+        "dyn.c0f5269a26": "My Account",
+        "dyn.e42f9392a3": "Summer Deduction",
+        "dyn.3a12e4b019": "WhatsApp Messages",
+        "dyn.4e504f86ee": "Add at least one employee.",
+        "dyn.b574d341cb": "Profile Completion Requests",
+        "dyn.1dfc5db53a": "Unlock face matching and reset the counter?",
+        "dyn.87f6c53382": "All selected employees are already added to the investigation.",
+        "dyn.6b04c85909": "To reset your password, contact the system administrator to reset it from the Users & Permissions tab.",
+        "dyn.d281fa4b07": "Report Center",
+        "dyn.13dfbd0f40": "No salary was modified.",
+        "dyn.5fcf019e9b": "Backup",
+        "dyn.bc4bd1d7c8": "End of Service",
+        "dyn.9dc80e3f86": "Remove this document from the investigation?",
+        "dyn.bec660d771": "✅ Password changed.",
+        "dyn.27a7e4d09c": "✅ Replacement photo uploaded and activated.",
+        "dyn.f953200fc0": "✅ Done. The employee can sign in with the default password and will be asked to change it.",
+        "dyn.32083319ff": "❌ Select an employee first.",
+        "dyn.9e30991db4": "❌ Generate the report first.",
+        "dyn.120078e5c8": "❌ Generate the report first.",
+        "dyn.24ee4f8763": "❌ Open an employee report first.",
+        "dyn.e7dfc6ad0f": "❌ Failed to create the PDF file. Please try again.",
         // ⬅️ Phase 2 — Static UI
         "ui.9e81d6feef": "+ Add",
         "ui.74591a0c3b": "+ Add Role",
