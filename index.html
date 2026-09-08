@@ -2885,13 +2885,13 @@
 
         const headers = [d('التاريخ'), d('اليوم'), d('الحالة'), d('وقت الدخول'), d('وقت الانصراف'),
           d('دقائق التأخير'), d('دقائق الانصراف المبكر'), d('نوع الإجازة'), d('الخصم'), d('ملاحظات')];
-        const rows = report.days.map(d => {
+        const rows = report.days.map(day => {
           const notes = [];
-          if (d.missingCheckout) notes.push(d('بدون بصمة انصراف'));
+          if (day.missingCheckout) notes.push(d('بدون بصمة انصراف'));
           return [
-            d.dateKey, d.weekdayName, d.status, d.checkInActual, d.checkOutActual,
-            d.lateMinutes, d.earlyLeaveMinutes, d.holidayReason || '-',
-            d.deduction != null ? d.deduction : '-', notes.join(' / ') || '-',
+            day.dateKey, day.weekdayName, day.status, day.checkInActual, day.checkOutActual,
+            day.lateMinutes, day.earlyLeaveMinutes, day.holidayReason || '-',
+            day.deduction != null ? day.deduction : '-', notes.join(' / ') || '-',
           ];
         });
         const totals = [
@@ -3386,7 +3386,7 @@
       } catch (err) { alert('❌ ' + err.message); }
     }
 
-    const PP_REJECT_PHOTO_ = d('تم رفض الصورة الشخصية. يرجى رفع صورة واضحة وحديثة لك، بحيث يكون الوجه ظاهرًا بالكامل ومباشرة أمام الكاميرا.');
+    const PP_REJECT_PHOTO_ = 'تم رفض الصورة الشخصية. يرجى رفع صورة واضحة وحديثة لك، بحيث يكون الوجه ظاهرًا بالكامل ومباشرة أمام الكاميرا.';
     // ⬅️ قيمة افتراضية خام — نفس السبب: بتتخزّن في الشيت. ⛔ ممنوع d().
     const PP_REJECT_DATA_  = 'تم رفض الطلب. يرجى مراجعة البيانات وإعادة تقديمها بعد تصحيحها.';
 
@@ -3408,28 +3408,28 @@
         .forEach(h => html += '<th>' + h + '</th>');
       html += '</tr></thead><tbody>';
 
-      days.forEach(d => {
-        const statusClass = 'status-' + String(d.status).replace(/\s+/g, '-');
-        const lateClass = d.lateMinutes > 0 ? ' has-late' : '';
+      days.forEach(day => {
+        const statusClass = 'status-' + String(day.status).replace(/\s+/g, '-');
+        const lateClass = day.lateMinutes > 0 ? ' has-late' : '';
         const notes = [];
-        if (d.missingCheckout) notes.push(d('بدون بصمة انصراف'));
-        if (d.lateMinutes > 0) notes.push(d('التأخير محسوب ضمن الإجمالي التراكمي للفترة'));
-        if (d.earlyLeaveMinutes > 0) notes.push(d('الانصراف المبكر محسوب ضمن الإجمالي التراكمي للفترة'));
+        if (day.missingCheckout) notes.push(d('بدون بصمة انصراف'));
+        if (day.lateMinutes > 0) notes.push(d('التأخير محسوب ضمن الإجمالي التراكمي للفترة'));
+        if (day.earlyLeaveMinutes > 0) notes.push(d('الانصراف المبكر محسوب ضمن الإجمالي التراكمي للفترة'));
 
         html += '<tr class="' + statusClass + lateClass + '">';
-        html += '<td>' + d.dateKey + '</td>';
-        html += '<td>' + escapeHtml_(d.weekdayName) + '</td>';
-        html += '<td>' + escapeHtml_(d.status) + '</td>';
-        html += '<td>' + escapeHtml_(d.checkInActual) + '</td>';
-        html += '<td>' + escapeHtml_(d.checkOutActual) + '</td>';
-        html += '<td>' + escapeHtml_(d.checkInLocation || '-') + '</td>';
-        html += '<td>' + (d.checkInDistance == null ? '-' : d.checkInDistance) + '</td>';
-        html += '<td>' + escapeHtml_(d.checkOutLocation || '-') + '</td>';
-        html += '<td>' + (d.checkOutDistance == null ? '-' : d.checkOutDistance) + '</td>';
-        html += '<td>' + d.lateMinutes + '</td>';
-        html += '<td>' + d.earlyLeaveMinutes + '</td>';
-        html += '<td>' + escapeHtml_(d.holidayReason || '-') + '</td>';
-        html += '<td>' + (d.deduction != null ? d.deduction : '-') + '</td>';
+        html += '<td>' + day.dateKey + '</td>';
+        html += '<td>' + escapeHtml_(day.weekdayName) + '</td>';
+        html += '<td>' + escapeHtml_(day.status) + '</td>';
+        html += '<td>' + escapeHtml_(day.checkInActual) + '</td>';
+        html += '<td>' + escapeHtml_(day.checkOutActual) + '</td>';
+        html += '<td>' + escapeHtml_(day.checkInLocation || '-') + '</td>';
+        html += '<td>' + (day.checkInDistance == null ? '-' : day.checkInDistance) + '</td>';
+        html += '<td>' + escapeHtml_(day.checkOutLocation || '-') + '</td>';
+        html += '<td>' + (day.checkOutDistance == null ? '-' : day.checkOutDistance) + '</td>';
+        html += '<td>' + day.lateMinutes + '</td>';
+        html += '<td>' + day.earlyLeaveMinutes + '</td>';
+        html += '<td>' + escapeHtml_(day.holidayReason || '-') + '</td>';
+        html += '<td>' + (day.deduction != null ? day.deduction : '-') + '</td>';
         html += '<td>' + escapeHtml_(notes.join(' / ') || '-') + '</td>';
         html += '</tr>';
       });
@@ -5072,7 +5072,7 @@
         document.getElementById('bsrTotalBar').style.display = 'none';
         return;
       }
-      const d = bsrDefaultDate_();
+      const defaultDate = bsrDefaultDate_();
       let h = '<div class="table-wrap"><table><thead><tr>'
         + d('<th>كود الموظف</th><th>اسم الموظف</th><th>القسم</th><th>المسمى الوظيفي</th>')
         + d('<th>الراتب الأساسي الحالي</th><th>تاريخ سريان الحالي</th>')
@@ -5093,7 +5093,7 @@
             + 'id="bsrNew_' + i + '" value="' + r.currentSalary.toFixed(2) + '" '
             + 'oninput="bsrRecalc_()"></td>'
           + '<td><input type="date" style="width:140px" id="bsrDate_' + i + '" '
-            + 'value="' + escapeHtml_(d) + '" onchange="this.dataset.touched=1"></td>'
+            + 'value="' + escapeHtml_(defaultDate) + '" onchange="this.dataset.touched=1"></td>'
           + '<td><button class="link-btn" onclick="saveOneBasicSalary_(' + i + d(')">💾 حفظ</button></td>')
           + '</tr>';
       });
@@ -5967,7 +5967,7 @@
       try {
         // ⛔ نفس action الحالي ونفس النوع — صفر إقفال وصفر تعديل للقديم.
         await callApiPost_({ action: 'salaryTransactionAdd',
-          data: { code: code, type: d('الراتب الأساسي'), from: from, to: '',
+          data: { code: code, type: ST_BASIC_TYPE_, from: from, to: '',
                   value: Number(value), reason: reason } });
         ['empSalValue', 'empSalFrom', 'empSalReason'].forEach(id => document.getElementById(id).value = '');
         st.textContent = d('تم حفظ الراتب الأساسي بنجاح.');
@@ -6943,20 +6943,20 @@
       try {
         const json = await callApi_({ action: 'payrollCalculate', employee: code, from, to });
         const p = json.payroll;
-        const d = p.attendanceDeductionDetails;
+        const deductionDetails = p.attendanceDeductionDetails;
         statusEl.textContent = '';
         area.innerHTML =
           '<div class="table-wrap"><table><tbody>' +
           d('<tr><td>الراتب الأساسي</td><td>') + p.basicSalary + '</td></tr>' +
           d('<tr><td>قيمة اليوم (الراتب ÷ 30)</td><td>') + p.dailyValue + '</td></tr>' +
           d('<tr><th colspan="2" style="text-align:right">تفاصيل خصومات الحضور (بالأيام)</th></tr>') +
-          d('<tr><td>خصم التأخير</td><td>') + d.lateDeductionTotal + '</td></tr>' +
-          d('<tr><td>خصم الغياب</td><td>') + d.absenceDeductionTotal + '</td></tr>' +
-          d('<tr><td>خصم عدم بصمة الانصراف</td><td>') + d.missingCheckoutDeductionTotal + '</td></tr>' +
-          d('<tr><td>خصم الأذونات</td><td>') + d.permissionDeduction + '</td></tr>' +
-          d('<tr><td>خصم نسيان تسجيل الحضور/الانصراف</td><td>') + d.forgotCheckinDeduction + '</td></tr>' +
-          d('<tr><td>خصومات إضافية/جزاءات</td><td>') + d.extraPenaltyDays + '</td></tr>' +
-          d('<tr><td><b>إجمالي أيام الخصم</b></td><td><b>') + d.totalDeduction + '</b></td></tr>' +
+          d('<tr><td>خصم التأخير</td><td>') + deductionDetails.lateDeductionTotal + '</td></tr>' +
+          d('<tr><td>خصم الغياب</td><td>') + deductionDetails.absenceDeductionTotal + '</td></tr>' +
+          d('<tr><td>خصم عدم بصمة الانصراف</td><td>') + deductionDetails.missingCheckoutDeductionTotal + '</td></tr>' +
+          d('<tr><td>خصم الأذونات</td><td>') + deductionDetails.permissionDeduction + '</td></tr>' +
+          d('<tr><td>خصم نسيان تسجيل الحضور/الانصراف</td><td>') + deductionDetails.forgotCheckinDeduction + '</td></tr>' +
+          d('<tr><td>خصومات إضافية/جزاءات</td><td>') + deductionDetails.extraPenaltyDays + '</td></tr>' +
+          d('<tr><td><b>إجمالي أيام الخصم</b></td><td><b>') + deductionDetails.totalDeduction + '</b></td></tr>' +
           d('<tr><td><b>مبلغ خصم الحضور (يوم × قيمة اليوم)</b></td><td><b>') + p.attendanceDeductionAmount + '</b></td></tr>' +
           d('<tr><th colspan="2" style="text-align:right">حركات نقدية (الفترة المحددة)</th></tr>') +
           d('<tr><td>إضافات (Earnings)</td><td>') + p.earnings + '</td></tr>' +
@@ -7984,7 +7984,7 @@
     // ⛔ اسم المسجِّل بييجي من الجلسة سيرفر-سايد (Security Fix) — الواجهة
     //    مابتبعتش user إطلاقًا.
     // ============================================================
-    const ST_BASIC_TYPE_ = d('الراتب الأساسي');
+    const ST_BASIC_TYPE_ = 'الراتب الأساسي';
     let stTxCache_ = [];
     let stEmpLoaded_ = '';
 
@@ -8441,7 +8441,7 @@
     }
 
     function renderPysSummary_() {
-      const d = Array.from(document.querySelectorAll('.pys-dept:checked')).map(c => c.value);
+      const selectedDepartments = Array.from(document.querySelectorAll('.pys-dept:checked')).map(c => c.value);
       const r = document.getElementById('pysRaise').value;
       const q = Array.from(document.querySelectorAll('.pys-dmonth:checked')).map(c => c.value).sort();
       const f = document.getElementById('pysRefund').value;
@@ -8449,7 +8449,7 @@
         d('<b>العلاوة:</b> ') + (r ? escapeHtml_(pysMonthLabel_(r)) : '—')
         + d(' · <b>خصم الربعين:</b> ') + (q.length ? escapeHtml_(q.map(pysMonthLabel_).join(' + ')) : '—')
         + d(' · <b>رد الربعين:</b> ') + (f ? escapeHtml_(pysMonthLabel_(f)) : '—')
-        + d(' · <b>الأقسام:</b> ') + (d.length ? d.length + ' قسم' : '—');
+        + d(' · <b>الأقسام:</b> ') + (selectedDepartments.length ? selectedDepartments.length + d(' قسم') : '—');
     }
 
     async function savePayrollYearSettings_() {
@@ -8575,7 +8575,7 @@
       // ⬅️ بنبعت كل الخلايا (نعم/لا) عشان إلغاء التحديد يتسجّل صراحةً
       //    بدل ما يتفسَّر كـ"غياب صف" — الشيت Append-only وآخر صف هو الساري.
       const rows = Array.from(document.querySelectorAll('.qdp-cell'))
-        .map(c => c.dataset.dept + '|' + c.dataset.month + '|' + (c.checked ? 'نعم' : d('لا')));
+        .map(c => c.dataset.dept + '|' + c.dataset.month + '|' + (c.checked ? 'نعم' : 'لا'));
       setQdpStatus_(d('جاري الحفظ...'));
       try {
         await callApiPost_({ action: 'quarterDeductionPolicySet', yearId: yearId, rows: rows.join(';') });
