@@ -992,12 +992,24 @@
     </div>
 
     <div class="card">
-      <h2>إدارة الموظفين المعفيين من البصمة</h2>
+      <h2>إدارة الإعفاء من البصمة</h2>
       <p style="font-size:12px;color:#777">
-        واجهة إدارة لحقل <b>معفى يدويًا من البصمة؟</b> في بيانات الموظف —
-        <b>نفس القيمة بالضبط</b>، صفر مصدر بيانات تاني.
-        <b>إعفاء القسم</b> منفصل تمامًا ومابيظهرش هنا.
+        مكان واحد لإدارة الإعفاء من رصد البصمة.
+        <b>الإعفاء بالقسم</b> و<b>الإعفاء الفردي</b> مصدرين منفصلين تمامًا —
+        الأول من <b>الأقسام المعفاة</b>، والتاني من حقل
+        <b>معفى يدويًا من البصمة؟</b> في بيانات الموظف. صفر دمج بينهم.
       </p>
+
+      <h3 style="font-size:14px;margin:14px 0 8px" data-i18n="ui.b6703c3d4f">الأقسام المعفاة من رصد البصمة</h3>
+      <div id="exemptDeptsArea"></div>
+      <div class="filters" style="margin-top:10px">
+        <div style="flex:1">
+          <select id="newExemptDeptSelect"></select>
+        </div>
+        <div><button onclick="addExemptDept()" data-i18n="ui.9e81d6feef">+ إضافة</button></div>
+      </div>
+
+      <h3 style="font-size:14px;margin:18px 0 8px">الموظفون المعفون من البصمة</h3>
       <div class="filters">
         <div style="flex:1"><label>الموظف</label>
           <select id="exEmpSelect"></select></div>
@@ -1215,16 +1227,6 @@
       <div id="deductionRuleFormArea"></div>
     </div>
 
-    <div class="card">
-      <h2 data-i18n="ui.b6703c3d4f">الأقسام المعفاة من رصد البصمة</h2>
-      <div id="exemptDeptsArea"></div>
-      <div class="filters" style="margin-top:10px">
-        <div style="flex:1">
-          <select id="newExemptDeptSelect"></select>
-        </div>
-        <div><button onclick="addExemptDept()" data-i18n="ui.9e81d6feef">+ إضافة</button></div>
-      </div>
-    </div>
 
     <!-- ⚠️ Phase 3 — نفس نمط تسجيل واقعة بس زي أي فورم موجود، صفر
          تصميم جديد -->
@@ -2279,7 +2281,7 @@
       try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
-      if (name === 'settings') { loadAcademicYearsView_(); loadNameListsView_(); loadExemptEmployeesView_(); }
+      if (name === 'settings') { loadAcademicYearsView_(); loadNameListsView_(); loadExemptDeptsView(); loadExemptEmployeesView_(); }
       if (name === 'legal') { loadLegalView_(); }
       // ⬅️ الرواتب: الأقسام + إدارة الفترات (اتنقلت من الإعدادات).
       if (name === 'payroll') { loadStblDepts_(); loadPayrollPeriods_(); }
@@ -6134,7 +6136,8 @@
     async function loadRulesViews() {
       loadScheduleRulesView();
       loadDeductionRulesView();
-      loadExemptDeptsView();
+      // ⬅️ الأقسام المعفاة اتنقلت لبطاقة «إدارة الإعفاء من البصمة»
+      //    في الإعدادات — بتتحمّل من هناك. ⛔ الدالة نفسها مااتغيرتش.
       loadCheckoutExceptionsView_(); // ⬅️ بند 11 — إضافة بس
     }
 
@@ -10198,6 +10201,8 @@
     //    إطلاقًا — الترجمة وقت العرض بس والقيمة الأصلية باقية.
     // ============================================================
     const DISPLAY_EN_ = {
+      "إدارة الإعفاء من البصمة": "Fingerprint Exemption Management",
+      "الموظفون المعفون من البصمة": "Fingerprint-Exempt Employees",
       "إدارة الموظفين المعفيين من البصمة": "Manage Fingerprint-Exempt Employees",
       "مفيش موظفين معفيين يدويًا.": "No manually exempt employees.",
       "إلغاء الإعفاء": "Remove Exemption",
