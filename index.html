@@ -1204,7 +1204,7 @@
       <div id="exemptDeptsArea"></div>
       <div class="filters" style="margin-top:10px">
         <div style="flex:1">
-          <input type="text" id="newExemptDeptInput" placeholder="اسم القسم" data-i18n-ph="ui.c80354bf07">
+          <select id="newExemptDeptSelect"></select>
         </div>
         <div><button onclick="addExemptDept()" data-i18n="ui.9e81d6feef">+ إضافة</button></div>
       </div>
@@ -2808,7 +2808,7 @@
 
       html += '<div class="card">';
       html += d('<h2>التفاصيل اليومية</h2>');
-      html += renderDailyTable(report.days);
+      html += renderDailyTable(report.days, s);
       html += '</div>';
 
       document.getElementById('resultArea').innerHTML = html;
@@ -2884,7 +2884,8 @@
         const s = report.summary;
 
         const headers = [d('التاريخ'), d('اليوم'), d('الحالة'), d('وقت الدخول'), d('وقت الانصراف'),
-          d('دقائق التأخير'), d('دقائق الانصراف المبكر'), d('نوع الإجازة'), d('الخصم'), d('ملاحظات')];
+          d('دقائق التأخير'), d('دقائق الانصراف المبكر'), d('نوع الإجازة'),
+          d('خصم اليوم (غياب/عدم انصراف)'), d('ملاحظات')];
         const rows = report.days.map(day => {
           const notes = [];
           if (day.missingCheckout) notes.push(d('بدون بصمة انصراف'));
@@ -3400,11 +3401,13 @@
       } catch (err) { alert('❌ ' + err.message); }
     }
 
-    function renderDailyTable(days) {
+    // ⬅️ summary اختياري — بلا تمرير الجدول بيتبني زي ما هو بالحرف.
+    function renderDailyTable(days, summary) {
       let html = '<div class="table-wrap"><table><thead><tr>';
       [d('التاريخ'), d('اليوم'), d('الحالة'), d('وقت الدخول'), d('وقت الانصراف'),
        d('نقطة الحضور'), d('مسافة الحضور (م)'), d('نقطة الانصراف'), d('مسافة الانصراف (م)'),
-       d('دقائق التأخير'), d('دقائق الانصراف المبكر'), d('نوع الإجازة'), d('الخصم'), d('ملاحظات')]
+       d('دقائق التأخير'), d('دقائق الانصراف المبكر'), d('نوع الإجازة'),
+       d('خصم اليوم (غياب/عدم انصراف)'), d('ملاحظات')]
         .forEach(h => html += '<th>' + h + '</th>');
       html += '</tr></thead><tbody>';
 
@@ -3434,7 +3437,24 @@
         html += '</tr>';
       });
 
-      html += '</tbody></table></div>';
+      html += '</tbody>';
+
+      // ⬅️ عرض فقط: القيم من summary بالحرف — صفر إعادة حساب وصفر
+      //    توزيع لأي خصم تراكمي على الأيام. الإجمالي = summary.totalDeduction.
+      if (summary) {
+        html += '<tfoot><tr>'
+          + '<td colspan="11" style="text-align:end;font-weight:700">'
+          +   escapeHtml_(d('إجمالي الخصم (يوم)')) + '</td>'
+          + '<td colspan="3">'
+          +   escapeHtml_(d('غياب')) + ': ' + summary.absenceDeductionTotal + ' · '
+          +   escapeHtml_(d('عدم انصراف')) + ': ' + summary.missingCheckoutDeductionTotal + ' · '
+          +   escapeHtml_(d('تأخير (تراكمي)')) + ': ' + summary.lateDeductionTotal + ' · '
+          +   escapeHtml_(d('انصراف مبكر (تراكمي)')) + ': ' + summary.earlyDeductionTotal
+          +   ' = <b>' + summary.totalDeduction + '</b>'
+          + '</td></tr></tfoot>';
+      }
+
+      html += '</table></div>';
       return html;
     }
 
@@ -6191,6 +6211,7 @@
         const json = await callApi_({ action: 'exemptDepartments' });
         if (json.departments.length === 0) {
           el.innerHTML = d('<p style="font-size:13px;color:#777">مفيش أقسام معفاة مسجلة.</p>');
+          await fillExemptDeptOptions_([]);
           return;
         }
         let html = '';
@@ -6198,16 +6219,32 @@
           html += '<span class="chip">' + escapeHtml_(d) + ' <button onclick="removeExemptDept(\'' + escapeHtml_(d) + '\')">حذف</button></span>';
         });
         el.innerHTML = html;
+        await fillExemptDeptOptions_(json.departments);
       } catch (err) { el.textContent = '❌ ' + err.message; }
     }
 
+    // ⬅️ المصدر الوحيد: nameLists المركزية · النشط فقط · وبلا الأقسام
+    //    المضافة أصلًا عشان مايتكررش. ⛔ صفر قائمة أقسام جديدة.
+    async function fillExemptDeptOptions_(current) {
+      const sel = document.getElementById('newExemptDeptSelect');
+      if (!sel) return;
+      let lists;
+      try { lists = await loadNameLists_(); } catch (e) { return; }
+      const taken = (current || []).map(x => String(x).trim());
+      const avail = lists.departments.filter(i => i.active)
+        .map(i => i.name).filter(nm => taken.indexOf(nm) === -1);
+      sel.innerHTML = '<option value="">' + escapeHtml_(d('— اختر —')) + '</option>'
+        + avail.map(nm => '<option value="' + escapeHtml_(nm) + '">'
+            + escapeHtml_(d(nm)) + '</option>').join('');
+    }
+
     async function addExemptDept() {
-      const input = document.getElementById('newExemptDeptInput');
-      const dept = input.value.trim();
+      const sel = document.getElementById('newExemptDeptSelect');
+      const dept = sel ? sel.value : '';
       if (!dept) return;
       try {
         await callApiPost_({ action: 'exemptDepartmentAdd', dept });
-        input.value = '';
+        sel.value = '';
         loadExemptDeptsView();
       } catch (err) { alert('❌ ' + err.message); }
     }
@@ -10047,6 +10084,11 @@
     //    إطلاقًا — الترجمة وقت العرض بس والقيمة الأصلية باقية.
     // ============================================================
     const DISPLAY_EN_ = {
+      "— اختر —": "— Select —",
+      "خصم اليوم (غياب/عدم انصراف)": "Day Deduction (absence / missing check-out)",
+      "عدم انصراف": "Missing Check-out",
+      "تأخير (تراكمي)": "Lateness (cumulative)",
+      "انصراف مبكر (تراكمي)": "Early Leave (cumulative)",
       // ⬅️ Phase 3 — مفاتيح الـ47 Template Literal (مراجَعة يدويًا)
       "معفى يدويًا من البصمة؟": "Manually exempt from fingerprint?",
       "موعد الحضور الرسمي": "Official Check-in Time",
