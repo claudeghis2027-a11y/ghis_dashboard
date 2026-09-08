@@ -1249,7 +1249,7 @@
             <option value="Employee" data-i18n="ui.efc4aa6820">موظف معيّن</option>
           </select>
         </div>
-        <div id="checkoutExScopeValueWrap" style="display:none"><label data-i18n="ui.a6618d9eff">القيمة (اسم قسم أو كود موظف)</label><input type="text" id="checkoutExScopeValue"></div>
+        <div id="checkoutExScopeValueWrap" style="display:none"><label data-i18n="ui.a6618d9eff">القيمة (اسم قسم أو كود موظف)</label><select id="checkoutExScopeValue"></select></div>
         <div><label data-i18n="ui.13e7cfbc0c">من تاريخ</label><input type="date" id="checkoutExFrom"></div>
         <div><label data-i18n="ui.109685176e">لحد تاريخ</label><input type="date" id="checkoutExTo"></div>
         <div><button onclick="addCheckoutException_()" data-i18n="ui.b9508aa2a9">إضافة</button></div>
@@ -6293,6 +6293,28 @@
     function onCheckoutExScopeChange_() {
       const scopeType = document.getElementById('checkoutExScopeType').value;
       document.getElementById('checkoutExScopeValueWrap').style.display = scopeType === 'All' ? 'none' : '';
+      fillCheckoutExScopeOptions_(scopeType);
+    }
+
+    // ⬅️ الخيارات حسب النوع — ⛔ القيمة المرسلة زي ما هي بالحرف:
+    //    اسم القسم للقسم · كود الموظف للموظف. الاسم للعرض بس.
+    //    الأقسام من nameLists المركزية (النشط فقط) — صفر قائمة جديدة.
+    async function fillCheckoutExScopeOptions_(scopeType) {
+      const sel = document.getElementById('checkoutExScopeValue');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">' + escapeHtml_(d('— اختر —')) + '</option>';
+      if (scopeType === 'Department') {
+        let lists;
+        try { lists = await loadNameLists_(); } catch (e) { return; }
+        sel.innerHTML += lists.departments.filter(i => i.active)
+          .map(i => '<option value="' + escapeHtml_(i.name) + '">'
+            + escapeHtml_(d(i.name)) + '</option>').join('');
+      } else if (scopeType === 'Employee') {
+        try { if (!employeesCache.length) await loadEmployees_(); } catch (e) { return; }
+        sel.innerHTML += employeesCache
+          .map(e => '<option value="' + escapeHtml_(e.code) + '">'
+            + escapeHtml_(e.code + ' — ' + e.nameAr) + '</option>').join('');
+      }
     }
 
     async function loadCheckoutExceptionsView_() {
@@ -6311,7 +6333,7 @@
 
     async function addCheckoutException_() {
       const scopeType = document.getElementById('checkoutExScopeType').value;
-      const scopeValue = document.getElementById('checkoutExScopeValue').value.trim();
+      const scopeValue = document.getElementById('checkoutExScopeValue').value.trim();   // ⬅️ نفس القيمة: اسم القسم / كود الموظف
       const from = document.getElementById('checkoutExFrom').value;
       const to = document.getElementById('checkoutExTo').value;
       const statusEl = document.getElementById('checkoutExStatus');
