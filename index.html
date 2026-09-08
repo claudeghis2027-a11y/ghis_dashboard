@@ -992,6 +992,22 @@
     </div>
 
     <div class="card">
+      <h2>إدارة الموظفين المعفيين من البصمة</h2>
+      <p style="font-size:12px;color:#777">
+        واجهة إدارة لحقل <b>معفى يدويًا من البصمة؟</b> في بيانات الموظف —
+        <b>نفس القيمة بالضبط</b>، صفر مصدر بيانات تاني.
+        <b>إعفاء القسم</b> منفصل تمامًا ومابيظهرش هنا.
+      </p>
+      <div class="filters">
+        <div style="flex:1"><label>الموظف</label>
+          <select id="exEmpSelect"></select></div>
+        <div><button onclick="exemptEmployeeAdd_()">إعفاء الموظف</button></div>
+      </div>
+      <div id="exEmpStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="exEmpArea"></div>
+    </div>
+
+    <div class="card">
       <h2 data-i18n="ui.891fe5a6c9">السنة الدراسية</h2>
       <div id="ayActiveBar" style="font-size:13px;margin-bottom:10px"></div>
       <p style="font-size:12px;color:#777">
@@ -2263,7 +2279,7 @@
       try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
-      if (name === 'settings') { loadAcademicYearsView_(); loadNameListsView_(); }
+      if (name === 'settings') { loadAcademicYearsView_(); loadNameListsView_(); loadExemptEmployeesView_(); }
       if (name === 'legal') { loadLegalView_(); }
       // ⬅️ الرواتب: الأقسام + إدارة الفترات (اتنقلت من الإعدادات).
       if (name === 'payroll') { loadStblDepts_(); loadPayrollPeriods_(); }
@@ -5661,6 +5677,82 @@
         if (pr[0]) msInit_(pr[0], depts, d('كل الأقسام'));
         if (pr[1]) msInit_(pr[1], jobs, d('كل المسميات'));
       });
+    }
+
+    // ============================================================
+    // إدارة الموظفين المعفيين من البصمة
+    // ⛔ Single Source of Truth = EMPLOYEES.exemptManual (العمود 7).
+    //    صفر Sheet جديدة · صفر حقل تاني · صفر action جديد —
+    //    بنستخدم employeeUpdate الموجود بصلاحية employees.
+    // ⛔ exemptManual بس — إعفاء القسم (EXEMPT_DEPARTMENTS) مالوش
+    //    أي علاقة هنا ومابيتغيّرش.
+    // ============================================================
+    async function loadExemptEmployeesView_() {
+      const el = document.getElementById('exEmpArea');
+      const st = document.getElementById('exEmpStatus');
+      if (!el) return;
+      st.textContent = d('جاري التحميل...');
+      try {
+        await loadEmployees_();   // ⬅️ إعادة تحميل عشان القيمة تكون محدَّثة بعد أي تعديل من ملف الموظف
+        const exempt = employeesCache.filter(e => e.exemptManual === 'نعم');
+        st.textContent = '';
+        if (!exempt.length) {
+          el.innerHTML = d('<p style="font-size:13px;color:#777">مفيش موظفين معفيين يدويًا.</p>');
+        } else {
+          let h = '<div class="table-wrap"><table><thead><tr>';
+          [d('الكود'), d('الموظف'), d('القسم'), d('المسمى الوظيفي'),
+           d('الحالة'), d('الإجراءات')].forEach(x => h += '<th>' + x + '</th>');
+          h += '</tr></thead><tbody>';
+          exempt.forEach(e => {
+            h += '<tr><td>' + escapeHtml_(e.code) + '</td>'
+              + '<td style="text-align:right">' + escapeHtml_(e.nameAr) + '</td>'
+              + '<td>' + escapeHtml_(e.dept || '-') + '</td>'
+              + '<td>' + escapeHtml_(e.jobTitle || '-') + '</td>'
+              + '<td><span class="badge badge-success">' + escapeHtml_(d('معفى')) + '</span></td>'
+              + '<td><button class="link-btn" onclick="exemptEmployeeRemove_(\'' + escapeHtml_(e.code) + '\')">'
+              +   escapeHtml_(d('إلغاء الإعفاء')) + '</button></td></tr>';
+          });
+          el.innerHTML = h + '</tbody></table></div>';
+        }
+        fillExemptEmpOptions_();
+      } catch (err) { st.textContent = '❌ ' + err.message; }
+    }
+
+    // ⬅️ الاختيار من بيانات الموظفين الحالية — والقيمة المرسلة كود
+    //    الموظف. الاسم والقسم للعرض بس. المعفيين أصلًا مستبعدين.
+    function fillExemptEmpOptions_() {
+      const sel = document.getElementById('exEmpSelect');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">' + escapeHtml_(d('— اختر —')) + '</option>'
+        + employeesCache.filter(e => e.exemptManual !== 'نعم')
+          .map(e => '<option value="' + escapeHtml_(e.code) + '">'
+            + escapeHtml_(e.code + ' — ' + e.nameAr + (e.dept ? ' — ' + e.dept : ''))
+            + '</option>').join('');
+    }
+
+    async function exemptEmployeeAdd_() {
+      const sel = document.getElementById('exEmpSelect');
+      const code = sel ? sel.value : '';
+      const st = document.getElementById('exEmpStatus');
+      if (!code) { st.textContent = d('❌ اختار موظف الأول.'); return; }
+      await setExemptManual_(code, 'نعم');
+    }
+
+    async function exemptEmployeeRemove_(code) {
+      await setExemptManual_(code, 'لا');
+    }
+
+    // ⛔ بيبعت exemptManual لوحده بس — أي حقل تاني للموظف مابيتغيّرش.
+    async function setExemptManual_(code, value) {
+      const st = document.getElementById('exEmpStatus');
+      st.textContent = d('جاري الحفظ...');
+      try {
+        await callApiPost_({ action: 'employeeUpdate', code: code,
+          changes: { exemptManual: value }, reason: d('إدارة الموظفين المعفيين من البصمة'),
+          user: 'index-user' });
+        st.textContent = d('✅ اتحفظ.');
+        loadExemptEmployeesView_();
+      } catch (err) { st.textContent = '❌ ' + err.message; }
     }
 
     async function loadNameListsView_() {
@@ -10106,6 +10198,10 @@
     //    إطلاقًا — الترجمة وقت العرض بس والقيمة الأصلية باقية.
     // ============================================================
     const DISPLAY_EN_ = {
+      "إدارة الموظفين المعفيين من البصمة": "Manage Fingerprint-Exempt Employees",
+      "مفيش موظفين معفيين يدويًا.": "No manually exempt employees.",
+      "إلغاء الإعفاء": "Remove Exemption",
+      "معفى": "Exempt",
       "— اختر —": "— Select —",
       "خصم اليوم (غياب/عدم انصراف)": "Day Deduction (absence / missing check-out)",
       "عدم انصراف": "Missing Check-out",
