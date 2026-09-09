@@ -6266,14 +6266,12 @@
     // ⬅️ الوقت ممكن يرجع نص "09:00" أو ISO لو الخلية Time في الشيت
     //    (بعد F2 القيمة بتتمرّر خام). العرض بس — صفر تأثير على الحساب.
     function schOvTime_(v) {
+      // ⬅️ Issue-1: الباك بقى بيرجّع "HH:mm" جاهزة بتوقيت المشروع
+      //    (schedTimeText_). ⛔ صفر new Date وصفر تحويل UTC هنا —
+      //    الوقت وقت حائط، و09:00 بتفضل 09:00 في أي متصفح.
       const t = String(v == null ? '' : v).trim();
-      let m = t.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return ('0' + m[1]).slice(-2) + ':' + m[2];
-      const dt = new Date(t);
-      if (!isNaN(dt.getTime())) {
-        return ('0' + dt.getUTCHours()).slice(-2) + ':' + ('0' + dt.getUTCMinutes()).slice(-2);
-      }
-      return t || '-';
+      const m = t.match(/^(\d{1,2}):(\d{2})/);
+      return m ? ('0' + m[1]).slice(-2) + ':' + m[2] : (t || '-');
     }
 
     async function loadScheduleOverridesView_() {
