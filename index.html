@@ -5430,7 +5430,9 @@
     }
 
     async function loadLegalView_() {
-      try { await loadEmployees_(); } catch (e) {
+      // ⬅️ Perf(29-A/S1): توحيد النمط الموجود أصلًا في 7 مواضع —
+      //    الجلب بس لو الكاش فاضي. ⛔ صفر Guard جديد وصفر Cache جديد.
+      try { if (!employeesCache.length) await loadEmployees_(); } catch (e) {
         setAdvStatus_('invFormStatus', d('تعذّر تحميل قائمة الموظفين: ') + e.message, true);
       }
       invFillEmployeeSelects_();
