@@ -1221,6 +1221,25 @@
     </div>
 
     <div class="card">
+      <h2>مواعيد خاصة لموظفين</h2>
+      <p style="font-size:12px;color:#777">
+        تحديد مواعيد حضور وانصراف مختلفة لموظف خلال فترة زمنية محددة.
+        القاعدة الخاصة بتحلّ محل القاعدة العامة في مداها بس — وبرّه المدى
+        بيرجع للقاعدة العامة تلقائيًا.
+      </p>
+      <div id="schOverridesArea"></div>
+      <div class="filters" style="margin-top:12px">
+        <div style="flex:1"><label>الموظف</label><select id="schOvEmp"></select></div>
+        <div><label>من تاريخ</label><input type="date" id="schOvFrom"></div>
+        <div><label>لحد تاريخ</label><input type="date" id="schOvTo"></div>
+        <div><label>موعد الحضور</label><input type="time" id="schOvIn" value="08:00"></div>
+        <div><label>موعد الانصراف</label><input type="time" id="schOvOut" value="15:00"></div>
+        <div><button onclick="addScheduleOverride_()">+ إضافة</button></div>
+      </div>
+      <div id="schOvStatus" style="font-size:13px;margin:8px 0"></div>
+    </div>
+
+    <div class="card">
       <h2 data-i18n="ui.a916074f9f">قواعد الخصم (تاريخية — شامل سلم الأذونات)</h2>
       <div id="deductionRulesArea"></div>
       <button class="secondary" style="margin-top:10px" onclick="openDeductionRuleForm()" data-i18n="ui.6c3878a6a1">+ إضافة قاعدة خصم جديدة</button>
@@ -6157,10 +6176,96 @@
     // ============================================================
     async function loadRulesViews() {
       loadScheduleRulesView();
+      loadScheduleOverridesView_();   // ⬅️ نفس الحارس القائم rulesLoaded_
       loadDeductionRulesView();
       // ⬅️ الأقسام المعفاة اتنقلت لبطاقة «إدارة الإعفاء من البصمة»
       //    في الإعدادات — بتتحمّل من هناك. ⛔ الدالة نفسها مااتغيرتش.
       loadCheckoutExceptionsView_(); // ⬅️ بند 11 — إضافة بس
+    }
+
+    // ============================================================
+    // مواعيد خاصة لموظفين — واجهة فقط
+    // ⛔ بتستخدم actions موجودة: scheduleOverrides · scheduleOverrideAdd
+    //    صفر action جديد · صفر Sheet · صفر Backend · صفر cache جديد.
+    // ⛔ S1 = عرض + إضافة بس — صفر تعديل/حذف/أرشفة (قرار مستقل).
+    // ============================================================
+
+    // ⬅️ الوقت ممكن يرجع نص "09:00" أو ISO لو الخلية Time في الشيت
+    //    (بعد F2 القيمة بتتمرّر خام). العرض بس — صفر تأثير على الحساب.
+    function schOvTime_(v) {
+      const t = String(v == null ? '' : v).trim();
+      let m = t.match(/^(\d{1,2}):(\d{2})/);
+      if (m) return ('0' + m[1]).slice(-2) + ':' + m[2];
+      const dt = new Date(t);
+      if (!isNaN(dt.getTime())) {
+        return ('0' + dt.getUTCHours()).slice(-2) + ':' + ('0' + dt.getUTCMinutes()).slice(-2);
+      }
+      return t || '-';
+    }
+
+    async function loadScheduleOverridesView_() {
+      const el = document.getElementById('schOverridesArea');
+      if (!el) return;
+      el.textContent = d('جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'scheduleOverrides' });
+        const rows = json.overrides || [];
+        if (!rows.length) {
+          el.innerHTML = d('<p style="font-size:13px;color:#777">مفيش مواعيد خاصة مسجّلة.</p>');
+        } else {
+          let html = '<div class="table-wrap"><table><thead><tr>';
+          [d('الكود'), d('الموظف'), d('من تاريخ'), d('لحد تاريخ'),
+           d('موعد الحضور'), d('موعد الانصراف')].forEach(h => html += '<th>' + h + '</th>');
+          html += '</tr></thead><tbody>';
+          rows.forEach(o => {
+            // ⬅️ الاسم للعرض بس من employeesCache — صفر تعديل على Employee Master
+            const emp = employeesCache.find(e => String(e.code) === String(o.code));
+            html += '<tr><td>' + escapeHtml_(o.code) + '</td>'
+              + '<td style="text-align:right">' + escapeHtml_(emp ? emp.nameAr : '-') + '</td>'
+              + '<td>' + escapeHtml_(o.from) + '</td><td>' + escapeHtml_(o.to) + '</td>'
+              + '<td>' + escapeHtml_(schOvTime_(o.checkIn)) + '</td>'
+              + '<td>' + escapeHtml_(schOvTime_(o.checkOut)) + '</td></tr>';
+          });
+          el.innerHTML = html + '</tbody></table></div>';
+        }
+        fillSchOvEmpOptions_();
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    // ⬅️ من employeesCache الموجود — صفر loader جديد وصفر نداء إضافي.
+    function fillSchOvEmpOptions_() {
+      const sel = document.getElementById('schOvEmp');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">' + escapeHtml_(d('— اختر —')) + '</option>'
+        + employeesCache.map(e => '<option value="' + escapeHtml_(e.code) + '">'
+            + escapeHtml_(e.code + ' — ' + e.nameAr) + '</option>').join('');
+    }
+
+    // ⛔ تحقق واجهة بس على الإدخال الواضح الخطأ — التداخل والقواعد
+    //    الفعلية بيتحقق منها الباك (checkDateRangeOverlap_).
+    async function addScheduleOverride_() {
+      const st = document.getElementById('schOvStatus');
+      const code = (document.getElementById('schOvEmp') || {}).value || '';
+      const from = (document.getElementById('schOvFrom') || {}).value || '';
+      const to = (document.getElementById('schOvTo') || {}).value || '';
+      const checkIn = (document.getElementById('schOvIn') || {}).value || '';
+      const checkOut = (document.getElementById('schOvOut') || {}).value || '';
+      if (!code) { st.textContent = d('❌ اختار موظف الأول.'); return; }
+      if (!from || !to) { st.textContent = d('❌ لازم تحدد من تاريخ ولحد تاريخ.'); return; }
+      if (from > to) { st.textContent = d('❌ «من تاريخ» لازم يكون قبل أو يساوي «لحد تاريخ».'); return; }
+      if (!checkIn || !checkOut) { st.textContent = d('❌ لازم تحدد موعد الحضور والانصراف.'); return; }
+      st.textContent = d('جاري الحفظ...');
+      try {
+        await callApiPost_({ action: 'scheduleOverrideAdd', code: code,
+          from: from, to: to, checkIn: checkIn, checkOut: checkOut });
+        document.getElementById('schOvEmp').value = '';
+        document.getElementById('schOvFrom').value = '';
+        document.getElementById('schOvTo').value = '';
+        document.getElementById('schOvIn').value = '08:00';
+        document.getElementById('schOvOut').value = '15:00';
+        st.textContent = d('✅ اتحفظ.');
+        loadScheduleOverridesView_();   // ⬅️ إعادة تحميل القائمة بس — صفر reload للصفحة
+      } catch (err) { st.textContent = '❌ ' + err.message; }
     }
 
     async function loadScheduleRulesView() {
@@ -10223,6 +10328,13 @@
     //    إطلاقًا — الترجمة وقت العرض بس والقيمة الأصلية باقية.
     // ============================================================
     const DISPLAY_EN_ = {
+      "مواعيد خاصة لموظفين": "Employee-Specific Schedules",
+      "مفيش مواعيد خاصة مسجّلة.": "No employee-specific schedules recorded.",
+      "موعد الحضور": "Check-in Time",
+      "موعد الانصراف": "Check-out Time",
+      "❌ لازم تحدد من تاريخ ولحد تاريخ.": "❌ You must specify a From and To date.",
+      "❌ «من تاريخ» لازم يكون قبل أو يساوي «لحد تاريخ».": "❌ From Date must be on or before To Date.",
+      "❌ لازم تحدد موعد الحضور والانصراف.": "❌ You must specify check-in and check-out times.",
       "إدارة الإعفاء من البصمة": "Fingerprint Exemption Management",
       "الموظفون المعفون من البصمة": "Fingerprint-Exempt Employees",
       "إدارة الموظفين المعفيين من البصمة": "Manage Fingerprint-Exempt Employees",
