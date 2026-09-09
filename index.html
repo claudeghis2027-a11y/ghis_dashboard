@@ -4721,6 +4721,13 @@
         document.getElementById('empSchOvOut').value = '15:00';
         st.textContent = d('✅ اتحفظ.');
         loadEmployeeScheduleOverrides_(code);   // ⬅️ نفس المصدر — صفر reload للصفحة
+        // ⬅️ SYNC: شاشة القواعد محروسة بـrulesLoaded_ اللي بيتضبط مرة
+        //    واحدة ومابيتصفّرش، فالعودة ليها كانت بتعرض بيانات قديمة.
+        //    لو كانت متحمّلة أصلًا بنعيد تحميل قائمة الـoverrides بس
+        //    (نفس الـloader ونفس الـaction). لو لسه ماتحمّلتش بنسيبها —
+        //    الفتح العادي هيجيب الأحدث. ⛔ صفر cache تاني · صفر action
+        //    جديد · صفر reload للصفحة · الحارس نفسه مااتغيّرش.
+        if (rulesLoaded_) loadScheduleOverridesView_();
       } catch (err) { st.textContent = '❌ ' + err.message; }
     }
 
