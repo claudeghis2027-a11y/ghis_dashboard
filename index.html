@@ -5696,7 +5696,9 @@
       st.textContent = d('جاري التحميل...');
       try {
         await loadEmployees_();   // ⬅️ إعادة تحميل عشان القيمة تكون محدَّثة بعد أي تعديل من ملف الموظف
-        const exempt = employeesCache.filter(e => e.exemptManual === 'نعم');
+        // ⬅️ getEmployees_ بيرجّع exemptManual كـBoolean مش نص —
+        //    المقارنة بالنص كانت بترجع false دايمًا فالجدول يفضل فاضي.
+        const exempt = employeesCache.filter(e => !!e.exemptManual);
         st.textContent = '';
         if (!exempt.length) {
           el.innerHTML = d('<p style="font-size:13px;color:#777">مفيش موظفين معفيين يدويًا.</p>');
@@ -5726,7 +5728,7 @@
       const sel = document.getElementById('exEmpSelect');
       if (!sel) return;
       sel.innerHTML = '<option value="">' + escapeHtml_(d('— اختر —')) + '</option>'
-        + employeesCache.filter(e => e.exemptManual !== 'نعم')
+        + employeesCache.filter(e => !e.exemptManual)   // ⬅️ Boolean زي الباك
           .map(e => '<option value="' + escapeHtml_(e.code) + '">'
             + escapeHtml_(e.code + ' — ' + e.nameAr + (e.dept ? ' — ' + e.dept : ''))
             + '</option>').join('');
