@@ -2281,10 +2281,19 @@
       try { loadScriptOnce_(EXCELJS_URL_).catch(() => {}); } catch (e) {}
       }
       if (name === 'lateWaivers') { loadLateWaiversView_(); }
-      if (name === 'settings') { loadAcademicYearsView_(); loadNameListsView_(); loadExemptDeptsView(); loadExemptEmployeesView_(); }
+      if (name === 'settings') {
+        if (!settingsListsLoaded_) {
+          loadAcademicYearsView_(); loadNameListsView_(); loadExemptDeptsView();
+          settingsListsLoaded_ = true;
+        }
+        loadExemptEmployeesView_();   // ⬅️ بلا حارس — مصدرها بيتعدّل من برّه الإعدادات
+      }
       if (name === 'legal') { loadLegalView_(); }
       // ⬅️ الرواتب: الأقسام + إدارة الفترات (اتنقلت من الإعدادات).
-      if (name === 'payroll') { loadStblDepts_(); loadPayrollPeriods_(); }
+      if (name === 'payroll') {
+        loadStblDepts_();   // ⬅️ محروسة أصلًا بـstblDeptsLoaded_
+        if (!payrollPeriodsLoaded_) { loadPayrollPeriods_(); payrollPeriodsLoaded_ = true; }
+      }
       if (name === 'payrollTypes') { if (!payrollTypesLoaded_) { loadPayrollTxTypesView_(); payrollTypesLoaded_ = true; } }
       closeSidebar_(); // على الموبايل بس (no-op على الديسكتوب) — تجربة استخدام أفضل بعد اختيار قسم
       document.querySelector('.app-content-inner').scrollTop = 0;
@@ -5859,6 +5868,15 @@
 
     // ⬅️ الأقسام — من employeeDepartments الموجود. مرة واحدة بس.
     let stblDeptsLoaded_ = false;
+    // ⬅️ Perf(29-A) — حرّاس تحميل. ⛔ Cache مش Source of Truth:
+    //    كل مسارات الـMutation بتنادي دوال التحميل **مباشرةً** (مش عن
+    //    طريق switchView)، فالبيانات بتتحدّث فورًا بعد أي تعديل.
+    //    الحارس بيمنع إعادة الجلب عند مجرد التنقّل بس.
+    // ⛔ loadExemptEmployeesView_ **مستثناة عمدًا** — بياناتها بتتعدّل
+    //    من شاشة بيانات الموظفين (برّه الإعدادات)، فحراستها كانت
+    //    هتعرض بيانات قديمة. بتفضل بتتحمّل كل مرة.
+    let settingsListsLoaded_ = false;
+    let payrollPeriodsLoaded_ = false;
     async function loadStblDepts_() {
       if (stblDeptsLoaded_) return;
       // ⬅️ المصدر المركزي nameLists — نداء واحد يغذّي الفلاتر الأربعة.
