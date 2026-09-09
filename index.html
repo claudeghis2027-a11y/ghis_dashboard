@@ -4671,6 +4671,59 @@
       } catch (err) { alert('❌ ' + err.message); }
     }
 
+    // ⬅️ C/E: قراءة نفس الـaction وفلترة بكود الموظف. صفر data model جديد.
+    async function loadEmployeeScheduleOverrides_(code) {
+      const el = document.getElementById('empSchOvArea');
+      if (!el) return;
+      el.textContent = d('جاري التحميل...');
+      try {
+        const json = await callApi_({ action: 'scheduleOverrides' });
+        const rows = (json.overrides || []).filter(o => String(o.code) === String(code));
+        if (!rows.length) {
+          el.innerHTML = d('<p style="font-size:13px;color:#777">مفيش مواعيد خاصة لهذا الموظف — بيتطبّق عليه القاعدة العامة.</p>');
+          return;
+        }
+        let html = '<div class="table-wrap"><table><thead><tr>';
+        [d('من تاريخ'), d('لحد تاريخ'), d('موعد الحضور'), d('موعد الانصراف'),
+         d('المستخدم'), d('تاريخ التسجيل')].forEach(h => html += '<th>' + h + '</th>');
+        html += '</tr></thead><tbody>';
+        rows.forEach(o => {
+          html += '<tr><td>' + escapeHtml_(o.from) + '</td><td>' + escapeHtml_(o.to) + '</td>'
+            + '<td>' + escapeHtml_(schOvTime_(o.checkIn)) + '</td>'
+            + '<td>' + escapeHtml_(schOvTime_(o.checkOut)) + '</td>'
+            + '<td>' + escapeHtml_(o.user || '-') + '</td>'
+            + '<td>' + escapeHtml_(o.createdAt || '-') + '</td></tr>';
+        });
+        el.innerHTML = html + '</tbody></table></div>';
+      } catch (err) { el.textContent = '❌ ' + err.message; }
+    }
+
+    // ⬅️ D: الإضافة من شاشة بيانات الموظفين — نفس الـaction الموجود
+    //    (scheduleOverrideAdd) ونفس الشيت (EMPLOYEE_SCHEDULE_OVERRIDES).
+    //    ⛔ صفر تخزين ثانٍ · صفر action جديد · الكود من الملف مباشرةً.
+    //    ⛔ التداخل بيتحقق منه الباك (checkDateRangeOverlap_) زي شاشة القواعد.
+    async function addEmployeeScheduleOverride_(code) {
+      const st = document.getElementById('empSchOvStatus');
+      const from = (document.getElementById('empSchOvFrom') || {}).value || '';
+      const to = (document.getElementById('empSchOvTo') || {}).value || '';
+      const checkIn = (document.getElementById('empSchOvIn') || {}).value || '';
+      const checkOut = (document.getElementById('empSchOvOut') || {}).value || '';
+      if (!from || !to) { st.textContent = d('❌ لازم تحدد من تاريخ ولحد تاريخ.'); return; }
+      if (from > to) { st.textContent = d('❌ «من تاريخ» لازم يكون قبل أو يساوي «لحد تاريخ».'); return; }
+      if (!checkIn || !checkOut) { st.textContent = d('❌ لازم تحدد موعد الحضور والانصراف.'); return; }
+      st.textContent = d('جاري الحفظ...');
+      try {
+        await callApiPost_({ action: 'scheduleOverrideAdd', code: code,
+          from: from, to: to, checkIn: checkIn, checkOut: checkOut });
+        document.getElementById('empSchOvFrom').value = '';
+        document.getElementById('empSchOvTo').value = '';
+        document.getElementById('empSchOvIn').value = '08:00';
+        document.getElementById('empSchOvOut').value = '15:00';
+        st.textContent = d('✅ اتحفظ.');
+        loadEmployeeScheduleOverrides_(code);   // ⬅️ نفس المصدر — صفر reload للصفحة
+      } catch (err) { st.textContent = '❌ ' + err.message; }
+    }
+
     function openEmployeeProfile(code) {
       const emp = employeesCache.find(e => e.code === code);
       if (!emp) return;
@@ -4720,6 +4773,25 @@
       html += '<div id="employeeHistoryPanel"></div>';
       html += '</div>';
 
+      // ⬅️ C: مواعيد الموظف الخاصة — نفس المصدر بالضبط
+      //    (action: scheduleOverrides ← EMPLOYEE_SCHEDULE_OVERRIDES).
+      //    ⛔ صفر تخزين ثانٍ · صفر Sheet · صفر حساب مكرَّر —
+      //    عرض مفلتر بكود الموظف بس.
+      html += '<div class="card"><h2>مواعيد خاصة</h2>'
+        + d('<p style="font-size:12px;color:#777">مواعيد حضور وانصراف مختلفة عن القاعدة العامة، بمدى تاريخي. المصدر نفسه المستخدم في شاشة «القواعد».</p>')
+        + '<div id="empSchOvArea"></div>'
+        // ⬅️ D: الإضافة من هنا كمان — نفس الـaction scheduleOverrideAdd
+        //    ونفس الشيت. الموظف معروف من الملف فمفيش dropdown.
+        + '<div class="filters" style="margin-top:12px">'
+        +   '<div><label>' + escapeHtml_(d('من تاريخ')) + '</label><input type="date" id="empSchOvFrom"></div>'
+        +   '<div><label>' + escapeHtml_(d('لحد تاريخ')) + '</label><input type="date" id="empSchOvTo"></div>'
+        +   '<div><label>' + escapeHtml_(d('موعد الحضور')) + '</label><input type="time" id="empSchOvIn" value="08:00"></div>'
+        +   '<div><label>' + escapeHtml_(d('موعد الانصراف')) + '</label><input type="time" id="empSchOvOut" value="15:00"></div>'
+        +   '<div><button onclick="addEmployeeScheduleOverride_(\'' + escapeHtml_(code) + '\')">'
+        +     escapeHtml_(d('+ إضافة')) + '</button></div>'
+        + '</div>'
+        + '<div id="empSchOvStatus" style="font-size:13px;margin:8px 0"></div></div>';
+
       // ⬅️ الراتب الأساسي — حركات تاريخية بتاريخ سريان بس.
       //    المصدر الوحيد: SALARY_TRANSACTIONS.
       html += '<div class="card" id="empSalaryCard">'
@@ -4741,6 +4813,7 @@
         + '</div>';
 
       document.getElementById('employeeDetailArea').innerHTML = html;
+      loadEmployeeScheduleOverrides_(code);   // ⬅️ بعد الرسم — نفس الـaction
       // بعد الرسم — تحميل الصورة غير متزامن عشان ميعطلش عرض الملف
       if (emp.referencePhotoFileId) loadReferencePhotoThumb_(code);
       loadEmployeeBasicSalary_(code);
@@ -6208,6 +6281,10 @@
       if (!el) return;
       el.textContent = d('جاري التحميل...');
       try {
+        // ⬅️ A-FIX: شاشة القواعد مابتحمّلش الموظفين، فemployeesCache
+        //    كانت فاضية والـdropdown يطلع فاضي. نفس النمط المستخدم في
+        //    7 مواضع تانية — صفر cache جديد وصفر loader جديد.
+        if (!employeesCache.length) { try { await loadEmployees_(); } catch (e) {} }
         const json = await callApi_({ action: 'scheduleOverrides' });
         const rows = json.overrides || [];
         if (!rows.length) {
@@ -6215,7 +6292,8 @@
         } else {
           let html = '<div class="table-wrap"><table><thead><tr>';
           [d('الكود'), d('الموظف'), d('من تاريخ'), d('لحد تاريخ'),
-           d('موعد الحضور'), d('موعد الانصراف')].forEach(h => html += '<th>' + h + '</th>');
+           d('موعد الحضور'), d('موعد الانصراف'),
+           d('المستخدم'), d('تاريخ التسجيل')].forEach(h => html += '<th>' + h + '</th>');
           html += '</tr></thead><tbody>';
           rows.forEach(o => {
             // ⬅️ الاسم للعرض بس من employeesCache — صفر تعديل على Employee Master
@@ -6224,7 +6302,9 @@
               + '<td style="text-align:right">' + escapeHtml_(emp ? emp.nameAr : '-') + '</td>'
               + '<td>' + escapeHtml_(o.from) + '</td><td>' + escapeHtml_(o.to) + '</td>'
               + '<td>' + escapeHtml_(schOvTime_(o.checkIn)) + '</td>'
-              + '<td>' + escapeHtml_(schOvTime_(o.checkOut)) + '</td></tr>';
+              + '<td>' + escapeHtml_(schOvTime_(o.checkOut)) + '</td>'
+              + '<td>' + escapeHtml_(o.user || '-') + '</td>'
+              + '<td>' + escapeHtml_(o.createdAt || '-') + '</td></tr>';
           });
           el.innerHTML = html + '</tbody></table></div>';
         }
@@ -6237,8 +6317,11 @@
       const sel = document.getElementById('schOvEmp');
       if (!sel) return;
       sel.innerHTML = '<option value="">' + escapeHtml_(d('— اختر —')) + '</option>'
+        // ⬅️ نفس اتفاقية العرض في renderEmployeeDropdown_ بالحرف:
+        //    الاسم (الكود) — القسم. والقيمة = كود الموظف.
         + employeesCache.map(e => '<option value="' + escapeHtml_(e.code) + '">'
-            + escapeHtml_(e.code + ' — ' + e.nameAr) + '</option>').join('');
+            + escapeHtml_(e.nameAr + ' (' + e.code + ')' + (e.dept ? ' — ' + e.dept : ''))
+            + '</option>').join('');
     }
 
     // ⛔ تحقق واجهة بس على الإدخال الواضح الخطأ — التداخل والقواعد
@@ -10328,6 +10411,9 @@
     //    إطلاقًا — الترجمة وقت العرض بس والقيمة الأصلية باقية.
     // ============================================================
     const DISPLAY_EN_ = {
+      "مواعيد خاصة": "Special Schedule",
+      "مفيش مواعيد خاصة لهذا الموظف — بيتطبّق عليه القاعدة العامة.": "No special schedule for this employee — the general rule applies.",
+      "مواعيد حضور وانصراف مختلفة عن القاعدة العامة، بمدى تاريخي. المصدر نفسه المستخدم في شاشة «القواعد».": "Check-in and check-out times that differ from the general rule, over a date range. Same source used in the Rules screen.",
       "مواعيد خاصة لموظفين": "Employee-Specific Schedules",
       "مفيش مواعيد خاصة مسجّلة.": "No employee-specific schedules recorded.",
       "موعد الحضور": "Check-in Time",
