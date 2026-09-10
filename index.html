@@ -1092,6 +1092,27 @@
       <div id="pysStatus" style="font-size:13px;margin-top:6px"></div>
     </div>
 
+    <!-- ============== سياسة خصم الربعين: القسم × الشهر ==============
+         ⛔ إعداد سياسة فقط — صفر تنفيذ خصم مالي في المرحلة دي. -->
+    <div class="card" id="qdpCard" style="display:none">
+      <h2 data-i18n="ui.cb68fc4984">سياسة خصم الربعين (القسم × الشهر)</h2>
+      <p style="font-size:12px;color:#777">
+        كل قسم ليه سياسته المستقلة في كل شهر — قسم ممكن يتخصم منه شهرين،
+        وقسم شهر واحد، وقسم لا يُخصم منه إطلاقًا.
+        <b>الحفظ هنا إعداد فقط ومابيطبّقش أي خصم</b> — التطبيق بيحصل وقت تكوين
+        كشف المرتبات في مرحلة لاحقة.
+        <br>⚠️ <b>السياسة بتتطبّق حسب القسم الحالي للموظف.</b> انتقال الموظف بين
+        الأقسام أثناء السنة <b>مش محسوب تاريخيًا</b> — الحالات الفردية هتتعالج
+        بإعفاء الموظف من كشف المرتبات لاحقًا.
+      </p>
+      <div id="qdpArea"></div>
+      <div id="qdpSummary" style="font-size:13px;margin:8px 0"></div>
+      <div class="form-actions">
+        <button onclick="saveQuarterPolicy_()" data-i18n="ui.b303f3fe7f">حفظ السياسة</button>
+      </div>
+      <div id="qdpStatus" style="font-size:13px;margin-top:6px"></div>
+    </div>
+
     <div class="card" style="border:1px solid #e0a800">
       <h2>إعادة ضبط بيانات النظام</h2>
       <p style="font-size:12px;color:#777">
@@ -1142,27 +1163,6 @@
     </div>
 
 
-    </div>
-
-    <!-- ============== سياسة خصم الربعين: القسم × الشهر ==============
-         ⛔ إعداد سياسة فقط — صفر تنفيذ خصم مالي في المرحلة دي. -->
-    <div class="card" id="qdpCard" style="display:none">
-      <h2 data-i18n="ui.cb68fc4984">سياسة خصم الربعين (القسم × الشهر)</h2>
-      <p style="font-size:12px;color:#777">
-        كل قسم ليه سياسته المستقلة في كل شهر — قسم ممكن يتخصم منه شهرين،
-        وقسم شهر واحد، وقسم لا يُخصم منه إطلاقًا.
-        <b>الحفظ هنا إعداد فقط ومابيطبّقش أي خصم</b> — التطبيق بيحصل وقت تكوين
-        كشف المرتبات في مرحلة لاحقة.
-        <br>⚠️ <b>السياسة بتتطبّق حسب القسم الحالي للموظف.</b> انتقال الموظف بين
-        الأقسام أثناء السنة <b>مش محسوب تاريخيًا</b> — الحالات الفردية هتتعالج
-        بإعفاء الموظف من كشف المرتبات لاحقًا.
-      </p>
-      <div id="qdpArea"></div>
-      <div id="qdpSummary" style="font-size:13px;margin:8px 0"></div>
-      <div class="form-actions">
-        <button onclick="saveQuarterPolicy_()" data-i18n="ui.b303f3fe7f">حفظ السياسة</button>
-      </div>
-      <div id="qdpStatus" style="font-size:13px;margin-top:6px"></div>
     </div>
   </div>
 
