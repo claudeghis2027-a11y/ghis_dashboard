@@ -1115,6 +1115,55 @@
       </div>
       <div id="qdpStatus" style="font-size:13px;margin-top:6px"></div>
     </div>
+
+    <div class="card" style="border:1px solid #e0a800">
+      <h2>إعادة ضبط بيانات النظام</h2>
+      <p style="font-size:12px;color:#777">
+        هذه العملية تحذف بيانات التشغيل المحددة فقط، ولا تحذف إعدادات النظام
+        أو المستخدمين أو الصلاحيات. يتم إنشاء نسخة احتياطية إجبارية قبل التنفيذ.
+      </p>
+      <p style="font-size:12px;color:#777">
+        🔒 <b>إعدادات النظام — محفوظة:</b> المستخدمون · الصلاحيات · مصفوفة الصلاحيات ·
+        الإعدادات العامة · أنواع حركات المرتب · قواعد الخصم · قواعد المواعيد وأرشيفها ·
+        الإجازات الرسمية · السنوات الدراسية · إعدادات المرتبات · سياسة الربعين ·
+        الأقسام المعفاة · أنواع المستندات · صلاحيات حقول الموظف · نطاقات الحضور.
+      </p>
+      <label style="display:block;margin:10px 0;font-weight:700">
+        <input type="checkbox" id="rstAll" onchange="rstToggleAll_()"> تحديد الكل
+      </label>
+      <div id="rstGroups">
+        <h3 style="font-size:14px;margin:14px 0 6px">الموظفون والبيانات المرتبطة</h3>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="employees" onchange="rstSyncAll_()"> بيانات الموظفين</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="employeeHistory" onchange="rstSyncAll_()"> سجل تعديلات بيانات الموظفين</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="employeeDocs" onchange="rstSyncAll_()"> مستندات الموظفين</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="investigations" onchange="rstSyncAll_()"> التحقيقات</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="enrollment" onchange="rstSyncAll_()"> حالات الاستكمال وطلبات تعديل البيانات</label>
+        <h3 style="font-size:14px;margin:14px 0 6px">الحضور</h3>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="attendanceAdj" onchange="rstSyncAll_()"> تعديلات الحضور والإجازات المعتمدة</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="forgotCheckin" onchange="rstSyncAll_()"> سجل نسيان تسجيل الحضور والانصراف</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="lateWaivers" onchange="rstSyncAll_()"> إعفاءات التأخير والأذونات</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="checkoutExc" onchange="rstSyncAll_()"> استثناءات إلزام الانصراف</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="scheduleOverrides" onchange="rstSyncAll_()"> المواعيد الخاصة بالموظفين</label>
+        <h3 style="font-size:14px;margin:14px 0 6px">الرواتب</h3>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="salaryTx" onchange="rstSyncAll_()"> حركات المرتبات</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="advances" onchange="rstSyncAll_()"> السلف</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="extraPenalties" onchange="rstSyncAll_()"> الخصومات الإضافية والجزاءات</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="summerDeduction" onchange="rstSyncAll_()"> بيانات خصم الصيف</label>
+        <h3 style="font-size:14px;margin:14px 0 6px">الإقفال والسجلات التاريخية</h3>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="closingPeriods" onchange="rstSyncAll_()"> بيانات إقفال الفترات</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="closingSnapshots" onchange="rstSyncAll_()"> نسخ الإقفال (Snapshots)</label>
+        <h3 style="font-size:14px;margin:14px 0 6px">الإشعارات والسجلات التشغيلية</h3>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="notifications" onchange="rstSyncAll_()"> الإشعارات والمستهدفون</label>
+        <label style="display:block;margin:4px 0;font-weight:400"><input type="checkbox" class="rst-chk" value="syncLog" onchange="rstSyncAll_()"> سجل مزامنة الموظفين</label>
+      </div>
+      <div class="filters" style="margin-top:12px">
+        <div style="flex:1"><label>كلمة مرور حسابك للتأكيد</label>
+          <input type="password" id="rstPassword" autocomplete="off"></div>
+        <div><button onclick="rstExecute_()" style="background:#c0392b">إعادة ضبط البيانات المحددة</button></div>
+      </div>
+      <div id="rstStatus" style="font-size:13px;margin-top:8px"></div>
+      <div id="rstResult" style="font-size:13px;margin-top:8px"></div>
+    </div>
   </div>
 
   <div id="view-reports" class="view">
@@ -5878,6 +5927,72 @@
       } catch (err) { st.textContent = '❌ ' + err.message; }
     }
 
+    // ============================================================
+    // Reset to Production Defaults — واجهة فقط
+    // ⛔ صفر view جديد · صفر زر شريط · صفر صلاحية جديدة.
+    //    الـaction resetProductionData بيتحقق من isAdmin وكلمة المرور
+    //    سيرفر-سايد، وبيعمل Backup إجباري قبل أي حذف.
+    // ⛔ مفيش أي checkbox لإعدادات النظام أو المستخدمين أو الصلاحيات.
+    // ============================================================
+    function rstChecks_() { return Array.from(document.querySelectorAll('.rst-chk')); }
+
+    function rstToggleAll_() {
+      const on = document.getElementById('rstAll').checked;
+      rstChecks_().forEach(c => { c.checked = on; });
+    }
+
+    // ⬅️ لو المستخدم شال واحدة يدويًا، «تحديد الكل» بيتشال معاها.
+    function rstSyncAll_() {
+      const all = rstChecks_();
+      document.getElementById('rstAll').checked = all.length > 0 && all.every(c => c.checked);
+    }
+
+    async function rstExecute_() {
+      const st = document.getElementById('rstStatus');
+      document.getElementById('rstResult').innerHTML = '';
+      const picked = rstChecks_().filter(c => c.checked);
+      if (!picked.length) { st.textContent = d('❌ اختر عنصراً واحداً على الأقل.'); return; }
+      const pwd = (document.getElementById('rstPassword') || {}).value || '';
+      if (!pwd) { st.textContent = d('❌ اكتب كلمة مرور حسابك للتأكيد.'); return; }
+      const names = picked.map(c => c.parentElement.textContent.trim());
+      const isAll = document.getElementById('rstAll').checked;
+      // ⬅️ ملخص صريح بكل ما هيتحذف — صفر حذف صامت لأي بيانات مرتبطة.
+      const msg = (isAll ? d('⚠️ تحذير: هيتم حذف كل بيانات التشغيل المحددة.') + '\n\n' : '')
+        + d('هيتم حذف بيانات:') + '\n- ' + names.join('\n- ')
+        + '\n\n' + d('إعدادات النظام والمستخدمون والصلاحيات مش هتتأثر.')
+        + '\n' + d('هيتعمل Backup إجباري قبل التنفيذ.')
+        + '\n\n' + d('هل أنت متأكد؟');
+      if (!confirm(msg)) { st.textContent = d('اتلغت العملية.'); return; }
+      st.textContent = d('جاري إنشاء النسخة الاحتياطية ثم التنفيذ...');
+      try {
+        const json = await callApiPost_({ action: 'resetProductionData',
+          groups: picked.map(c => c.value), password: pwd });
+        const r = json.result || {};
+        document.getElementById('rstPassword').value = '';
+        st.textContent = r.ok ? d('✅ تم إعادة الضبط بنجاح.') : d('⚠️ إعادة الضبط لم تكتمل.');
+        let h = '<div class="table-wrap"><table><thead><tr><th>' + escapeHtml_(d('البيان'))
+          + '</th><th>' + escapeHtml_(d('صفوف محذوفة')) + '</th></tr></thead><tbody>';
+        (r.cleared || []).forEach(x => {
+          h += '<tr><td style="text-align:right">' + escapeHtml_(x.sheet) + '</td><td>'
+            + escapeHtml_(x.rows) + '</td></tr>';
+        });
+        h += '</tbody></table></div>';
+        if ((r.failed || []).length) {
+          h += d('<p style="color:#c0392b">❌ لم يكتمل:</p><ul>');
+          r.failed.forEach(f => { h += '<li>' + escapeHtml_(f.sheet) + ': ' + escapeHtml_(f.error) + '</li>'; });
+          h += '</ul>';
+        }
+        h += '<p style="font-size:12px;color:#777">' + escapeHtml_(d('إجمالي الصفوف المحذوفة: '))
+          + escapeHtml_(r.totalRows) + ' · ' + escapeHtml_(d('النسخة الاحتياطية: '))
+          + escapeHtml_(r.backupFile || '-') + '</p>'
+          + d('<p style="font-size:12px;color:#777">⚠️ ملفات Drive المرتبطة بالمستندات لم تُحذف — السجلات فقط.</p>')
+          + d('<p style="font-size:12px;color:#777">تم الاحتفاظ بـ: المستخدمين · الصلاحيات · القواعد · الإعدادات · نطاقات الحضور · بنية النظام.</p>');
+        document.getElementById('rstResult').innerHTML = h;
+        rstChecks_().forEach(c => { c.checked = false; });
+        document.getElementById('rstAll').checked = false;
+      } catch (err) { st.textContent = '❌ ' + err.message; }
+    }
+
     async function loadNameListsView_() {
       setAdvStatus_('deptListStatus', d('جاري التحميل...'));
       setAdvStatus_('jobListStatus', d('جاري التحميل...'));
@@ -10427,6 +10542,23 @@
     //    إطلاقًا — الترجمة وقت العرض بس والقيمة الأصلية باقية.
     // ============================================================
     const DISPLAY_EN_ = {
+      "إعادة ضبط بيانات النظام": "Reset System Data",
+      "هيتم حذف بيانات:": "The following data will be deleted:",
+      "إعدادات النظام والمستخدمون والصلاحيات مش هتتأثر.": "System settings, users, and permissions are not affected.",
+      "هيتعمل Backup إجباري قبل التنفيذ.": "A mandatory backup will be created before execution.",
+      "هل أنت متأكد؟": "Are you sure?",
+      "⚠️ تحذير: هيتم حذف كل بيانات التشغيل المحددة.": "⚠️ Warning: all selected operational data will be deleted.",
+      "❌ اختر عنصراً واحداً على الأقل.": "❌ Select at least one item.",
+      "❌ اكتب كلمة مرور حسابك للتأكيد.": "❌ Enter your account password to confirm.",
+      "جاري إنشاء النسخة الاحتياطية ثم التنفيذ...": "Creating backup, then executing...",
+      "✅ تم إعادة الضبط بنجاح.": "✅ Reset completed successfully.",
+      "⚠️ إعادة الضبط لم تكتمل.": "⚠️ Reset did not complete.",
+      "اتلغت العملية.": "Operation cancelled.",
+      "البيان": "Item",
+      "صفوف محذوفة": "Rows Deleted",
+      "إجمالي الصفوف المحذوفة: ": "Total rows deleted: ",
+      "النسخة الاحتياطية: ": "Backup: ",
+      "كلمة مرور حسابك للتأكيد": "Your account password to confirm",
       "مواعيد خاصة": "Special Schedule",
       "مفيش مواعيد خاصة لهذا الموظف — بيتطبّق عليه القاعدة العامة.": "No special schedule for this employee — the general rule applies.",
       "مواعيد حضور وانصراف مختلفة عن القاعدة العامة، بمدى تاريخي. المصدر نفسه المستخدم في شاشة «القواعد».": "Check-in and check-out times that differ from the general rule, over a date range. Same source used in the Rules screen.",
