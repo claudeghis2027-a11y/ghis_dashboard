@@ -2833,18 +2833,92 @@
     ];
     let bulkParsed_ = [];
 
+    // ⬅️ النموذج بيتبني بـExcelJS (الموجود أصلًا في المشروع) مش
+    //    بـSheetJS، لأن نسخة SheetJS المجانية **بتسقط الـData
+    //    Validation صامتة** عند الكتابة (الميزة Pro). ⛔ صفر مكتبة
+    //    جديدة — EXCELJS_URL_ مستخدَم بالفعل في تصدير الإقفال.
+    // ⛔ القراءة (parseEmployeeExcel_) لسه على SheetJS زي ما هي.
+    // ⛔ نفس الـ16 عمود وترتيبها وأسماءها من BULK_COLS_ بالحرف.
     async function downloadEmployeeTemplate_() {
       const st = document.getElementById('bulkStatus');
       st.textContent = d('جاري تجهيز النموذج...');
       try {
-        await loadScriptOnce_(SHEETJS_URL_, 'XLSX');
+        await loadScriptOnce_(EXCELJS_URL_);
+        // ⬅️ القوائم من نفس Master Lists الحالية وقت التنزيل — صفر قيم ثابتة.
+        let depts = [], jobs = [];
+        try {
+          await loadNameLists_();
+          depts = nameLists_.departments.filter(i => i.active).map(i => i.name);
+          jobs = nameLists_.jobTitles.filter(i => i.active).map(i => i.name);
+        } catch (e) { /* القوائم فاضية ⇒ العمود يفضل بلا Dropdown */ }
+        // ⬅️ نفس قيم نموذج الموظف بالحرف — صفر اختراع.
+        const YESNO = ['نعم', 'لا'];
+        const SUMMER = ['ربع', 'ربعين'];
+        const MONTHS = MONTH_NAMES_AR_.slice();
+
         const head = BULK_COLS_.map(c => c[1]);
         const sample = ['', 'محمد أحمد', 'Mohamed Ahmed', '', '', '2026-09-01', '', 'مصري', '', '', 'لا', 'لا', '', '', '', ''];
-        const ws = XLSX.utils.aoa_to_sheet([head, sample]);
-        ws['!cols'] = head.map(h => ({ wch: Math.max(14, h.length + 2) }));
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'الموظفون');
-        XLSX.writeFile(wb, 'نموذج_بيانات_الموظفين.xlsx');
+
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('الموظفون', { views: [{ rightToLeft: true }] });
+        ws.addRow(head);
+        ws.addRow(sample);
+        ws.getRow(1).font = { bold: true };
+        ws.columns = head.map(h => ({ width: Math.max(14, h.length + 2) }));
+
+        // ⬅️ ورقة القوائم — جوّه ملف Excel بس. ⛔ صفر Sheet في Google Sheets.
+        const lists = wb.addWorksheet('القوائم');
+        const COLS = [
+          { col: 4, letter: 'D', values: depts, src: 'A' },   // القسم
+          { col: 5, letter: 'E', values: jobs, src: 'B' },    // المسمى الوظيفي
+          { col: 11, letter: 'K', values: YESNO, src: 'C' },  // معفى يدويًا؟
+          { col: 12, letter: 'L', values: YESNO, src: 'D' },  // استلم أوراقه؟
+          { col: 13, letter: 'M', values: SUMMER, src: 'E' }, // خصم الصيف
+          { col: 15, letter: 'O', values: MONTHS, src: 'F' }, // شهر أول علاوة
+          { col: 16, letter: 'P', values: SUMMER, src: 'G' }, // خصم صيف السنة الأولى
+        ];
+        COLS.forEach(c => {
+          c.values.forEach((v, i) => { lists.getCell(c.src + (i + 1)).value = v; });
+        });
+        try { lists.state = 'veryHidden'; } catch (e) { lists.state = 'hidden'; }
+
+        // ⬅️ الصفوف 2:501 كلها — مش صف المثال بس.
+        COLS.forEach(c => {
+          if (!c.values.length) return;
+          const ref = "'القوائم'!$" + c.src + "$1:$" + c.src + "$" + c.values.length;
+          for (let r = 2; r <= 501; r++) {
+            ws.getCell(c.letter + r).dataValidation = {
+              type: 'list', allowBlank: true, formulae: [ref],
+              showErrorMessage: true,
+              errorStyle: 'stop',
+              errorTitle: 'قيمة غير معتمدة',
+              error: 'اختر قيمة من القائمة المنسدلة فقط.',
+            };
+          }
+        });
+
+        // ⬅️ ورقة تعليمات — عرض بس، والاستيراد بيقرا أول ورقة.
+        const info = wb.addWorksheet('تعليمات');
+        [['تعليمات ملء نموذج بيانات الموظفين'], [''],
+         ['1) الحقول اللي فيها قائمة منسدلة: اختر من القائمة ولا تكتب يدويًا.'],
+         ['   القسم · المسمى الوظيفي · معفى يدويًا؟ · استلم أوراقه؟ · خصم الصيف · شهر أول علاوة · خصم صيف السنة الأولى'],
+         ['2) باقي الحقول تُكتب يدويًا.'],
+         ['3) ⛔ لا تغيّر أسماء الأعمدة ولا ترتيبها.'],
+         ['4) صف المثال (الصف 2) للتوضيح — احذفه قبل الرفع أو استبدله ببيانات حقيقية.'],
+         ['5) كود الموظف اختياري — لو تركته فاضي النظام بيخصص الكود التالي تلقائيًا.'],
+         ['6) التواريخ بصيغة yyyy-mm-dd.'],
+         ['7) القوائم مأخوذة من بيانات النظام وقت تنزيل النموذج — نزّل نموذجًا جديدًا لو غيّرت الأقسام أو المسميات.'],
+        ].forEach(r => info.addRow(r));
+        info.getColumn(1).width = 110;
+        info.getRow(1).font = { bold: true };
+
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'نموذج_بيانات_الموظفين.xlsx';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
         st.textContent = d('✅ تم تنزيل النموذج. املأ الصفوف واحذف صف المثال.');
       } catch (err) { st.textContent = '❌ ' + err.message; }
     }
