@@ -2854,9 +2854,11 @@
         // ⬅️ نفس قيم نموذج الموظف بالحرف — صفر اختراع.
         const YESNO = ['نعم', 'لا'];
         const SUMMER = ['ربع', 'ربعين'];
-        // ⬅️ إعادة استخدام مصدر الشهور الموجود أصلًا في الملف
-        //    (MC_MONTH_NAMES_AR_ — نفس النطاق). ⛔ صفر قائمة جديدة.
-        const MONTHS = MC_MONTH_NAMES_AR_.slice();
+        // ⬅️ ثابت محلي — MC_MONTH_NAMES_AR_ جوّه كتلة دالة تانية
+        //    ومش متاح هنا وقت التشغيل (اتأكد بتتبّع الأقواس مش الإزاحة).
+        //    ⛔ صفر اعتماد على أي نطاق خارجي.
+        const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
+                        'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
         const head = BULK_COLS_.map(c => c[1]);
         const sample = ['', 'محمد أحمد', 'Mohamed Ahmed', '', '', '2026-09-01', '', 'مصري', '', '', 'لا', 'لا', '', '', '', ''];
@@ -6093,7 +6095,11 @@
       if (!el) return;
       st.textContent = d('جاري التحميل...');
       try {
-        await loadEmployees_();   // ⬅️ إعادة تحميل عشان القيمة تكون محدَّثة بعد أي تعديل من ملف الموظف
+        // ⬅️ الكاش لو متحمّلة بتتستخدم زي ما هي — صفر نداء زائد عند
+        //    كل فتح للإعدادات. الحداثة مضمونة من مسارات الـmutation
+        //    نفسها: setExemptManual_ بيصفّر العلم قبل ما ينادي الدالة دي،
+        //    وباقي التعديلات بتنادي loadEmployeesList() اللي بتعيد الجلب.
+        if (!employeesLoaded_) await loadEmployees_();
         // ⬅️ getEmployees_ بيرجّع exemptManual كـBoolean مش نص —
         //    المقارنة بالنص كانت بترجع false دايمًا فالجدول يفضل فاضي.
         const exempt = employeesCache.filter(e => !!e.exemptManual);
@@ -6153,6 +6159,10 @@
           changes: { exemptManual: value }, reason: d('إدارة الموظفين المعفيين من البصمة'),
           user: 'index-user' });
         st.textContent = d('✅ اتحفظ.');
+        // ⬅️ التعديل غيّر exemptManual في الشيت ⇒ الكاش بقت قديمة.
+        //    بنصفّر العلم عشان loadExemptEmployeesView_ تعيد الجلب —
+        //    نفس سلوك الحداثة القديم بالضبط، بلا نداء زائد في الفتح العادي.
+        employeesLoaded_ = false;
         loadExemptEmployeesView_();
       } catch (err) { st.textContent = '❌ ' + err.message; }
     }
