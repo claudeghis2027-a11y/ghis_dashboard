@@ -2304,6 +2304,8 @@
         if (!employeesLoaded_) {
           loadEmployeesList();
         } else {
+          // ⬅️ Perf: الكاش موجودة ⇒ ارسم فورًا، وحدّث حالة المزامنة بعدين.
+          renderEmployeesList();
           loadSyncStatuses_().then(renderEmployeesList);
         }
       }
@@ -4734,8 +4736,13 @@
         employeesCache = json.employees;
         employeesLoaded_ = true;   // ⬅️ نفس المصدر ونفس الـaction — الكاش اتحدّث
         document.getElementById('empStatus').textContent = employeesCache.length + d(' موظف.');
-        await loadSyncStatuses_(); // ⬅️ Zero N+1 — نداء واحد بس لكل الموظفين
+        // ⬅️ Perf: الرسم فورًا بعد employees — مش بننتظر syncStatus.
+        //    syncStatus بيملا عمود «حالة مزامنة البصمة» بس، ومش شرط
+        //    لعرض أسماء وبيانات الموظفين.
         renderEmployeesList();
+        // ⬅️ في الخلفية — بلا await. لو فشل، loadSyncStatuses_ بتبلع
+        //    الخطأ أصلًا والقائمة بتفضل ظاهرة زي ما هي.
+        loadSyncStatuses_().then(renderEmployeesList);
       } catch (err) {
         document.getElementById('empStatus').textContent = '❌ ' + err.message;
       }
