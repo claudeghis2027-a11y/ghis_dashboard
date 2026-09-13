@@ -1255,6 +1255,23 @@
       <div id="employeesListArea"></div>
     </div>
 
+    <div class="card">
+      <h2>استيراد جماعي للموظفين</h2>
+      <p style="font-size:12px;color:#777">
+        نزّل النموذج، املأ صفًا لكل موظف، ثم ارفعه. كود الموظف اختياري —
+        لو تركته فاضي، النظام بيخصص الكود التالي تلقائيًا.
+        الصفوف اللي بها أخطاء مش هتتضاف.
+      </p>
+      <div class="filters">
+        <div><button class="secondary" onclick="downloadEmployeeTemplate_()">⬇️ تحميل نموذج بيانات الموظفين Excel</button></div>
+        <div style="flex:1"><label>📤 رفع بيانات الموظفين</label>
+          <input type="file" id="bulkFileInput" accept=".xlsx,.xls" onchange="parseEmployeeExcel_(this)"></div>
+        <div><button id="bulkConfirmBtn" style="display:none" onclick="confirmBulkImport_()">اعتماد الاستيراد</button></div>
+      </div>
+      <div id="bulkStatus" style="font-size:13px;margin:8px 0"></div>
+      <div id="bulkPreviewArea"></div>
+    </div>
+
 
     <div id="employeeDetailArea"></div>
   </div>
@@ -2794,6 +2811,129 @@
         opt.textContent = emp.nameAr + ' (' + emp.code + ')' + (emp.dept ? ' — ' + emp.dept : '');
         sel.appendChild(opt);
       });
+    }
+
+    // ============================================================
+    // Bulk Import — نموذج Excel + رفع + تحقق + معاينة + اعتماد
+    // ⛔ SheetJS الموجود أصلاً (loadScriptOnce_) · صفر مكتبة جديدة.
+    // ⛔ نداء واحد لكل دفعة — مش نداء لكل موظف.
+    // ⛔ الكود فاضي ⇒ الباك بيخصص MAX+1 · صفر إعادة استخدام.
+    // ============================================================
+    const BULK_COLS_ = [
+      ['code', 'كود الموظف (اختياري)'], ['nameAr', 'الاسم بالعربي *'],
+      ['nameEn', 'الاسم بالإنجليزي'], ['dept', 'القسم'], ['jobTitle', 'المسمى الوظيفي'],
+      ['hireDate', 'تاريخ التعيين (yyyy-mm-dd)'], ['endDate', 'تاريخ انتهاء الخدمة'],
+      ['nationality', 'الجنسية'], ['phone', 'رقم الموبايل'], ['paymentMethod', 'طريقة الصرف'],
+      ['exemptManual', 'معفى يدويًا من البصمة؟ (نعم/لا)'],
+      ['receivedDocumentsAfterEnd', 'استلم أوراقه؟ (نعم/لا)'],
+      ['summerDeduction', 'خصم الصيف'], ['firstYearDeduction', 'خصم السنة الأولى'],
+      ['firstRaiseMonth', 'شهر أول علاوة'], ['firstYearSummerDeduction', 'خصم صيف السنة الأولى'],
+    ];
+    let bulkParsed_ = [];
+
+    async function downloadEmployeeTemplate_() {
+      const st = document.getElementById('bulkStatus');
+      st.textContent = d('جاري تجهيز النموذج...');
+      try {
+        await loadScriptOnce_(SHEETJS_URL_, 'XLSX');
+        const head = BULK_COLS_.map(c => c[1]);
+        const sample = ['', 'محمد أحمد', 'Mohamed Ahmed', '', '', '2026-09-01', '', 'مصري', '', '', 'لا', 'لا', '', '', '', ''];
+        const ws = XLSX.utils.aoa_to_sheet([head, sample]);
+        ws['!cols'] = head.map(h => ({ wch: Math.max(14, h.length + 2) }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'الموظفون');
+        XLSX.writeFile(wb, 'نموذج_بيانات_الموظفين.xlsx');
+        st.textContent = d('✅ تم تنزيل النموذج. املأ الصفوف واحذف صف المثال.');
+      } catch (err) { st.textContent = '❌ ' + err.message; }
+    }
+
+    async function parseEmployeeExcel_(input) {
+      const st = document.getElementById('bulkStatus');
+      const area = document.getElementById('bulkPreviewArea');
+      const btn = document.getElementById('bulkConfirmBtn');
+      bulkParsed_ = []; area.innerHTML = ''; btn.style.display = 'none';
+      const file = input.files && input.files[0];
+      if (!file) return;
+      st.textContent = d('جاري قراءة الملف...');
+      try {
+        await loadScriptOnce_(SHEETJS_URL_, 'XLSX');
+        if (!employeesLoaded_) { try { await loadEmployees_(); } catch (e) {} }
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+        if (aoa.length < 2) { st.textContent = d('❌ الملف مفيش فيه صفوف بيانات.'); return; }
+        const existing = {};
+        employeesCache.forEach(e => { existing[String(e.code).trim()] = e.nameAr || ''; });
+        const inFile = {};
+        const rows = [];
+        for (let i = 1; i < aoa.length; i++) {
+          const raw = aoa[i];
+          if (!raw || raw.every(c => String(c || '').trim() === '')) continue;
+          const o = { __row: i + 1 };
+          BULK_COLS_.forEach((c, k) => { o[c[0]] = String(raw[k] == null ? '' : raw[k]).trim(); });
+          const errs = [];
+          if (!o.nameAr) errs.push(d('الاسم بالعربي مطلوب.'));
+          if (o.code) {
+            if (existing[o.code] != null) errs.push(d('كود الموظف ') + o.code + d(' مستخدم بالفعل لموظف حالي.'));
+            else if (inFile[o.code]) errs.push(d('كود الموظف ') + o.code + d(' مكرر داخل الملف.'));
+            else inFile[o.code] = true;
+          }
+          ['hireDate', 'endDate'].forEach(k => {
+            if (o[k] && !/^\d{4}-\d{2}-\d{2}$/.test(o[k])) errs.push(d('صيغة التاريخ لازم تكون yyyy-mm-dd: ') + o[k]);
+          });
+          ['exemptManual', 'receivedDocumentsAfterEnd'].forEach(k => {
+            if (o[k] && o[k] !== 'نعم' && o[k] !== 'لا') errs.push(d('القيمة لازم تكون «نعم» أو «لا».'));
+          });
+          rows.push({ data: o, errors: errs });
+        }
+        if (!rows.length) { st.textContent = d('❌ الملف مفيش فيه صفوف بيانات.'); return; }
+        const ok = rows.filter(r => !r.errors.length);
+        bulkParsed_ = ok.map(r => r.data);
+        let h = '<div class="table-wrap"><table><thead><tr>';
+        [d('الصف'), d('الحالة'), d('كود الموظف'), d('الاسم بالعربي'), d('القسم'), d('السبب')]
+          .forEach(x => h += '<th>' + x + '</th>');
+        h += '</tr></thead><tbody>';
+        rows.forEach(r => {
+          const good = r.errors.length === 0;
+          h += '<tr><td>' + escapeHtml_(r.data.__row) + '</td>'
+            + '<td>' + (good ? '✅' : '🔴') + '</td>'
+            + '<td>' + escapeHtml_(r.data.code || d('(تلقائي)')) + '</td>'
+            + '<td style="text-align:right">' + escapeHtml_(r.data.nameAr) + '</td>'
+            + '<td>' + escapeHtml_(r.data.dept || '-') + '</td>'
+            + '<td style="text-align:right">' + escapeHtml_(r.errors.join(' · ') || '-') + '</td></tr>';
+        });
+        area.innerHTML = h + '</tbody></table></div>';
+        st.textContent = d('صفوف صالحة: ') + ok.length + d(' · صفوف بها أخطاء: ') + (rows.length - ok.length);
+        if (ok.length) btn.style.display = '';
+      } catch (err) { st.textContent = '❌ ' + err.message; }
+    }
+
+    async function confirmBulkImport_() {
+      const st = document.getElementById('bulkStatus');
+      if (!bulkParsed_.length) { st.textContent = d('❌ مفيش صفوف صالحة.'); return; }
+      if (!confirm(d('هيتم إضافة ') + bulkParsed_.length + d(' موظف. الصفوف اللي بها أخطاء مش هتتضاف. هل أنت متأكد؟'))) return;
+      st.textContent = d('جاري الاستيراد...');
+      try {
+        // ⬅️ نداء واحد للدفعة كلها — مش نداء لكل موظف.
+        const json = await callApiPost_({ action: 'employeesBulkAdd',
+          rows: bulkParsed_, user: 'index-user' });
+        const r = json.result || {};
+        st.textContent = d('✅ تمت إضافة ') + (r.added || 0) + d(' موظف · فشل: ') + (r.failed || 0);
+        let h = '<div class="table-wrap"><table><thead><tr><th>' + escapeHtml_(d('الصف'))
+          + '</th><th>' + escapeHtml_(d('كود الموظف')) + '</th><th>' + escapeHtml_(d('الاسم بالعربي'))
+          + '</th><th>' + escapeHtml_(d('النتيجة')) + '</th></tr></thead><tbody>';
+        (r.report || []).forEach(x => {
+          h += '<tr><td>' + escapeHtml_(x.row) + '</td><td>' + escapeHtml_(x.code || '-') + '</td>'
+            + '<td style="text-align:right">' + escapeHtml_(x.name || '-') + '</td>'
+            + '<td style="text-align:right">' + (x.ok ? '✅' : '🔴 ' + escapeHtml_(x.error)) + '</td></tr>';
+        });
+        document.getElementById('bulkPreviewArea').innerHTML = h + '</tbody></table></div>';
+        document.getElementById('bulkConfirmBtn').style.display = 'none';
+        document.getElementById('bulkFileInput').value = '';
+        bulkParsed_ = [];
+        loadEmployeesList();   // ⬅️ تحديث القائمة بنفس الدالة الموجودة
+      } catch (err) { st.textContent = '❌ ' + err.message; }
     }
 
     async function loadEmployees_() {
@@ -10549,6 +10689,29 @@
     //    إطلاقًا — الترجمة وقت العرض بس والقيمة الأصلية باقية.
     // ============================================================
     const DISPLAY_EN_ = {
+      "استيراد جماعي للموظفين": "Bulk Employee Import",
+      "⬇️ تحميل نموذج بيانات الموظفين Excel": "⬇️ Download Employee Excel Template",
+      "📤 رفع بيانات الموظفين": "📤 Upload Employee Data",
+      "اعتماد الاستيراد": "Confirm Import",
+      "جاري تجهيز النموذج...": "Preparing template...",
+      "جاري قراءة الملف...": "Reading file...",
+      "جاري الاستيراد...": "Importing...",
+      "(تلقائي)": "(auto)",
+      "الصف": "Row",
+      "الحالة": "Status",
+      "السبب": "Reason",
+      "النتيجة": "Result",
+      "صفوف صالحة: ": "Valid rows: ",
+      "· صفوف بها أخطاء: ": "· rows with errors: ",
+      "✅ تمت إضافة ": "✅ Added ",
+      "الاسم بالعربي مطلوب.": "Arabic name is required.",
+      "كود الموظف ": "Employee code ",
+      " مستخدم بالفعل لموظف حالي.": " is already used by an existing employee.",
+      " مكرر داخل الملف.": " is duplicated inside the file.",
+      "صيغة التاريخ لازم تكون yyyy-mm-dd: ": "Date format must be yyyy-mm-dd: ",
+      "القيمة لازم تكون «نعم» أو «لا».": "Value must be «نعم» or «لا».",
+      "❌ الملف مفيش فيه صفوف بيانات.": "❌ The file has no data rows.",
+      "❌ مفيش صفوف صالحة.": "❌ No valid rows.",
       "إعادة ضبط بيانات النظام": "Reset System Data",
       "هيتم حذف بيانات:": "The following data will be deleted:",
       "إعدادات النظام والمستخدمون والصلاحيات مش هتتأثر.": "System settings, users, and permissions are not affected.",
