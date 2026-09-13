@@ -2854,7 +2854,9 @@
         // ⬅️ نفس قيم نموذج الموظف بالحرف — صفر اختراع.
         const YESNO = ['نعم', 'لا'];
         const SUMMER = ['ربع', 'ربعين'];
-        const MONTHS = MONTH_NAMES_AR_.slice();
+        // ⬅️ إعادة استخدام مصدر الشهور الموجود أصلًا في الملف
+        //    (MC_MONTH_NAMES_AR_ — نفس النطاق). ⛔ صفر قائمة جديدة.
+        const MONTHS = MC_MONTH_NAMES_AR_.slice();
 
         const head = BULK_COLS_.map(c => c[1]);
         const sample = ['', 'محمد أحمد', 'Mohamed Ahmed', '', '', '2026-09-01', '', 'مصري', '', '', 'لا', 'لا', '', '', '', ''];
