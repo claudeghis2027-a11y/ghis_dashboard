@@ -2593,7 +2593,7 @@
         const startTime = performance.now();
         let res;
         try {
-          res = await fetch(CONFIG.SCRIPT_URL, {
+          res = await fetchWithTimeout_(CONFIG.SCRIPT_URL, {
             method: 'POST',
             body: JSON.stringify({ action: 'login', username, password }),
           });
@@ -2788,8 +2788,30 @@
     //    ⛔ أي رد JSON سليم (حتى status:"error") مش بيتعاد — بيترمي زي ما هو.
     const TRANSIENT_DELAYS_ = [500, 1000];
 
+    // ⬅️ مهلة الشبكة — fetch من غير timeout ممكن يفضل معلّق للأبد
+    //    فتفضل «جاري التحميل...» ظاهرة بلا نهاية. ⛔ مؤقّت واحد بس.
+    const API_TIMEOUT_MS = 15000;
+
+    async function fetchWithTimeout_(url, options) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
+      try {
+        return await fetch(url, Object.assign({}, options || {}, { signal: ctrl.signal }));
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          const e = new Error(d('انتهت مهلة الاتصال بالخادم. يرجى المحاولة مرة أخرى.'));
+          e.timeout = true;      // ⛔ مش 404 ومش transient — نوع مستقل
+          throw e;
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);     // ⬅️ تنظيف دائم — صفر مؤقّت معلّق
+      }
+    }
+
     function isTransientError_(err) {
       if (!err) return false;
+      if (err.timeout === true) return true;   // ⬅️ نفس عدّاد الإعادة القائم — صفر زيادة
       if (err.transient === true) return true;
       // ⬅️ فشل شبكة: fetch بيرمي TypeError من غير response
       return err instanceof TypeError && !err.diagnostic;
@@ -2825,7 +2847,7 @@
 
       let res;
       try {
-        res = await fetch(CONFIG.SCRIPT_URL + '?' + qs);
+        res = await fetchWithTimeout_(CONFIG.SCRIPT_URL + '?' + qs);
       } catch (networkErr) {
         console.error('❌ GHIS API — فشل الاتصال بالشبكة:', { action: params.action, error: String(networkErr) });
         throw new Error(d('تعذّر الوصول للخادم — تأكد من اتصالك بالإنترنت وحاول تاني.'));
@@ -4832,7 +4854,7 @@
 
       let res;
       try {
-        res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(withToken) });
+        res = await fetchWithTimeout_(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(withToken) });
       } catch (networkErr) {
         console.error('❌ GHIS API — فشل الاتصال بالشبكة:', { action: payload.action, error: String(networkErr) });
         throw new Error(d('تعذّر الوصول للخادم — تأكد من اتصالك بالإنترنت وحاول تاني.'));
