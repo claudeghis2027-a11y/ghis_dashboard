@@ -2759,6 +2759,11 @@
           : d('حدث خطأ غير متوقع في الاتصال بالخادم (كود ') + res.status + d('). يرجى المحاولة مرة أخرى.');
         const err = new Error(userMessage);
         err.diagnostic = diagnostic; // متاح لو حد عايز يفحصه من Console وقت الدباجة
+        // ⬅️ وسم الأخطاء العابرة من طبقة Google (مش من الباك):
+        //    404/502/503/504 أو رد HTML من الـendpoint.
+        //    ⛔ 401/403 وأي رد JSON سليم مش عابرين — مفيش إعادة محاولة.
+        err.transient = (res.status === 404 || res.status === 502
+          || res.status === 503 || res.status === 504 || looksLikeHtml);
         throw err;
       }
 
@@ -2777,7 +2782,40 @@
     // اتصال بالـ API — GET بس، زي doGet(e) في Code.gs. مفيش أي
     // حساب هنا خالص، بس تمرير باراميترات واستقبال JSON جاهز.
     // ============================================================
+    // ⬅️ FIX 1: إعادة محاولة محدودة للأخطاء العابرة فقط.
+    //    محاولتان إضافيتان كحد أقصى · backoff 500ms ثم 1000ms.
+    //    ⛔ صفر polling · صفر infinite retry · صفر تغيير في SCRIPT_URL.
+    //    ⛔ أي رد JSON سليم (حتى status:"error") مش بيتعاد — بيترمي زي ما هو.
+    const TRANSIENT_DELAYS_ = [500, 1000];
+
+    function isTransientError_(err) {
+      if (!err) return false;
+      if (err.transient === true) return true;
+      // ⬅️ فشل شبكة: fetch بيرمي TypeError من غير response
+      return err instanceof TypeError && !err.diagnostic;
+    }
+
+    function sleepMs_(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    async function withTransientRetry_(fn) {
+      let lastErr;
+      for (let attempt = 0; attempt <= TRANSIENT_DELAYS_.length; attempt++) {
+        try { return await fn(); }
+        catch (err) {
+          lastErr = err;
+          if (!isTransientError_(err) || attempt === TRANSIENT_DELAYS_.length) throw err;
+          console.warn('⚠️ GHIS API — خطأ عابر، إعادة المحاولة', attempt + 1, err.message);
+          await sleepMs_(TRANSIENT_DELAYS_[attempt]);
+        }
+      }
+      throw lastErr;
+    }
+
     async function callApi_(params) {
+      return withTransientRetry_(() => callApi_Once_(params));
+    }
+
+    async function callApi_Once_(params) {
       if (!CONFIG.SCRIPT_URL || CONFIG.SCRIPT_URL.indexOf('PASTE_YOUR') === 0) {
         throw new Error(d('لازم تحط لينك الـ Apps Script الأول في CONFIG.SCRIPT_URL جوه الكود.'));
       }
@@ -4785,6 +4823,10 @@
     // الأصلي (body نصي عادي، عشان نتجنب مشاكل CORS)
     // ============================================================
     async function callApiPost_(payload) {
+      return withTransientRetry_(() => callApiPost_Once_(payload));
+    }
+
+    async function callApiPost_Once_(payload) {
       const withToken = Object.assign({}, payload, { token: currentSession ? currentSession.token : '' });
       const startTime = performance.now();
 
